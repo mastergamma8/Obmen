@@ -1,5 +1,5 @@
 # config.py
-BOT_TOKEN = "ТВОЙ_ТОКЕН_БОТА"
+BOT_TOKEN = "8496781472:AAHSJtBepSINYpYSICfKx1E6Iz-fX3-Lsk4"
 WEBAPP_URL = "https://твой-домен.com/" # Ссылка на твой FastAPI (для локального теста можно использовать ngrok)
 ADMIN_ID = 123456789 # Твой Telegram ID (для команд админа)
 
