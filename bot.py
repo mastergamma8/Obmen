@@ -86,6 +86,9 @@ async def cmd_add_gift(message: types.Message):
             points_to_add = amount * config.BASE_GIFTS[gift_id]['value']
             await database.add_points_to_user(user_id, points_to_add)
             gift_name = config.BASE_GIFTS[gift_id]['name']
+            await database.add_history_entry(
+                user_id, "gift_added", f"Добавлен подарок: {gift_name} ({amount} шт.)", points_to_add
+            )
             
             await message.answer(f"✅ Успешно!\nПользователю {user_id} начислено {points_to_add} 💎 (за {amount} шт. '{gift_name}').")
             
@@ -106,6 +109,9 @@ async def cmd_add_gift(message: types.Message):
                 # Берем 10%, минимум 1 балл (чтобы человек точно получил бонус)
                 ref_bonus = max(1, int(points_to_add * 0.1))
                 await database.add_points_to_user(referrer_id, ref_bonus)
+                await database.add_history_entry(
+                    referrer_id, "referral_bonus", f"Реферальный бонус от подарка друга", ref_bonus
+                )
                 try:
                     await bot.send_message(referrer_id, f"🥳 Ваш реферал добавил подарок!\nВам начислено <b>{ref_bonus} 💎</b> (10% бонус).", parse_mode="HTML")
                 except:

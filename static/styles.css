@@ -1,6 +1,6 @@
 /* ===== ЗАЩИТА ОТ КОПИРОВАНИЯ ===== */
 html {
-    overscroll-behavior-y: none; /* Убираем эффект резинки (bounce) на всем документе */
+    overscroll-behavior-y: none;
 }
 
 * {
@@ -25,7 +25,7 @@ body {
     min-height: 100vh;
     margin: 0;
     overflow-x: hidden;
-    overscroll-behavior-y: none; /* Предотвращаем оттягивание страницы браузером */
+    overscroll-behavior-y: none;
 }
 
 header {
@@ -54,7 +54,6 @@ header {
 .btn-withdraw { background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 4px 15px rgba(239,68,68,0.4); }
 .btn-primary  { background: linear-gradient(135deg, #3b82f6, #6366f1); box-shadow: 0 4px 15px rgba(59,130,246,0.4); }
 
-/* ===== СТРАНИЦЫ / НАВИГАЦИЯ ===== */
 .hidden-tab { display: none !important; }
 
 .progress-bar-fill {
@@ -82,6 +81,17 @@ header {
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
+/* ===== СТИЛИ ТУМБЛЕРА ДЕМО ===== */
+input:checked ~ .toggle-bg {
+    background-color: rgba(168, 85, 247, 0.5); 
+    border-color: rgba(168, 85, 247, 0.8);
+}
+input:checked ~ .toggle-dot {
+    transform: translateX(100%);
+    background-color: #e9d5ff;
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.8);
+}
+
 /* ===== АНИМАЦИИ ===== */
 @keyframes gradient-bg {
     0%, 100% { background-position: 0% 50%; }
@@ -92,7 +102,7 @@ header {
     animation: gradient-bg 3s ease infinite;
 }
 
-.btn-spin:disabled {
+.btn-spin:disabled, .btn-disabled {
     animation: none !important;
     transition: none !important;
     opacity: 0.6 !important;
@@ -120,3 +130,29 @@ header {
     50%       { transform: none;            animation-timing-function: cubic-bezier(0,0,0.2,1); }
 }
 .animate-custom-bounce { animation: customBounce 2s infinite; }
+
+/* Анимация кейса */
+@keyframes case-shake {
+    0% { transform: translate(1px, 1px) rotate(0deg) scale(1); }
+    10% { transform: translate(-1px, -2px) rotate(-2deg) scale(1.02); }
+    20% { transform: translate(-3px, 0px) rotate(2deg) scale(1.05); }
+    30% { transform: translate(3px, 2px) rotate(0deg) scale(1.02); }
+    40% { transform: translate(1px, -1px) rotate(2deg) scale(1.08); }
+    50% { transform: translate(-1px, 2px) rotate(-2deg) scale(1.05); }
+    60% { transform: translate(-3px, 1px) rotate(0deg) scale(1.1); }
+    70% { transform: translate(3px, 1px) rotate(-2deg) scale(1.08); }
+    80% { transform: translate(-1px, -1px) rotate(2deg) scale(1.12); }
+    90% { transform: translate(1px, 2px) rotate(0deg) scale(1.15); }
+    100% { transform: translate(1px, -2px) rotate(-2deg) scale(1.15); }
+}
+.animate-case-shake {
+    animation: case-shake 0.1s linear infinite;
+}
+
+@keyframes result-scale-up {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.scale-up-active {
+    animation: result-scale-up 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}

@@ -1,0 +1,153 @@
+// =====================================================
+// i18n.js — Локализация
+// =====================================================
+
+const i18n = {
+     ru: {
+            nav_main: 'Главная', nav_top: 'Топ', nav_earn: 'Заработок', nav_profile: 'Профиль', nav_games: 'Игры',
+            roulette_daily: 'Ежедневная Рулетка', roulette_desc: 'Крути и выигрывай призы!',
+            avail_gifts: 'Доступные подарки',
+            collect_desc: 'Соберите <img src="/gifts/dount.png" class="w-4 h-4 object-contain"> для разблокировки подарков',
+            leaderboard: 'Таблица лидеров', earn_title: 'Заработок',
+            tab_refs: 'Рефералы', tab_tasks: 'Задания',
+            invite_friends: 'Приглашайте друзей',
+            ref_desc: 'Вы будете получать <strong class="text-blue-400 glow-text">10%</strong> пончиков с каждого добавленного вашим другом подарка! <br><span class="text-xs opacity-70">(Например: добавили подарок за 4 <img src="/gifts/dount.png" class="w-3 h-3 inline-block align-middle object-contain"> — вы получите 1 <img src="/gifts/dount.png" class="w-3 h-3 inline-block align-middle object-contain"> бонус)</span>',
+            btn_invite: 'Пригласить друзей', your_refs: 'Ваши приглашенные',
+            tasks_desc: 'Выполняйте задания, чтобы получать больше пончиков <img src="/gifts/dount.png" class="w-4 h-4 inline object-contain">',
+            add_gift: '+ Добавить подарок', my_gifts: 'Мои подарки', for_withdraw: 'на вывод',
+            wheel_fortune: 'Колесо Фортуны', spin_free: 'Крутить бесплатно',
+            loading: 'Загрузка...',
+            no_refs: 'У вас пока нет приглашенных друзей.', no_tasks: 'Нет доступных заданий.',
+            completed: 'Выполнено', check: 'Проверить', go: 'Перейти',
+            available: 'ДОСТУПНО', progress: 'ПРОГРЕСС',
+            claim_gift: 'Забрать подарок', close: 'Закрыть',
+            withdraw_q: 'Вы хотите вывести этот подарок? Он исчезнет из вашего профиля.',
+            btn_withdraw: 'Вывести подарок', cancel: 'Отмена',
+            withdraw_success: 'Подарок выведен!',
+            withdraw_msg: 'Пожалуйста, напишите любое сообщение <br><span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-green-400 text-lg font-bold cursor-pointer underline decoration-green-400/50 underline-offset-4">@SpaceDonutGifts</span><br> для получения вашего подарка.',
+            excellent: 'Отлично', how_to_get: 'Как получить',
+            how_to_desc: 'Отправьте NFT-подарок на аккаунт <span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-blue-400 cursor-pointer underline font-bold decoration-blue-400/50 underline-offset-4">@SpaceDonutGifts</span>. После проверки он появится у вас. Подарки автоматически конвертируются в <img src="/gifts/dount.png" class="w-4 h-4 inline-block align-middle object-contain"> для открытия главных подарков!',
+            understood: 'Понятно', you: '(Вы)',
+            no_gifts_yet: 'У вас пока нет подарков.<br><span class="inline-flex items-center gap-1 mt-1">Копите <img src="/gifts/dount.png" class="w-4 h-4 object-contain"> чтобы получить подарок!</span>',
+            click: 'Нажми', win: 'Победа!', take_prize: 'Забрать приз!',
+            accumulated: 'Накоплено:', what_gifts_give: 'Какие подарки дают',
+            spin_for: 'Крутить за', until_free: 'До бесплатной прокрутки:',
+            h: 'ч.', free_24h: 'Раз в 24 часа бесплатно!', ref_copied: 'Реферальная ссылка скопирована!',
+            task_done: 'Задание выполнено! Награда начислена.', err_check: 'Ошибка проверки.',
+            err_conn: 'Ошибка соединения', err_conn_srv: 'Ошибка соединения с сервером.',
+            processing: '⏳ Обработка...', gift_added: 'Подарок успешно добавлен в ваш профиль!',
+            withdrawing: '⏳ Выводим...', err_network: 'Ошибка сети. Попробуйте позже.',
+            share_text: 'Заходи в Space Donut и забирай крутые подарки! 🎁',
+            donuts_text: 'пончиков!',
+            search_ph: 'Поиск...', sort_title: 'Сортировка',
+            sort_val_desc: 'Сначала дорогие', sort_val_asc: 'Сначала дешевые',
+            sort_name_asc: 'По имени (А-Я)', sort_name_desc: 'По имени (Я-А)', not_found: 'Ничего не найдено',
+            history_btn: 'История операций', history_title: 'История операций',
+            history_empty: 'История пуста. Совершите первые действия!',
+            hist_gift_added: 'Добавлен подарок', hist_roulette_paid: 'Платная рулетка',
+            hist_roulette_win: 'Выигрыш в рулетке', hist_roulette_free: 'Бесплатная рулетка',
+            hist_claim_gift: 'Куплен подарок', hist_withdraw: 'Вывод подарка',
+            hist_task: 'Задание выполнено', hist_referral: 'Реферальный бонус',
+            
+            // НОВЫЕ ТЕКСТЫ ДЛЯ КЕЙСОВ
+            games_title: 'Игры',
+            cases_title: 'Кейсы', cases_desc: 'Открывай и выигрывай редкие подарки!',
+            cases_list_title: 'Доступные кейсы',
+            open_for: 'Открыть за', possible_drops: 'Возможный дроп:',
+            not_enough_donuts: 'Недостаточно пончиков!',
+            case_opening: 'Открываем...', case_opened: 'Кейс открыт!'
+        },
+        en: {
+            nav_main: 'Main', nav_top: 'Top', nav_earn: 'Earn', nav_profile: 'Profile', nav_games: 'Games',
+            roulette_daily: 'Daily Roulette', roulette_desc: 'Spin and win prizes!',
+            avail_gifts: 'Available gifts',
+            collect_desc: 'Collect <img src="/gifts/dount.png" class="w-4 h-4 object-contain"> to unlock gifts',
+            leaderboard: 'Leaderboard', earn_title: 'Earn',
+            tab_refs: 'Referrals', tab_tasks: 'Tasks',
+            invite_friends: 'Invite friends',
+            ref_desc: 'You will receive <strong class="text-blue-400 glow-text">10%</strong> of donuts from each gift added by your friend! <br><span class="text-xs opacity-70">(Example: added a gift for 4 <img src="/gifts/dount.png" class="w-3 h-3 inline-block align-middle object-contain"> — you get 1 <img src="/gifts/dount.png" class="w-3 h-3 inline-block align-middle object-contain"> bonus)</span>',
+            btn_invite: 'Invite friends', your_refs: 'Your referrals',
+            tasks_desc: 'Complete tasks to get more donuts <img src="/gifts/dount.png" class="w-4 h-4 inline object-contain">',
+            add_gift: '+ Add gift', my_gifts: 'My gifts', for_withdraw: 'for withdraw',
+            wheel_fortune: 'Wheel of Fortune', spin_free: 'Spin for free',
+            loading: 'Loading...',
+            no_refs: 'You have no invited friends yet.', no_tasks: 'No available tasks.',
+            completed: 'Completed', check: 'Check', go: 'Go',
+            available: 'AVAILABLE', progress: 'PROGRESS',
+            claim_gift: 'Claim gift', close: 'Close',
+            withdraw_q: 'Do you want to withdraw this gift? It will disappear from your profile.',
+            btn_withdraw: 'Withdraw gift', cancel: 'Cancel',
+            withdraw_success: 'Gift withdrawn!',
+            withdraw_msg: 'Please write any message to <br><span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-green-400 text-lg font-bold cursor-pointer underline decoration-green-400/50 underline-offset-4">@SpaceDonutGifts</span><br> to receive your gift.',
+            excellent: 'Excellent', how_to_get: 'How to get',
+            how_to_desc: 'Send an NFT gift to the account <span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-blue-400 cursor-pointer underline font-bold decoration-blue-400/50 underline-offset-4">@SpaceDonutGifts</span>. After verification, it will appear here. Gifts are automatically converted to <img src="/gifts/dount.png" class="w-4 h-4 inline-block align-middle object-contain"> to unlock main gifts!',
+            understood: 'Understood', you: '(You)',
+            no_gifts_yet: 'You have no gifts yet.<br><span class="inline-flex items-center gap-1 mt-1">Collect <img src="/gifts/dount.png" class="w-4 h-4 object-contain"> to get a gift!</span>',
+            click: 'Click', win: 'Victory!', take_prize: 'Take prize!',
+            accumulated: 'Accumulated:', what_gifts_give: 'What gifts give',
+            spin_for: 'Spin for', until_free: 'Until free spin:',
+            h: 'h.', free_24h: 'Once per 24 hours free!', ref_copied: 'Referral link copied!',
+            task_done: 'Task completed! Reward credited.', err_check: 'Verification error.',
+            err_conn: 'Connection error', err_conn_srv: 'Server connection error.',
+            processing: '⏳ Processing...', gift_added: 'Gift successfully added to your profile!',
+            withdrawing: '⏳ Withdrawing...', err_network: 'Network error. Try again later.',
+            share_text: 'Join Space Donut and claim cool gifts! 🎁',
+            donuts_text: 'donuts!',
+            search_ph: 'Search...', sort_title: 'Sort by',
+            sort_val_desc: 'Highest value', sort_val_asc: 'Lowest value',
+            sort_name_asc: 'By name (A-Z)', sort_name_desc: 'By name (Z-A)', not_found: 'Nothing found',
+            history_btn: 'Transaction history', history_title: 'Transaction history',
+            history_empty: 'History is empty. Make your first actions!',
+            hist_gift_added: 'Gift added', hist_roulette_paid: 'Paid roulette',
+            hist_roulette_win: 'Roulette win', hist_roulette_free: 'Free roulette',
+            hist_claim_gift: 'Gift purchased', hist_withdraw: 'Gift withdrawn',
+            hist_task: 'Task completed', hist_referral: 'Referral bonus',
+            
+            // НОВЫЕ ТЕКСТЫ ДЛЯ КЕЙСОВ
+            games_title: 'Games',
+            cases_title: 'Cases', cases_desc: 'Open and win rare gifts!',
+            cases_list_title: 'Available Cases',
+            open_for: 'Open for', possible_drops: 'Possible drops:',
+            not_enough_donuts: 'Not enough donuts!',
+            case_opening: 'Opening...', case_opened: 'Case opened!'
+        }
+};
+
+function setLang(lang) {
+    vibrate('light');
+    currentLang = lang;
+    try { localStorage.setItem('appLang', lang); } catch(e) {}
+
+    const btnRu = document.getElementById('lang-ru');
+    const btnEn = document.getElementById('lang-en');
+    const activeClass   = 'px-3 py-1 rounded-full text-[10px] font-extrabold transition-all bg-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.5)]';
+    const inactiveClass = 'px-3 py-1 rounded-full text-[10px] font-extrabold transition-all text-white/50 hover:text-white';
+    if (btnRu) btnRu.className = lang === 'ru' ? activeClass : inactiveClass;
+    if (btnEn) btnEn.className = lang === 'en' ? activeClass : inactiveClass;
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (i18n[lang][key] !== undefined) el.innerHTML = i18n[lang][key];
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (i18n[lang][key] !== undefined) el.placeholder = i18n[lang][key];
+    });
+
+    const el = (id) => document.getElementById(id);
+    if (el('collect-text'))  el('collect-text').innerHTML  = i18n[lang].collect_desc;
+    if (el('ref-desc'))      el('ref-desc').innerHTML      = i18n[lang].ref_desc;
+    if (el('tasks-desc'))    el('tasks-desc').innerHTML    = i18n[lang].tasks_desc;
+    if (el('how-to-desc'))   el('how-to-desc').innerHTML   = i18n[lang].how_to_desc;
+    if (el('withdraw-msg'))  el('withdraw-msg').innerHTML  = i18n[lang].withdraw_msg;
+
+    updateUI();
+    if (el('page-leaderboard') && !el('page-leaderboard').classList.contains('hidden-tab') && typeof loadLeaderboard === 'function') loadLeaderboard();
+    if (el('page-earn')        && !el('page-earn').classList.contains('hidden-tab') && typeof loadEarnData === 'function') loadEarnData();
+    if (el('page-roulette')    && !el('page-roulette').classList.contains('hidden-tab') && typeof fetchRouletteInfo === 'function') fetchRouletteInfo();
+    if (el('page-games')       && !el('page-games').classList.contains('hidden-tab') && typeof renderCasesGrid === 'function') renderCasesGrid();
+    if (rouletteConfig?.items  && el('page-roulette') && !el('page-roulette').classList.contains('hidden-tab') && typeof renderRouletteWheel === 'function') renderRouletteWheel();
+    if (el('main-gift-modal')  && !el('main-gift-modal').classList.contains('hidden') && typeof renderBaseGiftsList === 'function') renderBaseGiftsList();
+}
+
+window.setLang = setLang;

@@ -15,21 +15,51 @@ WEBAPP_URL = "https://65236da3-9e20-4a31-97c8-7fe8bda0d438-00-188grbgfvp38t.kirk
 ADMIN_ID = 1809630966
 
 # ==========================================
-# ЗАДАНИЯ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ (Подписки)
+# ЗАДАНИЯ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ (Подписки, Бусты и Рефералы)
 # ==========================================
-# ВАЖНО: Бот должен быть администратором в этих каналах/чатах, чтобы проверять подписку!
 TASKS = {
     1: {
         "title": "Подписаться на наш канал",
-        "url": "https://t.me/Space_Donut", # Ссылка для перехода (которую откроет юзер)
-        "chat_id": "@Space_Donut",         # ID или юзернейм для проверки ботом
-        "reward": 5                    # Сколько ценности (💎) получит юзер
+        "url": "https://t.me/Space_Donut",
+        "chat_id": "@Space_Donut",
+        "reward": 1,
+        "type": "subscription"
     },
     2: {
         "title": "Подписаться на Dewid NFT",
         "url": "https://t.me/DewidNFT",
         "chat_id": "@DewidNFT",
-        "reward": 5
+        "reward": 1,
+        "type": "subscription"
+    },
+    3: {
+        "title": "Проголосовать за канал",
+        "url": "https://t.me/boost/Space_Donut",
+        "chat_id": "@Space_Donut",
+        "reward": 1,
+        "type": "boost"
+    },
+    # --- НОВЫЕ ЗАДАНИЯ НА ПРИГЛАШЕНИЕ ДРУЗЕЙ ---
+    4: {
+        "title": "Пригласить 1 друга",
+        "url": "",  # Ссылка не нужна, так как друг приглашается через реф. ссылку в приложении
+        "reward": 1,  # Награда в пончиках
+        "type": "referral",
+        "required_referrals": 1
+    },
+    5: {
+        "title": "Пригласить 5 друзей",
+        "url": "",
+        "reward": 5,
+        "type": "referral",
+        "required_referrals": 5
+    },
+    6: {
+        "title": "Пригласить 10 друзей",
+        "url": "",
+        "reward": 10,
+        "type": "referral",
+        "required_referrals": 10
     }
 }
 
@@ -37,24 +67,63 @@ TASKS = {
 # НАСТРОЙКИ РУЛЕТКИ
 # ==========================================
 ROULETTE_CONFIG = {
-    "cost": 10, # Стоимость прокрутки после бесплатной (в пончиках)
+    "cost": 10,
     "items": [
         {"type": "donuts", "amount": 1, "photo": "gifts/dount.png", "chance": 20},
-        {"type": "donuts", "amount": 3, "photo": "gifts/dount.png", "chance": 50},  
-        {"type": "donuts", "amount": 5, "photo": "gifts/dount.png", "chance": 40},  
+        {"type": "donuts", "amount": 3, "photo": "gifts/dount.png", "chance": 45},  
+        {"type": "donuts", "amount": 5, "photo": "gifts/dount.png", "chance": 35},  
         {"type": "donuts", "amount": 10, "photo": "gifts/dount.png", "chance": 30}, 
         {"type": "donuts", "amount": 25, "photo": "gifts/dount.png", "chance": 5}, 
         {"type": "donuts", "amount": 50, "photo": "gifts/dount.png", "chance": 0}, 
         {"type": "donuts", "amount": 100, "photo": "gifts/dount.png", "chance": 0}, 
-        {"type": "gift", "gift_id": 1001, "chance": 0} # Подарок Artisan Brick, Шанс 0%
+        {"type": "gift", "gift_id": 1001, "chance": 0},
     ]
 }
 
 # ==========================================
-# БАЗОВЫЕ ПОДАРКИ (Конвертируются в ценность)
+# НАСТРОЙКИ КЕЙСОВ
+# ==========================================
+CASES_CONFIG = {
+    1: {
+        "name": "Новичок",
+        "photo": "/gifts/donuts.png", 
+        "price": 15,
+        "items": [
+            {"type": "donuts", "amount": 5, "chance": 40},
+            {"type": "donuts", "amount": 15, "chance": 30},
+            {"type": "gift", "gift_id": 15, "chance": 20}, # Здесь уже стоят базовые подарки!
+            {"type": "gift", "gift_id": 4, "chance": 10} 
+        ]
+    },
+    2: {
+        "name": "Элитный",
+        "photo": "/gifts/case_elite.png",
+        "price": 50,
+        "items": [
+            {"type": "donuts", "amount": 20, "chance": 30},
+            {"type": "donuts", "amount": 50, "chance": 25},
+            {"type": "gift", "gift_id": 12, "chance": 25},
+            {"type": "gift", "gift_id": 1000, "chance": 15},
+            {"type": "gift", "gift_id": 1001, "chance": 5}
+        ]
+    },
+    3: {
+        "name": "Космический",
+        "photo": "/gifts/case_space.png",
+        "price": 150,
+        "items": [
+            {"type": "donuts", "amount": 100, "chance": 40},
+            {"type": "gift", "gift_id": 19, "chance": 30},
+            {"type": "gift", "gift_id": 1002, "chance": 20},
+            {"type": "gift", "gift_id": 1004, "chance": 10}
+        ]
+    }
+}
+
+# ==========================================
+# БАЗОВЫЕ ПОДАРКИ
 # ==========================================
 BASE_GIFTS = {
-    # Старые базовые подарки (1 - 10)
     1: {"name": "Victory Medal", "photo": "https://api.changes.tg/original/VictoryMedal.png", "value": 4},
     2: {"name": "Desk Calendar", "photo": "https://api.changes.tg/original/DeskCalendar.png", "value": 5},
     3: {"name": "Homemade Cake", "photo": "https://api.changes.tg/original/HomemadeCake.png", "value": 4},
@@ -65,8 +134,6 @@ BASE_GIFTS = {
     8: {"name": "Instant Ramen", "photo": "https://api.changes.tg/original/InstantRamen.png", "value": 3},
     9: {"name": "Spring Basket", "photo": "https://api.changes.tg/original/SpringBasket.png", "value": 4},
     10: {"name": "Input Key", "photo": "https://api.changes.tg/original/InputKey.png", "value": 5},
-    
-    # Новые подарки, продолжающие нумерацию
     11: {"name": "Santa Hat", "photo": "https://api.changes.tg/original/SantaHat.png", "value": 4},
     12: {"name": "Signet Ring", "photo": "https://api.changes.tg/original/SignetRing.png", "value": 30},
     13: {"name": "Precious Peach", "photo": "https://api.changes.tg/original/PreciousPeach.png", "value": 380},

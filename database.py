@@ -46,6 +46,16 @@ async def init_db():
                 PRIMARY KEY (user_id, task_id)
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                action_type TEXT NOT NULL,
+                description TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
         await db.commit()
 
 async def upsert_user(tg_id: int, username: str, first_name: str, photo_url: str):
@@ -187,6 +197,28 @@ async def get_all_user_ids() -> list[int]:
         async with db.execute("SELECT tg_id FROM users") as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
+
+async def add_history_entry(user_id: int, action_type: str, description: str, amount: int):
+    import time
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            INSERT INTO user_history (user_id, action_type, description, amount, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user_id, action_type, description, amount, int(time.time())))
+        await db.commit()
+
+async def get_user_history(user_id: int, limit: int = 50):
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("""
+            SELECT id, action_type, description, amount, created_at
+            FROM user_history
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (user_id, limit)) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
 
 async def get_leaderboard():
     async with aiosqlite.connect(DB_NAME) as db:
