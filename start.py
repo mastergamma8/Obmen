@@ -1,22 +1,47 @@
-# start.py
 import subprocess
 import sys
 import time
+import os
+import signal
+
+def kill_port(port):
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti", f":{port}"],
+            capture_output=True, text=True
+        )
+        pids = result.stdout.strip().split()
+        for pid in pids:
+            if pid:
+                os.kill(int(pid), signal.SIGKILL)
+    except Exception:
+        pass
+
+def kill_script(name):
+    try:
+        subprocess.run(
+            ["pkill", "-9", "-f", name],
+            capture_output=True
+        )
+    except Exception:
+        pass
 
 def main():
+    print("🧹 Завершаем старые процессы...")
+    kill_port(5000)
+    kill_script("main.py")
+    kill_script("bot.py")
+    time.sleep(1)
+
     print("🚀 Запускаем FastAPI сервер...")
-    # Запускаем main.py
     server_process = subprocess.Popen([sys.executable, "main.py"])
-    
-    # Даем серверу секунду на запуск
+
     time.sleep(2)
-    
+
     print("🤖 Запускаем Telegram Бота...")
-    # Запускаем bot.py
     bot_process = subprocess.Popen([sys.executable, "bot.py"])
-    
+
     try:
-        # Держим оба процесса активными
         server_process.wait()
         bot_process.wait()
     except KeyboardInterrupt:
