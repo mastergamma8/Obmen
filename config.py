@@ -1,5 +1,7 @@
 # config.py
 import os
+import requests
+import cloudscraper  # <-- Библиотека для обхода Cloudflare
 from dotenv import load_dotenv
 
 # Загружаем переменные из .env файла
@@ -14,8 +16,11 @@ BOT_USERNAME = "SpaceDonutBot"
 WEBAPP_URL = "https://65236da3-9e20-4a31-97c8-7fe8bda0d438-00-188grbgfvp38t.kirk.replit.dev/" 
 ADMIN_ID = 1809630966
 
+# Комиссия за вывод подарка в звездах
+WITHDRAW_FEE_STARS = 25
+
 # ==========================================
-# ЗАДАНИЯ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ (Подписки, Бусты и Рефералы)
+# ЗАДАНИЯ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ
 # ==========================================
 TASKS = {
     1: {
@@ -23,6 +28,7 @@ TASKS = {
         "url": "https://t.me/Space_Donut",
         "chat_id": "@Space_Donut",
         "reward": 1,
+        "reward_type": "stars", 
         "type": "subscription"
     },
     2: {
@@ -30,6 +36,7 @@ TASKS = {
         "url": "https://t.me/DewidNFT",
         "chat_id": "@DewidNFT",
         "reward": 1,
+        "reward_type": "stars", 
         "type": "subscription"
     },
     3: {
@@ -37,13 +44,14 @@ TASKS = {
         "url": "https://t.me/boost/Space_Donut",
         "chat_id": "@Space_Donut",
         "reward": 1,
+        "reward_type": "stars", 
         "type": "boost"
     },
-    # --- НОВЫЕ ЗАДАНИЯ НА ПРИГЛАШЕНИЕ ДРУЗЕЙ ---
     4: {
         "title": "Пригласить 1 друга",
-        "url": "",  # Ссылка не нужна, так как друг приглашается через реф. ссылку в приложении
-        "reward": 1,  # Награда в пончиках
+        "url": "", 
+        "reward": 1, 
+        "reward_type": "balance", 
         "type": "referral",
         "required_referrals": 1
     },
@@ -51,6 +59,7 @@ TASKS = {
         "title": "Пригласить 5 друзей",
         "url": "",
         "reward": 5,
+        "reward_type": "balance", 
         "type": "referral",
         "required_referrals": 5
     },
@@ -58,6 +67,7 @@ TASKS = {
         "title": "Пригласить 10 друзей",
         "url": "",
         "reward": 10,
+        "reward_type": "stars", 
         "type": "referral",
         "required_referrals": 10
     }
@@ -67,14 +77,15 @@ TASKS = {
 # НАСТРОЙКИ РУЛЕТКИ
 # ==========================================
 ROULETTE_CONFIG = {
+    "currency": "donuts", 
     "cost": 10,
     "items": [
-        {"type": "donuts", "amount": 1, "photo": "gifts/dount.png", "chance": 20},
-        {"type": "donuts", "amount": 3, "photo": "gifts/dount.png", "chance": 45},  
-        {"type": "donuts", "amount": 5, "photo": "gifts/dount.png", "chance": 35},  
-        {"type": "donuts", "amount": 10, "photo": "gifts/dount.png", "chance": 30}, 
+        {"type": "stars", "amount": 1, "photo": "gifts/stars.png", "chance": 20},
+        {"type": "stars", "amount": 3, "photo": "gifts/stars.png", "chance": 45},  
+        {"type": "stars", "amount": 5, "photo": "gifts/stars.png", "chance": 35},  
+        {"type": "donuts", "amount": 10, "photo": "gifts/dount.png", "chance": 25}, 
         {"type": "donuts", "amount": 25, "photo": "gifts/dount.png", "chance": 5}, 
-        {"type": "donuts", "amount": 50, "photo": "gifts/dount.png", "chance": 0}, 
+        {"type": "donuts", "amount": 50, "photo": "gifts/dount.png", "chance": 0},
         {"type": "donuts", "amount": 100, "photo": "gifts/dount.png", "chance": 0}, 
         {"type": "gift", "gift_id": 1001, "chance": 0},
     ]
@@ -87,17 +98,19 @@ CASES_CONFIG = {
     1: {
         "name": "Новичок",
         "photo": "/gifts/donuts.png", 
+        "currency": "stars", 
         "price": 15,
         "items": [
             {"type": "donuts", "amount": 5, "chance": 40},
             {"type": "donuts", "amount": 15, "chance": 30},
-            {"type": "gift", "gift_id": 15, "chance": 20}, # Здесь уже стоят базовые подарки!
+            {"type": "gift", "gift_id": 15, "chance": 20}, 
             {"type": "gift", "gift_id": 4, "chance": 10} 
         ]
     },
     2: {
         "name": "Элитный",
         "photo": "/gifts/case_elite.png",
+        "currency": "stars",
         "price": 50,
         "items": [
             {"type": "donuts", "amount": 20, "chance": 30},
@@ -108,16 +121,29 @@ CASES_CONFIG = {
         ]
     },
     3: {
-        "name": "Космический",
+        "name": "Звездный",
         "photo": "/gifts/case_space.png",
-        "price": 150,
+        "currency": "stars", 
+        "price": 50,
         "items": [
-            {"type": "donuts", "amount": 100, "chance": 40},
-            {"type": "gift", "gift_id": 19, "chance": 30},
+            {"type": "donuts", "amount": 500, "chance": 40},
+            {"type": "stars", "amount": 100, "chance": 30},
             {"type": "gift", "gift_id": 1002, "chance": 20},
             {"type": "gift", "gift_id": 1004, "chance": 10}
         ]
     }
+}
+
+# ==========================================
+# НАСТРОЙКИ РАКЕТЫ (CRASH ИГРА)
+# ==========================================
+ROCKET_CONFIG = {
+    "currency": "stars",          
+    "min_bet": 50,                  
+    "max_bet": 10000,              
+    "house_edge": 0.05,            
+    "max_multiplier": 1000.0,      
+    "growth_speed": 1.00006        
 }
 
 # ==========================================
@@ -222,12 +248,24 @@ BASE_GIFTS = {
     96: {"name": "Mousse Cake", "photo": "https://api.changes.tg/original/MousseCake.png", "value": 4},
     97: {"name": "Bling Binky", "photo": "https://api.changes.tg/original/BlingBinky.png", "value": 30},
     98: {"name": "Money Pot", "photo": "https://api.changes.tg/original/MoneyPot.png", "value": 4},
-    99: {"name": "Pretty Posy", "photo": "https://api.changes.tg/original/PrettyPosy.png", "value": 5}
+    99: {"name": "Pretty Posy", "photo": "https://api.changes.tg/original/PrettyPosy.png", "value": 5},
+    # --- ДОБАВЛЕННЫЕ НОВЫЕ ПОДАРКИ ---
+    100: {"name": "Plush Pepe", "photo": "https://api.changes.tg/original/PlushPepe.png", "value": 50},
+    101: {"name": "Durov's Cap", "photo": "https://api.changes.tg/original/DurovsCap.png", "value": 50},
+    102: {"name": "Perfume Bottle", "photo": "https://api.changes.tg/original/PerfumeBottle.png", "value": 50},
+    103: {"name": "Swiss Watch", "photo": "https://api.changes.tg/original/SwissWatch.png", "value": 50},
+    104: {"name": "Ion Gem", "photo": "https://api.changes.tg/original/IonGem.png", "value": 50},
+    105: {"name": "Heart Locket", "photo": "https://api.changes.tg/original/HeartLocket.png", "value": 50},
+    106: {"name": "Artisan Brick", "photo": "https://api.changes.tg/original/ArtisanBrick.png", "value": 50},
+    107: {"name": "Khabib's Papakha", "photo": "https://api.changes.tg/original/KhabibsPapakha.png", "value": 50},
+    108: {"name": "UFC Strike", "photo": "https://api.changes.tg/original/UFCStrike.png", "value": 50},
+    109: {"name": "Rare Bird", "photo": "https://api.changes.tg/original/RareBird.png", "value": 50},
+    110: {"name": "Mood Pack", "photo": "https://api.changes.tg/original/MoodPack.png", "value": 50},
+    111: {"name": "Pool Float", "photo": "https://api.changes.tg/original/PoolFloat.png", "value": 50},
+    112: {"name": "Timeless Book", "photo": "https://api.changes.tg/original/TimelessBook.png", "value": 50}
 }
-
-# ==========================================
-# ГЛАВНЫЕ ПОДАРКИ (Отображаются в профиле)
-# ==========================================
+    
+    # ==========================================
 MAIN_GIFTS = {
     1000: {"name": "Swiss Watch", "photo": "https://api.changes.tg/original/SwissWatch.png", "required_value": 50},
     1001: {"name": "Artisan Brick", "photo": "https://api.changes.tg/original/ArtisanBrick.png", "required_value": 100},
@@ -235,3 +273,73 @@ MAIN_GIFTS = {
     1003: {"name": "Ion Gem", "photo": "https://api.changes.tg/original/IonGem.png", "required_value": 100},
     1004: {"name": "Durov's Cap", "photo": "https://api.changes.tg/original/DurovsCap.png", "required_value": 700}
 }
+
+
+# ==========================================
+# АВТООБНОВЛЕНИЕ ЦЕН БАЗОВЫХ ПОДАРКОВ ИЗ API
+# ==========================================
+def update_base_gifts_prices():
+    """
+    Динамически обновляет цены базовых подарков из API Portals.
+    Новая цена = floor_price минус 20%, без дробей (округляется вниз).
+    """
+    print("Загрузка актуальных цен для базовых подарков из API Portals...")
+    
+    # Создаем скрейпер, который имитирует обычный браузер и обходит Cloudflare
+    try:
+        scraper = cloudscraper.create_scraper(
+            browser={
+                'browser': 'chrome',
+                'platform': 'windows',
+                'mobile': False
+            }
+        )
+    except Exception as e:
+        print(f"Не удалось инициализировать cloudscraper: {e}")
+        return
+
+    # 1. Сначала пробуем выгрузить большой пакет популярных коллекций
+    market_prices = {}
+    try:
+        resp = scraper.get("https://portal-market.com/api/collections", params={"limit": 300}, timeout=15)
+        if resp.status_code == 200:
+            collections = resp.json().get("collections", [])
+            for item in collections:
+                market_prices[item["name"].lower()] = float(item.get("floor_price", 0))
+        else:
+            print(f"⚠️ Ошибка доступа к API: {resp.status_code}")
+    except Exception as e:
+        print(f"Не удалось выгрузить общую базу цен: {e}. Буду запрашивать поштучно...")
+
+    updated_count = 0
+    
+    # 2. Перебираем все базовые подарки
+    for gift_id, gift in BASE_GIFTS.items():
+        gift_name_lower = gift["name"].lower()
+        floor_price = None
+        
+        # Если подарок нашелся в выгруженной общей базе
+        if gift_name_lower in market_prices:
+            floor_price = market_prices[gift_name_lower]
+        else:
+            # Если не нашелся — делаем отдельный точечный запрос
+            try:
+                resp = scraper.get(
+                    "https://portal-market.com/api/collections", 
+                    params={"search": gift["name"], "limit": 1}, 
+                    timeout=5
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("collections") and len(data["collections"]) > 0:
+                        floor_price = float(data["collections"][0].get("floor_price", 0))
+            except Exception:
+                pass # Пропускаем при ошибках сети
+        
+        # 3. Рассчитываем и применяем новую цену по твоей логике (-20% и без дробей)
+        if floor_price is not None and floor_price > 0:
+            new_price = int(floor_price * 0.8)
+            BASE_GIFTS[gift_id]["value"] = max(1, new_price)
+            updated_count += 1
+            
+    print(f"✅ Цены успешно обновлены! Изменено: {updated_count} из {len(BASE_GIFTS)}")

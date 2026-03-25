@@ -62,7 +62,16 @@ async function loadEarnData() {
                     const btn = isChecking
                         ? `<button onclick="checkTask(${task.id})" id="btn-task-${task.id}" class="bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold active:scale-95 transition-transform shadow-[0_0_10px_rgba(59,130,246,0.5)]">${i18n[currentLang].check}</button>`
                         : `<button onclick="openTaskUrl(${task.id},'${task.url}')" class="glass px-4 py-2 rounded-xl text-sm font-bold text-white active:scale-95 transition-transform border border-blue-400/30">${i18n[currentLang].go}</button>`;
-                    taskList.innerHTML += `<div class="glass rounded-2xl p-4 flex items-center justify-between border border-blue-500/20 bg-blue-500/5"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-xl border border-blue-400/30">📢</div><div><div class="font-bold text-white text-sm">${task.title}</div><div class="text-xs text-blue-300 flex items-center gap-1">+${task.reward} <img src="/gifts/dount.png" class="w-3 h-3 inline object-contain"></div></div></div>${btn}</div>`;
+                    
+                    // --- ИЗМЕНЕНИЯ: Формируем дизайн для разных типов валют ---
+                    let rewardHtml = '';
+                    if (task.reward_type === 'stars') {
+                        rewardHtml = `<div class="text-xs text-yellow-400 flex items-center gap-1 font-bold">+${task.reward}<img src="/gifts/stars.png" class="w-3 h-3 inline object-contain"></div>`;
+                    } else {
+                        rewardHtml = `<div class="text-xs text-blue-300 flex items-center gap-1">+${task.reward} <img src="/gifts/dount.png" class="w-3 h-3 inline object-contain"></div>`;
+                    }
+
+                    taskList.innerHTML += `<div class="glass rounded-2xl p-4 flex items-center justify-between border border-blue-500/20 bg-blue-500/5"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-xl border border-blue-400/30">📢</div><div><div class="font-bold text-white text-sm">${task.title}</div>${rewardHtml}</div></div>${btn}</div>`;
                 }
             });
         }
@@ -99,8 +108,14 @@ async function checkTask(taskId) {
         if (data.status === 'ok') {
             vibrate('heavy');
             tg.showAlert(i18n[currentLang].task_done);
+            
+            // --- ИЗМЕНЕНИЯ: Обновляем оба баланса сразу ---
             myBalance = data.balance;
-            updateUI();
+            if (data.stars !== undefined) {
+                myStars = data.stars; 
+            }
+            
+            if (typeof updateUI === 'function') updateUI();
             loadEarnData();
         } else {
             tg.showAlert(data.detail || i18n[currentLang].err_check);

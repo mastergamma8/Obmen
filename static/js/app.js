@@ -1,51 +1,10 @@
 // =====================================================
-// app.js — Точка входа и глобальные функции
+// app.js — Точка входа
 // =====================================================
-
-// Глобальная переменная для демо-режима
-let isDemoMode = false;
-
-// Локальный рандомизатор для Демо режима (использует шансы из config)
-function simulateRoll(items) {
-    let totalChance = items.reduce((sum, item) => sum + (item.chance || 0), 0);
-    if (totalChance <= 0) totalChance = 100;
-    
-    let r = Math.random() * totalChance;
-    let cumulative = 0;
-    
-    for (let i = 0; i < items.length; i++) {
-        let chance = items[i].chance || 0;
-        if (chance <= 0) continue;
-        
-        cumulative += chance;
-        if (r <= cumulative) {
-            return { index: i, item: items[i] };
-        }
-    }
-    return { index: 0, item: items[0] };
-}
-
-// Функция переключения Демо-режима
-function toggleDemoMode() {
-    isDemoMode = document.getElementById('demo-toggle').checked;
-    vibrate('light');
-    
-    // Обновляем UI рулетки если мы там находимся
-    if (typeof fetchRouletteInfo === 'function' && !document.getElementById('page-roulette').classList.contains('hidden-tab')) {
-        fetchRouletteInfo();
-    }
-    
-    // Обновляем UI кейса если он открыт
-    if (typeof openCaseDetails === 'function' && currentOpenedCaseId) {
-        if (!document.getElementById('case-details-modal').classList.contains('hidden')) {
-            openCaseDetails(currentOpenedCaseId);
-        }
-    }
-}
 
 async function initApp() {
     const savedLang = localStorage.getItem('appLang') || (tgUser?.language_code === 'en' ? 'en' : 'ru');
-    setLang(savedLang);
+    
     try {
         const res = await fetch('/api/init', {
             method: 'POST',
@@ -63,21 +22,27 @@ async function initApp() {
         botUsername  = data.config.bot_username;
         if (data.config.roulette) rouletteConfig = data.config.roulette;
         if (data.config.cases) casesConfig = data.config.cases;
+        if (data.config.rocket) rocketConfigLocal = data.config.rocket; 
         
         myGifts      = data.user_gifts;
         myBalance    = data.balance;
+        myStars      = data.stars || 0; // <-- Получаем звезды
+        
+        // ВАЖНО: Устанавливаем язык только после загрузки DOM и конфигов!
+        setLang(savedLang); 
         
         if (rouletteConfig?.items && typeof renderRouletteWheel === 'function') renderRouletteWheel();
         updateUI();
     } catch(e) {
         console.error('initApp error:', e);
+        setLang(savedLang);
         updateUI();
     } finally {
         hideAppLoader();
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function startApplication() {
     setTimeout(() => {
         const pb = document.getElementById('loader-progress');
         if (pb && pb.style.width === '10%') pb.style.width = '60%';
@@ -103,9 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('dragstart',   e => e.preventDefault());
 
     initApp();
-});
+}
 
-// Экспортируем в window для доступа из HTML и других скриптов
-window.isDemoMode = isDemoMode;
-window.toggleDemoMode = toggleDemoMode;
-window.simulateRoll = simulateRoll;
+// ПУЛЕНЕПРОБИВАЕМЫЙ ЗАПУСК:
+if (window.partialsAreLoaded) {
+    startApplication();
+} else {
+    document.addEventListener('partialsLoaded', startApplication);
+}

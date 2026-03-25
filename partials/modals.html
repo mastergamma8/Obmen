@@ -1,0 +1,262 @@
+<!-- МОДАЛЬНЫЕ ОКНА ДЛЯ ОСНОВНОГО ФУНКЦИОНАЛА (старые) -->
+<div id="roulette-result-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md hidden flex items-center justify-center z-[60] p-5 transition-opacity">
+    <div class="glass-panel rounded-3xl p-8 w-full max-w-sm text-center border border-purple-500/30 shadow-[0_0_40px_rgba(168,85,247,0.4)] transform scale-95 transition-transform" id="rrm-content">
+        <h3 class="text-3xl font-extrabold mb-5 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400" data-i18n="win">Победа!</h3>
+        <div class="w-32 h-32 mx-auto bg-purple-500/20 rounded-full flex flex-col items-center justify-center mb-5 border border-purple-400/50 relative glow-box">
+            <div class="absolute inset-0 rounded-full bg-purple-500/30 animate-ping opacity-20"></div>
+            <img id="rr-photo" src="" class="w-20 h-20 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] relative z-10">
+        </div>
+        <p id="rr-text" class="text-2xl font-bold text-white mb-8 drop-shadow-md"></p>
+        <button onclick="closeModal('roulette-result-modal')" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_15px_rgba(236,72,153,0.4)]" data-i18n="take_prize">Забрать приз!</button>
+    </div>
+</div>
+
+<div id="add-gift-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-5 transition-opacity">
+    <div class="glass-panel rounded-3xl p-8 w-full max-w-sm text-center border border-white/10 shadow-2xl">
+        <div class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-5 bg-gradient-to-tr from-blue-500/20 to-purple-500/20 border border-white/10 glow-box">
+            <img src="/gifts/pepe.png" class="w-16 h-16 object-contain drop-shadow-lg" onerror="this.src='https://via.placeholder.com/64?text=🎁'">
+        </div>
+        <h3 class="text-2xl font-bold mb-3 text-white flex items-center justify-center gap-2">
+            <span data-i18n="how_to_get">Как получить</span>
+            <img src="/gifts/dount.png" class="w-6 h-6 object-contain">?
+        </h3>
+        <p class="text-sm text-blue-100/70 mb-8 leading-relaxed" id="how-to-desc"></p>
+        <button onclick="closeModal('add-gift-modal')" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="understood">Понятно</button>
+    </div>
+</div>
+
+<div id="main-gift-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-5 transition-opacity">
+    <div class="glass-panel rounded-3xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+        <div class="bg-gradient-to-b from-blue-500/20 to-transparent p-5 text-center border-b border-white/5 shrink-0">
+            <img id="mg-photo" src="" class="w-20 h-20 mx-auto drop-shadow-[0_10px_15px_rgba(0,0,0,0.5)] object-contain">
+            <h3 id="mg-title" class="text-2xl font-bold mt-3 text-white glow-text">...</h3>
+        </div>
+        <div class="px-6 pt-5 pb-3 shrink-0">
+            <div class="flex justify-between items-center text-sm mb-2 font-bold">
+                <span class="text-gray-300" data-i18n="accumulated">Накоплено:</span>
+                <span id="mg-progress-text" class="text-blue-400 glow-text flex items-center gap-1">0 / 0 <img src="/gifts/dount.png" class="w-4 h-4 object-contain"></span>
+            </div>
+            <div class="w-full bg-black/50 rounded-full h-3 border border-white/5 overflow-hidden shadow-inner">
+                <div id="mg-progress-bar" class="progress-bar-fill h-full rounded-full" style="width:0%"></div>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto px-6 pb-2">
+            <div class="glass rounded-2xl p-4">
+                <div class="text-[11px] uppercase tracking-wider text-blue-300/60 font-bold mb-3 flex items-center gap-1">
+                    <span data-i18n="what_gifts_give">Какие подарки дают</span>
+                    <img src="/gifts/dount.png" class="w-3 h-3 object-contain">:
+                </div>
+                <div class="flex flex-col gap-2 mb-3">
+                    <div class="relative">
+                        <input type="text" id="mg-search" oninput="renderBaseGiftsList()" class="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors placeholder-white/30" data-i18n-placeholder="search_ph" placeholder="Поиск...">
+                        <svg class="w-4 h-4 text-white/40 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+                    <button onclick="openSortModal()" class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white flex justify-between items-center active:scale-95 transition-all">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
+                            <span id="current-sort-label" data-i18n="sort_val_desc">Сначала дорогие</span>
+                        </div>
+                        <svg class="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                </div>
+                <div id="mg-sources" class="text-sm space-y-3"></div>
+            </div>
+        </div>
+        <div class="px-6 pb-5 pt-3 shrink-0 border-t border-white/5 bg-black/20">
+            <button id="btn-claim" class="hidden btn-claim w-full py-4 rounded-xl font-bold text-white active:scale-95 transition-transform mb-3" data-i18n="claim_gift">Забрать подарок</button>
+            <button onclick="closeModal('main-gift-modal')" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="close">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<div id="sort-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center z-[70] transition-opacity pb-0 sm:pb-5">
+    <div class="glass-panel w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-6 border-t border-x sm:border-b border-white/10 shadow-2xl animate-slide-up">
+        <div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-5 sm:hidden"></div>
+        <h3 class="text-xl font-bold mb-4 text-white text-center" data-i18n="sort_title">Сортировка</h3>
+        <div class="flex flex-col gap-2 mb-6">
+            <button onclick="selectSort('value_desc')" id="btn-sort-value_desc" class="sort-option w-full flex items-center justify-between bg-black/40 border border-white/5 rounded-xl p-4 active:scale-95 transition-all">
+                <span class="text-white font-medium" data-i18n="sort_val_desc">Сначала дорогие</span>
+                <div class="check-icon hidden w-5 h-5 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center shadow-[0_0_10px_rgba(59,130,246,0.3)]"><svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
+            </button>
+            <button onclick="selectSort('value_asc')" id="btn-sort-value_asc" class="sort-option w-full flex items-center justify-between bg-black/40 border border-white/5 rounded-xl p-4 active:scale-95 transition-all">
+                <span class="text-white font-medium" data-i18n="sort_val_asc">Сначала дешевые</span>
+                <div class="check-icon hidden w-5 h-5 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center shadow-[0_0_10px_rgba(59,130,246,0.3)]"><svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
+            </button>
+            <button onclick="selectSort('name_asc')" id="btn-sort-name_asc" class="sort-option w-full flex items-center justify-between bg-black/40 border border-white/5 rounded-xl p-4 active:scale-95 transition-all">
+                <span class="text-white font-medium" data-i18n="sort_name_asc">По имени (А-Я)</span>
+                <div class="check-icon hidden w-5 h-5 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center shadow-[0_0_10px_rgba(59,130,246,0.3)]"><svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
+            </button>
+            <button onclick="selectSort('name_desc')" id="btn-sort-name_desc" class="sort-option w-full flex items-center justify-between bg-black/40 border border-white/5 rounded-xl p-4 active:scale-95 transition-all">
+                <span class="text-white font-medium" data-i18n="sort_name_desc">По имени (Я-А)</span>
+                <div class="check-icon hidden w-5 h-5 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center shadow-[0_0_10px_rgba(59,130,246,0.3)]"><svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
+            </button>
+        </div>
+        <button onclick="closeModal('sort-modal')" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="close">Закрыть</button>
+    </div>
+</div>
+
+<!-- ==============================================
+     ОБНОВЛЕННЫЕ ОКНА ПРОФИЛЯ И ИСТОРИИ
+     ============================================== -->
+
+<div id="withdraw-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-5 transition-opacity">
+    <div class="glass-panel rounded-3xl p-6 w-full max-w-sm text-center border border-white/10 shadow-2xl relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-green-500/10 to-blue-500/5 pointer-events-none"></div>
+        
+        <div class="w-24 h-24 mx-auto rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center mb-4 relative z-10 p-2 shadow-inner">
+            <img id="wd-photo" src="" class="w-full h-full object-contain drop-shadow-lg" alt="Gift">
+        </div>
+        
+        <h3 id="wd-title" class="text-2xl font-bold mb-2 text-white relative z-10">...</h3>
+        <p class="text-sm text-blue-100/60 mb-6 relative z-10" data-i18n="withdraw_q">Вы хотите вывести этот подарок?</p>
+        
+        <button id="btn-confirm-withdraw" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.3)] py-4 rounded-xl font-bold text-white active:scale-95 transition-transform mb-3 relative z-10" data-i18n="btn_withdraw">Вывести подарок</button>
+        <button onclick="closeModal('withdraw-modal')" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform relative z-10" data-i18n="cancel">Отмена</button>
+    </div>
+</div>
+
+<div id="success-withdraw-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md hidden flex items-center justify-center z-50 p-5 transition-opacity">
+    <div class="glass-panel rounded-3xl p-8 w-full max-w-sm text-center border border-green-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)]">
+        <div class="w-20 h-20 mx-auto bg-green-500/20 rounded-full flex items-center justify-center text-4xl mb-4 border border-green-400/50">✅</div>
+        <h3 class="text-2xl font-bold mb-3 text-white" data-i18n="withdraw_success">Подарок выведен!</h3>
+        <p class="text-md text-green-100/90 mb-6" id="withdraw-msg" data-i18n="withdraw_success_desc">Ожидайте, администратор скоро свяжется с вами.</p>
+        <button onclick="closeModal('success-withdraw-modal')" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 py-3.5 rounded-xl font-bold text-white active:scale-95 transition-transform" data-i18n="excellent">Отлично</button>
+    </div>
+</div>
+
+<div id="history-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md hidden flex items-end z-[60] transition-opacity">
+    <div class="glass-panel w-full rounded-t-3xl border-t border-x border-white/10 shadow-2xl flex flex-col animate-slide-up" style="max-height:85vh;">
+        <div class="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/5 shrink-0">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <h3 class="text-lg font-bold text-white" data-i18n="history_title">История операций</h3>
+            </div>
+            <button onclick="closeModal('history-modal')" class="w-8 h-8 glass rounded-full flex items-center justify-center border border-white/10 active:scale-95 transition-transform">
+                <svg class="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mt-3 mb-1 shrink-0"></div>
+        
+        <!-- Сюда вставляется сгенерированная в profile.js история -->
+        <div id="history-list" class="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2 pb-8" style="scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;">
+            <div class="text-center text-blue-300/50 py-10 animate-pulse font-bold tracking-widest uppercase text-sm" data-i18n="loading">Загрузка...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ==============================================
+     МОДАЛЬНЫЕ ОКНА ДЛЯ ИГР (КЕЙСЫ)
+     ============================================== -->
+<div id="case-details-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-5 transition-opacity">
+    <div class="glass-panel rounded-3xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div class="bg-gradient-to-b from-indigo-500/20 to-transparent p-5 text-center border-b border-white/5 shrink-0 relative">
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
+            <img id="cd-photo" src="" class="w-24 h-24 mx-auto drop-shadow-[0_15px_25px_rgba(0,0,0,0.6)] object-contain relative z-10" onerror="this.src='https://via.placeholder.com/96?text=📦'">
+            <h3 id="cd-title" class="text-2xl font-black mt-3 text-white glow-text tracking-wide relative z-10">...</h3>
+        </div>
+        <div class="flex-1 overflow-y-auto px-5 py-4">
+            <div class="text-[11px] uppercase tracking-wider text-indigo-300/60 font-bold mb-3 flex items-center gap-1">
+                <span data-i18n="possible_drops">Возможный дроп:</span>
+            </div>
+            <div id="cd-items" class="flex flex-col gap-2 mb-2">
+                <!-- Элементы кейса -->
+            </div>
+        </div>
+        <div class="px-5 pb-5 pt-3 shrink-0 border-t border-white/5 bg-black/30">
+            <button id="btn-open-case" class="w-full bg-gradient-to-r from-blue-500 to-indigo-600 shadow-[0_0_20px_rgba(79,70,229,0.4)] text-white py-4 rounded-xl font-extrabold text-lg mb-3 active:scale-[0.98] transition-transform flex items-center justify-center gap-2">
+                <span data-i18n="open_for">Открыть за</span>
+                <span id="cd-price" class="flex items-center gap-1">0 <img src="/gifts/dount.png" class="w-5 h-5 object-contain"></span>
+            </button>
+            <button onclick="closeModal('case-details-modal')" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="close">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<div id="case-animation-modal" class="fixed inset-0 bg-black hidden flex items-center justify-center z-[100] transition-opacity">
+    <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-40"></div>
+    <div id="cam-flash" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-300"></div>
+    
+    <div class="relative w-full max-w-sm flex flex-col items-center justify-center z-10 px-5">
+        <div id="cam-case-wrapper" class="w-48 h-48 flex items-center justify-center mb-10 relative">
+            <div class="absolute inset-0 bg-indigo-500/30 blur-[50px] rounded-full"></div>
+            <img id="cam-case-img" src="" class="w-full h-full object-contain drop-shadow-[0_0_30px_rgba(99,102,241,0.6)]">
+        </div>
+        
+        <div id="cam-result" class="hidden flex-col items-center scale-0 transition-transform duration-500 delay-100 ease-out">
+            <div class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.6)] mb-6 tracking-widest uppercase" data-i18n="win">Победа!</div>
+            <div class="w-36 h-36 bg-amber-500/20 rounded-full flex flex-col items-center justify-center mb-6 border border-amber-400/50 relative shadow-[0_0_40px_rgba(245,158,11,0.4)]">
+                <div class="absolute inset-0 rounded-full bg-amber-500/30 animate-ping opacity-20"></div>
+                <img id="cam-item-img" src="" class="w-24 h-24 object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)] relative z-10">
+            </div>
+            <p id="cam-item-name" class="text-2xl font-bold text-white mb-8 text-center drop-shadow-md glow-text"></p>
+            <button onclick="closeCaseAnimation()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 py-4 px-10 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_20px_rgba(245,158,11,0.5)]" data-i18n="take_prize">Забрать приз!</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==============================================
+     НОВОЕ ОКНО: ПОПОЛНЕНИЕ ЗВЕЗДАМИ
+     ============================================== -->
+<div id="topup-stars-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-5 transition-opacity">
+    <div class="glass-panel rounded-3xl p-6 w-full max-w-sm border border-yellow-500/20 shadow-[0_0_40px_rgba(250,204,21,0.15)] flex flex-col">
+        <div class="text-center mb-5 mt-2">
+            <div class="w-16 h-16 mx-auto bg-yellow-500/20 rounded-full flex flex-col items-center justify-center mb-3 border border-yellow-400/50 shadow-[0_0_20px_rgba(250,204,21,0.3)]">
+                <img src="/gifts/stars.png" class="w-10 h-10 object-contain drop-shadow-md" onerror="this.src='https://via.placeholder.com/40?text=⭐'">
+            </div>
+            <h3 class="text-xl font-bold text-white glow-text" data-i18n="topup_title">Пополнение</h3>
+            <p class="text-xs text-yellow-100/60 mt-1" data-i18n="topup_desc">Выберите количество или введите свое</p>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 mb-4">
+            <button onclick="setTopupAmount(50)" class="glass border border-white/10 rounded-xl py-3 flex flex-col items-center justify-center active:scale-95 transition-all hover:bg-white/5">
+                <span class="text-white font-bold text-lg">50</span>
+                <img src="/gifts/stars.png" class="w-4 h-4 object-contain mt-1" onerror="this.src='https://via.placeholder.com/16?text=⭐'">
+            </button>
+            <button onclick="setTopupAmount(100)" class="glass border border-white/10 rounded-xl py-3 flex flex-col items-center justify-center active:scale-95 transition-all hover:bg-white/5">
+                <span class="text-white font-bold text-lg">100</span>
+                <img src="/gifts/stars.png" class="w-4 h-4 object-contain mt-1" onerror="this.src='https://via.placeholder.com/16?text=⭐'">
+            </button>
+            <button onclick="setTopupAmount(500)" class="glass border border-white/10 rounded-xl py-3 flex flex-col items-center justify-center active:scale-95 transition-all hover:bg-white/5">
+                <span class="text-white font-bold text-lg">500</span>
+                <img src="/gifts/stars.png" class="w-4 h-4 object-contain mt-1" onerror="this.src='https://via.placeholder.com/16?text=⭐'">
+            </button>
+        </div>
+
+        <div class="relative mb-6">
+            <input type="number" id="custom-topup-amount" class="w-full bg-black/40 border border-white/10 rounded-xl pl-4 pr-12 py-3.5 text-white focus:outline-none focus:border-yellow-500/50 transition-colors placeholder-white/30 text-center font-bold text-xl" placeholder="1000" oninput="validateTopupAmount(this)">
+            <img src="/gifts/stars.png" class="w-6 h-6 absolute right-4 top-3.5 object-contain opacity-70" onerror="this.src='https://via.placeholder.com/24?text=⭐'">
+        </div>
+
+        <button id="btn-buy-stars" onclick="buyStars()" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.4)] text-white py-3.5 rounded-xl font-bold text-lg mb-3 active:scale-[0.98] transition-transform flex items-center justify-center gap-2">
+            <span data-i18n="btn_buy">Купить</span>
+        </button>
+        <button onclick="closeModal('topup-stars-modal')" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="cancel">Отмена</button>
+    </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ ВЫВОДА ПОДАРКА С КОМИССИЕЙ -->
+<div id="withdraw-confirm-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md hidden flex items-center justify-center z-[70] p-5 transition-opacity">
+    <div class="glass-panel rounded-3xl p-6 w-full max-w-sm text-center border border-white/10 relative transform scale-95 transition-transform" id="wcm-content">
+        <!-- Кнопка закрытия -->
+        <button onclick="closeModal('withdraw-confirm-modal')" class="absolute top-4 right-4 text-white/50 hover:text-white transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        
+        <h3 class="text-2xl font-extrabold text-white mb-2" data-i18n="withdraw_confirm_title">Вывод подарка</h3>
+        <p class="text-white/70 text-sm mb-6" data-i18n="withdraw_confirm_desc">Для вывода этого подарка необходимо оплатить комиссию сети.</p>
+
+        <!-- Блок с подарком -->
+        <div class="bg-black/30 rounded-2xl p-4 mb-6 border border-white/5">
+            <img id="wcm-gift-img" src="" class="w-20 h-20 mx-auto object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] mb-3">
+            <h4 id="wcm-gift-name" class="text-white font-bold text-lg">Название</h4>
+        </div>
+
+        <!-- Кнопка оплаты (дизайн как у покупки звезд) -->
+        <button id="wcm-btn-confirm" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.4)] text-white py-3.5 rounded-xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+            <span data-i18n="btn_pay_withdraw">Вывести за</span> <span id="wcm-fee-amount">25</span>
+            <img src="/gifts/stars.png" class="w-5 h-5 object-contain" onerror="this.src='https://via.placeholder.com/20?text=⭐'">
+        </button>
+    </div>
+</div>

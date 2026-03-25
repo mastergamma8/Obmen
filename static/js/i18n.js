@@ -27,7 +27,7 @@ const i18n = {
             withdraw_msg: 'Пожалуйста, напишите любое сообщение <br><span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-green-400 text-lg font-bold cursor-pointer underline decoration-green-400/50 underline-offset-4">@SpaceDonutGifts</span><br> для получения вашего подарка.',
             excellent: 'Отлично', how_to_get: 'Как получить',
             how_to_desc: 'Отправьте NFT-подарок на аккаунт <span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-blue-400 cursor-pointer underline font-bold decoration-blue-400/50 underline-offset-4">@SpaceDonutGifts</span>. После проверки он появится у вас. Подарки автоматически конвертируются в <img src="/gifts/dount.png" class="w-4 h-4 inline-block align-middle object-contain"> для открытия главных подарков!',
-            understood: 'Понятно', you: '(Вы)',
+            understood: 'Понятно', you: 'Вы',
             no_gifts_yet: 'У вас пока нет подарков.<br><span class="inline-flex items-center gap-1 mt-1">Копите <img src="/gifts/dount.png" class="w-4 h-4 object-contain"> чтобы получить подарок!</span>',
             click: 'Нажми', win: 'Победа!', take_prize: 'Забрать приз!',
             accumulated: 'Накоплено:', what_gifts_give: 'Какие подарки дают',
@@ -49,13 +49,40 @@ const i18n = {
             hist_claim_gift: 'Куплен подарок', hist_withdraw: 'Вывод подарка',
             hist_task: 'Задание выполнено', hist_referral: 'Реферальный бонус',
             
-            // НОВЫЕ ТЕКСТЫ ДЛЯ КЕЙСОВ
+            // КЕЙСЫ
             games_title: 'Игры',
             cases_title: 'Кейсы', cases_desc: 'Открывай и выигрывай редкие подарки!',
             cases_list_title: 'Доступные кейсы',
             open_for: 'Открыть за', possible_drops: 'Возможный дроп:',
             not_enough_donuts: 'Недостаточно пончиков!',
-            case_opening: 'Открываем...', case_opened: 'Кейс открыт!'
+            not_enough_stars: 'Недостаточно звёзд!',
+            case_opening: 'Открываем...', case_opened: 'Кейс открыт!',
+
+            // РАКЕТА И ПОПОЛНЕНИЕ
+            rocket_title: 'Ракета', rocket_desc: 'Успей забрать иксы до краша!',
+            bet_amount: 'Сумма ставки:', place_bet: 'Полететь',
+            cashout: 'Забрать', crashed: 'Улетела!', you_won: 'Вы выиграли',
+            rocket_starting: 'Подготовка к взлету...',
+            rocket_win_btn: 'Успех!',
+            rocket_err_limits: 'Ставка вне лимитов',
+            rocket_cant_close: 'Дождитесь окончания полета!',
+            topup_title: 'Пополнение', topup_desc: 'Выберите количество или введите свое', 
+            btn_buy: 'Купить', topup_success: 'Звезды успешно зачислены!', err_invalid_amount: 'Неверная сумма',
+            tab_rich: 'Богачи',
+tab_rocket: 'Сорвиголовы',
+tab_lucky: 'Счастливчики',
+lb_empty_rocket: 'Пока нет данных за эту неделю 🚀',
+lb_empty_lucky: 'Пока никто не открывал кейсы 🍀',
+            gift_cooldown_claim: 'Вы уже покупали подарок за пончики.',
+            gift_cooldown_withdraw: 'Вы уже выводили подарок.',
+            cooldown_claim_wait: 'Вы уже покупали подарок. Следующая покупка доступна через {h}ч {m}мин.',
+            cooldown_withdraw_wait: 'Вы уже выводили подарок. Следующий вывод доступен через {h}ч {m}мин.',
+
+            // ВЫВОД С КОМИССИЕЙ
+            withdraw_confirm_title: 'Вывод подарка',
+            withdraw_confirm_desc: 'Для вывода этого подарка необходимо оплатить комиссию сети.',
+            btn_pay_withdraw: 'Вывести за',
+            not_enough_stars_alert: 'Недостаточно звезд для вывода!'
         },
         en: {
             nav_main: 'Main', nav_top: 'Top', nav_earn: 'Earn', nav_profile: 'Profile', nav_games: 'Games',
@@ -81,7 +108,7 @@ const i18n = {
             withdraw_msg: 'Please write any message to <br><span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-green-400 text-lg font-bold cursor-pointer underline decoration-green-400/50 underline-offset-4">@SpaceDonutGifts</span><br> to receive your gift.',
             excellent: 'Excellent', how_to_get: 'How to get',
             how_to_desc: 'Send an NFT gift to the account <span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-blue-400 cursor-pointer underline font-bold decoration-blue-400/50 underline-offset-4">@SpaceDonutGifts</span>. After verification, it will appear here. Gifts are automatically converted to <img src="/gifts/dount.png" class="w-4 h-4 inline-block align-middle object-contain"> to unlock main gifts!',
-            understood: 'Understood', you: '(You)',
+            understood: 'Understood', you: 'You',
             no_gifts_yet: 'You have no gifts yet.<br><span class="inline-flex items-center gap-1 mt-1">Collect <img src="/gifts/dount.png" class="w-4 h-4 object-contain"> to get a gift!</span>',
             click: 'Click', win: 'Victory!', take_prize: 'Take prize!',
             accumulated: 'Accumulated:', what_gifts_give: 'What gifts give',
@@ -103,13 +130,40 @@ const i18n = {
             hist_claim_gift: 'Gift purchased', hist_withdraw: 'Gift withdrawn',
             hist_task: 'Task completed', hist_referral: 'Referral bonus',
             
-            // НОВЫЕ ТЕКСТЫ ДЛЯ КЕЙСОВ
+            // КЕЙСЫ
             games_title: 'Games',
             cases_title: 'Cases', cases_desc: 'Open and win rare gifts!',
             cases_list_title: 'Available Cases',
             open_for: 'Open for', possible_drops: 'Possible drops:',
             not_enough_donuts: 'Not enough donuts!',
-            case_opening: 'Opening...', case_opened: 'Case opened!'
+            not_enough_stars: 'Not enough stars!',
+            case_opening: 'Opening...', case_opened: 'Case opened!',
+
+            // РАКЕТА И ПОПОЛНЕНИЕ
+            rocket_title: 'Rocket', rocket_desc: 'Grab the multiplier before it crashes!',
+            bet_amount: 'Bet Amount:', place_bet: 'Fly',
+            cashout: 'Cashout', crashed: 'Crashed!', you_won: 'You won',
+            rocket_starting: 'Preparing for launch...',
+            rocket_win_btn: 'Success!',
+            rocket_err_limits: 'Bet out of limits',
+            rocket_cant_close: 'Wait until the flight ends!',
+            topup_title: 'Top up', topup_desc: 'Select amount or enter custom', 
+            btn_buy: 'Buy', topup_success: 'Stars successfully credited!', err_invalid_amount: 'Invalid amount',
+            tab_rich: 'Whales',
+tab_rocket: 'Daredevils',
+tab_lucky: 'Lucky Ones',
+lb_empty_rocket: 'No data for this week yet 🚀',
+lb_empty_lucky: 'No cases opened yet 🍀',
+            gift_cooldown_claim: 'You have already purchased a gift with donuts.',
+            gift_cooldown_withdraw: 'You have already withdrawn a gift.',
+            cooldown_claim_wait: 'You have already bought a gift. Next purchase available in {h}h {m}m.',
+            cooldown_withdraw_wait: 'You have already withdrawn a gift. Next withdrawal available in {h}h {m}m.',
+
+            // WITHDRAW WITH FEE
+            withdraw_confirm_title: 'Withdraw Gift',
+            withdraw_confirm_desc: 'To withdraw this gift, you need to pay the network fee.',
+            btn_pay_withdraw: 'Withdraw for',
+            not_enough_stars_alert: 'Not enough stars to withdraw!'
         }
 };
 

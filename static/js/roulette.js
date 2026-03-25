@@ -1,5 +1,5 @@
 // =====================================================
-// РУЛЕТКА
+// РУЛЕТКА (Поддержка Звезд)
 // =====================================================
 
 function renderRouletteWheel() {
@@ -31,14 +31,16 @@ function renderRouletteWheel() {
         let text = 'Приз';
         
         if (isGift) {
-            // Ищем и в главных, и в базовых
             const giftDef = mainGifts[item.gift_id] || baseGifts[item.gift_id];
             if (giftDef) {
                 photoSrc = getImgSrc(giftDef.photo);
                 text = giftDef.name;
             }
-        } else if (!isGift) {
-            photoSrc = getImgSrc(item.photo);
+        } else if (item.type === 'stars') {
+            photoSrc = getImgSrc(item.photo || '/gifts/stars.png');
+            text = `+${item.amount}`;
+        } else if (item.type === 'donuts') {
+            photoSrc = getImgSrc(item.photo || '/gifts/dount.png');
             text = `+${item.amount}`;
         }
         
@@ -60,11 +62,15 @@ async function fetchRouletteInfo() {
     try {
         const res = await fetch(`/api/roulette/info?tg_id=${tgUser.id}`, { headers: getApiHeaders() });
         const data = await res.json();
+        
+        // Определяем иконку валюты (Пончики или Звезды)
+        const currencyIcon = data.currency === 'stars' ? '/gifts/stars.png' : '/gifts/dount.png';
+
         if (data.can_free) {
             btnSpan.innerText = i18n[currentLang].spin_free;
             costText.innerText = i18n[currentLang].free_24h;
         } else {
-            btnSpan.innerHTML = `${i18n[currentLang].spin_for} ${data.cost} <img src="/gifts/dount.png" class="w-5 h-5 inline object-contain align-text-bottom">`;
+            btnSpan.innerHTML = `${i18n[currentLang].spin_for} ${data.cost} <img src="${currencyIcon}" class="w-5 h-5 inline object-contain align-text-bottom">`;
             costText.innerText = `${i18n[currentLang].until_free} ${Math.ceil(data.time_left / 3600)} ${i18n[currentLang].h}`;
         }
         btn.disabled = false;
@@ -104,8 +110,9 @@ async function spinRoulette() {
 
         animateRouletteWheel(targetRotation, 6500, () => {
             rouletteSpinning = false;
-            myBalance = data.balance;
-            myGifts   = data.user_gifts;
+            if (data.balance !== undefined) myBalance = data.balance;
+            if (data.stars !== undefined) myStars = data.stars;
+            myGifts = data.user_gifts;
             updateUI();
             showRouletteResultModal(data.win_item);
             fetchRouletteInfo();
@@ -147,15 +154,18 @@ function showRouletteResultModal(item) {
     let photoSrc = 'https://via.placeholder.com/48', text = 'Приз';
     
     if (isGift) {
-        // Ищем в обоих массивах
         const giftDef = mainGifts[item.gift_id] || baseGifts[item.gift_id];
         if (giftDef) {
             photoSrc = getImgSrc(giftDef.photo);
             text = giftDef.name;
         }
-    } else if (!isGift) {
-        photoSrc = getImgSrc(item.photo);
-        text = `+${item.amount} ${i18n[currentLang].donuts_text}`;
+    } else if (item.type === 'stars') {
+        photoSrc = getImgSrc(item.photo || '/gifts/stars.png');
+        const starsText = currentLang === 'en' ? 'stars!' : 'звезд!';
+        text = `+${item.amount} ${starsText}`;
+    } else if (item.type === 'donuts') {
+        photoSrc = getImgSrc(item.photo || '/gifts/dount.png');
+        text = `+${item.amount} ${i18n[currentLang].donuts_text || 'пончиков!'}`;
     }
     
     document.getElementById('rr-photo').src = photoSrc;

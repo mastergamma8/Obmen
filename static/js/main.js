@@ -115,12 +115,25 @@ async function claimGift(giftId) {
     try {
         const res = await fetch('/api/claim', { method:'POST', headers:getApiHeaders(), body:JSON.stringify({ tg_id:tgUser.id, gift_id:giftId }) });
         const data = await res.json();
+        if (res.status === 429) {
+            // Обработка структурированной ошибки для мультиязычности
+            if (data.detail && data.detail.error === 'cooldown') {
+                const msg = i18n[currentLang].cooldown_claim_wait
+                    .replace('{h}', data.detail.hours)
+                    .replace('{m}', data.detail.minutes);
+                tg.showAlert(`⏳ ${msg}`);
+            } else {
+                tg.showAlert(`⏳ ${data.detail || 'Limit reached'}`);
+            }
+            return;
+        }
         if (data.status === 'ok') {
             myBalance = data.balance; myGifts = data.user_gifts;
             closeModal('main-gift-modal'); updateUI(); switchTab('profile');
             setTimeout(() => tg.showAlert(i18n[currentLang].gift_added), 300);
         } else { tg.showAlert(data.detail || 'Error'); }
-    } finally { btn.innerText = i18n[currentLang].claim_gift; btn.disabled = false; }
+    } catch(e) { tg.showAlert(i18n[currentLang].err_conn); }
+    finally { btn.innerText = i18n[currentLang].claim_gift; btn.disabled = false; }
 }
 
 // Экспорт функций в глобальную область видимости
