@@ -49,6 +49,12 @@ async def init_db():
         try: await db.execute("ALTER TABLE users ADD COLUMN notified_gift_claim INTEGER DEFAULT 1")
         except Exception: pass
 
+        # ── FREE CASE — кулдаун 24 ч ──────────────────────────────────────────
+        try: await db.execute("ALTER TABLE users ADD COLUMN last_free_case INTEGER DEFAULT 0")
+        except Exception: pass
+        try: await db.execute("ALTER TABLE users ADD COLUMN notified_free_case INTEGER DEFAULT 1")
+        except Exception: pass
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_gifts (
                 user_id INTEGER,
@@ -91,9 +97,10 @@ async def upsert_user(tg_id: int, username: str, first_name: str, photo_url: str
                 tg_id, username, first_name, photo_url,
                 balance, stars, last_free_spin, notified_free_spin,
                 last_gift_withdraw, notified_gift_withdraw,
-                last_gift_claim, notified_gift_claim
+                last_gift_claim, notified_gift_claim,
+                last_free_case, notified_free_case
             )
-            VALUES (?, ?, ?, ?, 0, 0, 0, 1, 0, 1, 0, 1)
+            VALUES (?, ?, ?, ?, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1)
             ON CONFLICT(tg_id) DO UPDATE SET
                 username=excluded.username,
                 first_name=excluded.first_name,
@@ -114,10 +121,10 @@ async def get_user_data(user_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT balance, stars, last_free_spin FROM users WHERE tg_id = ?", (user_id,)
+            "SELECT balance, stars, last_free_spin, last_free_case FROM users WHERE tg_id = ?", (user_id,)
         ) as cursor:
             row = await cursor.fetchone()
-            return dict(row) if row else {"balance": 0, "stars": 0, "last_free_spin": 0}
+            return dict(row) if row else {"balance": 0, "stars": 0, "last_free_spin": 0, "last_free_case": 0}
 
 async def get_all_user_ids() -> list[int]:
     async with aiosqlite.connect(DB_NAME) as db:
@@ -176,6 +183,71 @@ async def mark_user_notified(user_id: int):
 
 
 # ==========================================
+# БЕСПЛАТНЫЙ КЕЙС — ТАЙМЕР (24 ч)
+# ==========================================
+
+async def get_last_free_case(user_id: int) -> int:
+    """Возвращает timestamp последнего открытия бесплатного кейса."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT last_free_case FROM users WHERE tg_id = ?", (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+async def update_last_free_case(user_id: int, timestamp: int):
+    """Сохраняет время открытия бесплатного кейса и сбрасывает флаг уведомления."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+            "UPDATE users SET last_free_case = ?, notified_free_case = 0 WHERE tg_id = ?",
+            (timestamp, user_id)
+        )
+        await db.commit()
+
+
+async def get_users_to_notify_free_case(current_timestamp: int) -> list[int]:
+    """Возвращает ID пользователей, у которых прошло 24 ч с последнего открытия
+    бесплатного кейса и уведомление ещё не отправлено."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("""
+            SELECT tg_id FROM users
+            WHERE last_free_case > 0
+              AND (? - last_free_case) >= 86400
+              AND notified_free_case = 0
+        """, (current_timestamp,)) as cursor:
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
+
+
+async def mark_user_notified_free_case(user_id: int):
+    """Помечает, что уведомление о бесплатном кейсе отправлено."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+            "UPDATE users SET notified_free_case = 1 WHERE tg_id = ?", (user_id,)
+        )
+        await db.commit()
+
+
+async def claim_main_gift(user_id: int, gift_id: int, cost: int) -> bool:
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT balance FROM users WHERE tg_id = ?", (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row or row[0] < cost:
+                return False
+        await db.execute(
+            "UPDATE users SET balance = balance - ? WHERE tg_id = ?", (cost, user_id)
+        )
+        await db.execute("""
+            INSERT INTO user_gifts (user_id, gift_id, amount)
+            VALUES (?, ?, 1)
+            ON CONFLICT(user_id, gift_id) DO UPDATE SET amount = amount + 1
+        """, (user_id, gift_id))
+        await db.commit()
+        return True
+        
+# ==========================================
 # ЛИМИТ ПОКУПКИ ПОДАРКОВ — ГЛАВНАЯ СТРАНИЦА
 # ==========================================
 
@@ -211,7 +283,6 @@ async def get_users_to_notify_gift_claim(current_timestamp: int) -> list[int]:
             return [row[0] for row in rows]
 
 async def mark_user_notified_gift_claim(user_id: int):
-    """Ставит флаг — уведомление о доступности покупки отправлено."""
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
             "UPDATE users SET notified_gift_claim = 1 WHERE tg_id = ?", (user_id,)
@@ -220,11 +291,10 @@ async def mark_user_notified_gift_claim(user_id: int):
 
 
 # ==========================================
-# ЛИМИТ ВЫВОДА ПОДАРКОВ — ИНВЕНТАРЬ / ПРОФИЛЬ
+# ЛИМИТ ВЫВОДА ПОДАРКОВ — ИНВЕНТАРЬ
 # ==========================================
 
 async def get_last_gift_withdraw(user_id: int) -> int:
-    """Возвращает timestamp последнего вывода подарка."""
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute(
             "SELECT last_gift_withdraw FROM users WHERE tg_id = ?", (user_id,)
@@ -233,7 +303,6 @@ async def get_last_gift_withdraw(user_id: int) -> int:
             return row[0] if row else 0
 
 async def update_last_gift_withdraw(user_id: int, timestamp: int):
-    """Сохраняет время вывода и сбрасывает флаг уведомления."""
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
             "UPDATE users SET last_gift_withdraw = ?, notified_gift_withdraw = 0 WHERE tg_id = ?",
@@ -242,8 +311,6 @@ async def update_last_gift_withdraw(user_id: int, timestamp: int):
         await db.commit()
 
 async def get_users_to_notify_gift_withdraw(current_timestamp: int) -> list[int]:
-    """Возвращает ID пользователей, у которых прошло 5 ч с последнего вывода
-    и уведомление ещё не отправлено."""
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute("""
             SELECT tg_id FROM users
@@ -255,7 +322,6 @@ async def get_users_to_notify_gift_withdraw(current_timestamp: int) -> list[int]
             return [row[0] for row in rows]
 
 async def mark_user_notified_gift_withdraw(user_id: int):
-    """Ставит флаг — уведомление о доступности вывода отправлено."""
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
             "UPDATE users SET notified_gift_withdraw = 1 WHERE tg_id = ?", (user_id,)
@@ -264,7 +330,7 @@ async def mark_user_notified_gift_withdraw(user_id: int):
 
 
 # ==========================================
-# ПОДАРКИ
+# ПОДАРКИ ПОЛЬЗОВАТЕЛЕЙ
 # ==========================================
 
 async def add_gift_to_user(user_id: int, gift_id: int, amount: int):
@@ -272,35 +338,15 @@ async def add_gift_to_user(user_id: int, gift_id: int, amount: int):
         await db.execute("""
             INSERT INTO user_gifts (user_id, gift_id, amount)
             VALUES (?, ?, ?)
-            ON CONFLICT(user_id, gift_id) DO UPDATE SET
-                amount = amount + excluded.amount
+            ON CONFLICT(user_id, gift_id) DO UPDATE SET amount = amount + excluded.amount
         """, (user_id, gift_id, amount))
         await db.commit()
 
 async def remove_gift_from_user(user_id: int, gift_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""
-            UPDATE user_gifts
-            SET amount = amount - 1
+            UPDATE user_gifts SET amount = amount - 1
             WHERE user_id = ? AND gift_id = ? AND amount > 0
-        """, (user_id, gift_id))
-        await db.commit()
-
-async def claim_main_gift(user_id: int, gift_id: int, cost: int) -> bool:
-    async with aiosqlite.connect(DB_NAME) as db:
-        async with db.execute(
-            "SELECT balance FROM users WHERE tg_id = ?", (user_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            if not row or row[0] < cost:
-                return False
-        await db.execute(
-            "UPDATE users SET balance = balance - ? WHERE tg_id = ?", (cost, user_id)
-        )
-        await db.execute("""
-            INSERT INTO user_gifts (user_id, gift_id, amount)
-            VALUES (?, ?, 1)
-            ON CONFLICT(user_id, gift_id) DO UPDATE SET amount = amount + 1
         """, (user_id, gift_id))
         await db.commit()
         return True

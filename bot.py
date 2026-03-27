@@ -10,6 +10,7 @@ from workers import (
     roulette_reminder_worker,
     gift_claim_reminder_worker,
     gift_withdraw_reminder_worker,
+    free_case_reminder_worker,
     price_update_worker,
 )
 
@@ -35,6 +36,7 @@ async def main():
     asyncio.create_task(roulette_reminder_worker(bot))
     asyncio.create_task(gift_claim_reminder_worker(bot))
     asyncio.create_task(gift_withdraw_reminder_worker(bot))
+    asyncio.create_task(free_case_reminder_worker(bot))
     asyncio.create_task(price_update_worker())
 
     logging.info("Бот запущен!")

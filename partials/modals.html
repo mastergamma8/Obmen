@@ -174,25 +174,62 @@
     </div>
 </div>
 
-<div id="case-animation-modal" class="fixed inset-0 bg-black hidden flex items-center justify-center z-[100] transition-opacity">
-    <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-40"></div>
-    <div id="cam-flash" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-300"></div>
-    
-    <div class="relative w-full max-w-sm flex flex-col items-center justify-center z-10 px-5">
-        <div id="cam-case-wrapper" class="w-48 h-48 flex items-center justify-center mb-10 relative">
-            <div class="absolute inset-0 bg-indigo-500/30 blur-[50px] rounded-full"></div>
-            <img id="cam-case-img" src="" class="w-full h-full object-contain drop-shadow-[0_0_30px_rgba(99,102,241,0.6)]">
+<div id="case-animation-modal" class="fixed inset-0 bg-black/95 hidden flex-col items-center justify-center z-[100] backdrop-blur-md">
+    <!-- Фон: звёзды -->
+    <div class="absolute inset-0 bg-stars-moving opacity-30 pointer-events-none"></div>
+    <div class="absolute top-0 left-0 w-full h-40 bg-gradient-to-b from-indigo-600/20 to-transparent pointer-events-none"></div>
+    <div class="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-indigo-600/10 to-transparent pointer-events-none"></div>
+    <!-- Вспышка -->
+    <div id="cam-flash" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-200 z-20"></div>
+
+    <!-- ЭТАП 1: Слот-лента -->
+    <div id="cam-slot-phase" class="w-full flex flex-col items-center px-4 z-10">
+        <div class="mb-6 text-center">
+            <p class="text-white/40 text-xs uppercase tracking-widest font-bold" data-i18n="case_opening_label">Открываем кейс</p>
+            <h3 id="cam-slot-case-name" class="text-white font-extrabold text-xl mt-1 glow-text"></h3>
         </div>
-        
-        <div id="cam-result" class="hidden flex-col items-center scale-0 transition-transform duration-500 delay-100 ease-out">
-            <div class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.6)] mb-6 tracking-widest uppercase" data-i18n="win">Победа!</div>
-            <div class="w-36 h-36 bg-amber-500/20 rounded-full flex flex-col items-center justify-center mb-6 border border-amber-400/50 relative shadow-[0_0_40px_rgba(245,158,11,0.4)]">
-                <div class="absolute inset-0 rounded-full bg-amber-500/30 animate-ping opacity-20"></div>
-                <img id="cam-item-img" src="" class="w-24 h-24 object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)] relative z-10">
+
+        <!-- Слот-барабан -->
+        <div class="relative w-full" style="max-width:420px;">
+            <!-- Fade края -->
+            <div class="absolute left-0 top-0 h-full w-14 z-10 pointer-events-none" style="background:linear-gradient(to right,rgba(2,6,23,0.97),transparent);"></div>
+            <div class="absolute right-0 top-0 h-full w-14 z-10 pointer-events-none" style="background:linear-gradient(to left,rgba(2,6,23,0.97),transparent);"></div>
+            <!-- Прицел победителя -->
+            <div class="absolute left-1/2 -translate-x-1/2 top-0 h-full z-20 pointer-events-none" style="width:106px;">
+                <div class="absolute inset-0 rounded-xl" style="border:2px solid rgba(250,204,21,0.9);box-shadow:0 0 20px rgba(250,204,21,0.5),inset 0 0 16px rgba(250,204,21,0.08);"></div>
+                <div class="absolute -top-2.5 left-1/2 -translate-x-1/2 w-0 h-0" style="border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid rgba(250,204,21,0.95);filter:drop-shadow(0 0 4px rgba(250,204,21,0.9));"></div>
+                <div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-0 h-0" style="border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:9px solid rgba(250,204,21,0.95);filter:drop-shadow(0 0 4px rgba(250,204,21,0.9));"></div>
             </div>
-            <p id="cam-item-name" class="text-2xl font-bold text-white mb-8 text-center drop-shadow-md glow-text"></p>
-            <button onclick="closeCaseAnimation()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 py-4 px-10 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_20px_rgba(245,158,11,0.5)]" data-i18n="take_prize">Забрать приз!</button>
+            <!-- Лента прокрутки -->
+            <div class="overflow-hidden rounded-2xl border border-white/8" style="height:116px;background:rgba(0,0,0,0.5);">
+                <div id="cam-reel-track" class="flex items-center will-change-transform" style="height:100%;padding:0 12px;gap:10px;"></div>
+            </div>
         </div>
+
+        <!-- Прогресс -->
+        <div class="mt-5 w-full max-w-xs h-1 bg-white/10 rounded-full overflow-hidden">
+            <div id="cam-progress-bar" class="h-full rounded-full" style="width:0%;background:linear-gradient(to right,#6366f1,#a855f7);box-shadow:0 0 8px rgba(139,92,246,0.8);transition:width 0.1s linear;"></div>
+        </div>
+        <p id="cam-spinning-label" class="text-white/30 text-xs mt-2 tracking-widest uppercase font-bold" data-i18n="case_spinning">Вращается...</p>
+    </div>
+
+    <!-- ЭТАП 2: Результат -->
+    <div id="cam-result-phase" class="hidden w-full flex-col items-center px-6 z-10 text-center">
+        <div class="mb-6 relative">
+            <div class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-400 tracking-widest uppercase" data-i18n="case_victory">Победа!</div>
+        </div>
+        <div class="relative mb-6">
+            <div class="absolute inset-0 rounded-full blur-[40px] opacity-50 scale-125" id="cam-result-glow-bg" style="background:radial-gradient(circle,#f59e0b,transparent);"></div>
+            <div class="w-36 h-36 rounded-full border-2 border-amber-400/70 flex items-center justify-center relative" style="background:radial-gradient(circle,rgba(245,158,11,0.15),rgba(0,0,0,0.7));box-shadow:0 0 50px rgba(245,158,11,0.4);">
+                <div class="absolute inset-0 rounded-full bg-amber-500/20 animate-ping opacity-25"></div>
+                <img id="cam-item-img" src="" class="w-24 h-24 object-contain relative z-10" style="filter:drop-shadow(0 10px 25px rgba(0,0,0,0.9));">
+            </div>
+        </div>
+        <p id="cam-item-name" class="text-2xl font-bold text-white mb-1 glow-text"></p>
+        <p id="cam-item-type-label" class="text-sm text-amber-300/60 font-medium mb-8 uppercase tracking-widest"></p>
+        <button onclick="closeCaseAnimation()" class="w-full max-w-xs py-4 rounded-xl font-extrabold text-white text-lg active:scale-95 transition-transform" style="background:linear-gradient(135deg,#f59e0b,#ea580c);box-shadow:0 0 25px rgba(245,158,11,0.5);" data-i18n="take_prize_case">
+            Забрать приз!
+        </button>
     </div>
 </div>
 

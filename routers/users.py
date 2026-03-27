@@ -26,7 +26,8 @@ async def init_user(user: UserInitData, is_valid: bool = Depends(verify_user)):
             "roulette": config.ROULETTE_CONFIG,
             "cases": config.CASES_CONFIG,
             "rocket": config.ROCKET_CONFIG,
-            "withdraw_fee": getattr(config, "WITHDRAW_FEE_STARS", 25)
+            "withdraw_fee": getattr(config, "WITHDRAW_FEE_STARS", 25),
+            "free_case": getattr(config, "FREE_CASE_CONFIG", None)
         }
     }
 

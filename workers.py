@@ -99,6 +99,36 @@ async def gift_withdraw_reminder_worker(bot: Bot):
         await asyncio.sleep(120)
 
 
+async def free_case_reminder_worker(bot: Bot):
+    """Уведомляет пользователей, когда бесплатный кейс снова доступен (24 ч кулдаун)."""
+    while True:
+        try:
+            now = int(__import__('time').time())
+            users_to_notify = await database.get_users_to_notify_free_case(now)
+
+            if users_to_notify:
+                markup = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🎁 Открыть бесплатный кейс", web_app=WebAppInfo(url=config.WEBAPP_URL))]
+                ])
+                text = (
+                    "📦 <b>Бесплатный кейс снова доступен!</b>\n\n"
+                    "Прошло 24 часа — заходи в приложение и открывай свой бесплатный кейс!"
+                )
+
+                for user_id in users_to_notify:
+                    try:
+                        await bot.send_message(user_id, text, parse_mode="HTML", reply_markup=markup)
+                        await database.mark_user_notified_free_case(user_id)
+                        await asyncio.sleep(0.05)
+                    except Exception as e:
+                        logging.warning(f"Не удалось отправить уведомление о кейсе {user_id}: {e}")
+                        await database.mark_user_notified_free_case(user_id)
+        except Exception as e:
+            logging.error(f"Ошибка в воркере уведомлений о бесплатном кейсе: {e}")
+
+        await asyncio.sleep(300)
+
+
 async def price_update_worker():
     """Обновляет цены подарков каждые 30 минут."""
     while True:

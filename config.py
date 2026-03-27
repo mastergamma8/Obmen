@@ -12,8 +12,14 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не найден в переменных окружения (.env)!")
 
-BOT_USERNAME = "SpaceDonutBot" 
-WEBAPP_URL = "https://65236da3-9e20-4a31-97c8-7fe8bda0d438-00-188grbgfvp38t.kirk.replit.dev/" 
+BOT_USERNAME = os.getenv("BOT_USERNAME")
+if not BOT_USERNAME:
+    raise ValueError("BOT_USERNAME не найден в переменных окружения (.env)!") 
+
+WEBAPP_URL = os.getenv("WEBAPP_URL")
+if not WEBAPP_URL:
+    raise ValueError("WEBAPP_URL не найден в переменных окружения (.env)!") 
+
 ADMIN_ID = 1809630966
 
 # Комиссия за вывод подарка в звездах
@@ -88,6 +94,20 @@ ROULETTE_CONFIG = {
         {"type": "donuts", "amount": 50, "photo": "gifts/dount.png", "chance": 0},
         {"type": "donuts", "amount": 100, "photo": "gifts/dount.png", "chance": 0}, 
         {"type": "gift", "gift_id": 1001, "chance": 0},
+    ]
+}
+
+# ==========================================
+# БЕСПЛАТНЫЙ КЕЙС (раз в 24 часа)
+# ==========================================
+FREE_CASE_CONFIG = {
+    "name": "Бесплатный кейс",
+    "photo": "/gifts/dount.png",
+    "items": [
+        {"type": "donuts", "amount": 3,  "chance": 50},
+        {"type": "donuts", "amount": 10, "chance": 30},
+        {"type": "donuts", "amount": 25, "chance": 15},
+        {"type": "stars",  "amount": 1,  "chance": 5},
     ]
 }
 
@@ -262,7 +282,8 @@ BASE_GIFTS = {
     109: {"name": "Rare Bird", "photo": "https://api.changes.tg/original/RareBird.png", "value": 50},
     110: {"name": "Mood Pack", "photo": "https://api.changes.tg/original/MoodPack.png", "value": 50},
     111: {"name": "Pool Float", "photo": "https://api.changes.tg/original/PoolFloat.png", "value": 50},
-    112: {"name": "Timeless Book", "photo": "https://api.changes.tg/original/TimelessBook.png", "value": 50}
+    112: {"name": "Timeless Book", "photo": "https://api.changes.tg/original/TimelessBook.png", "value": 50},
+    113: {"name": "Chill Flame", "photo": "https://api.changes.tg/original/ChillFlame.png", "value": 50}
 }
     
     # ==========================================

@@ -23,6 +23,7 @@ async function initApp() {
         if (data.config.roulette) rouletteConfig = data.config.roulette;
         if (data.config.cases) casesConfig = data.config.cases;
         if (data.config.rocket) rocketConfigLocal = data.config.rocket; 
+        if (data.config.free_case) freeCaseConfig = data.config.free_case;
         
         myGifts      = data.user_gifts;
         myBalance    = data.balance;
