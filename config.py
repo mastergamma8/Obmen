@@ -22,6 +22,13 @@ if not WEBAPP_URL:
 
 ADMIN_ID = 1809630966
 
+# ── Курс конвертации валют для банка ─────────────────────────────────────────
+# 1 пончик = DONUTS_TO_STARS_RATE звёзд в единицах стоимости банка.
+# Все пончиковые суммы умножаются на этот коэффициент перед записью в банк,
+# чтобы total_deposited_value, RTP и проверки платёжеспособности были
+# корректны при смешанной экономике.
+DONUTS_TO_STARS_RATE: int = 115
+
 # Комиссия за вывод подарка в звездах
 WITHDRAW_FEE_STARS = 25
 
@@ -57,7 +64,7 @@ TASKS = {
         "title": "Пригласить 1 друга",
         "url": "", 
         "reward": 1, 
-        "reward_type": "balance", 
+        "reward_type": "stars", 
         "type": "referral",
         "required_referrals": 1
     },
@@ -65,7 +72,7 @@ TASKS = {
         "title": "Пригласить 5 друзей",
         "url": "",
         "reward": 5,
-        "reward_type": "balance", 
+        "reward_type": "stars", 
         "type": "referral",
         "required_referrals": 5
     },
@@ -83,17 +90,20 @@ TASKS = {
 # НАСТРОЙКИ РУЛЕТКИ
 # ==========================================
 ROULETTE_CONFIG = {
-    "currency": "donuts", 
-    "cost": 10,
+    "currency": "stars", 
+    "cost": 150,
     "items": [
         {"type": "stars", "amount": 1, "photo": "gifts/stars.png", "chance": 20},
-        {"type": "stars", "amount": 3, "photo": "gifts/stars.png", "chance": 45},  
-        {"type": "stars", "amount": 5, "photo": "gifts/stars.png", "chance": 35},  
-        {"type": "donuts", "amount": 10, "photo": "gifts/dount.png", "chance": 25}, 
-        {"type": "donuts", "amount": 25, "photo": "gifts/dount.png", "chance": 5}, 
-        {"type": "donuts", "amount": 50, "photo": "gifts/dount.png", "chance": 0},
-        {"type": "donuts", "amount": 100, "photo": "gifts/dount.png", "chance": 0}, 
+        {"type": "stars", "amount": 9, "photo": "gifts/stars.png", "chance": 30},  
+        {"type": "stars", "amount": 20, "photo": "gifts/stars.png", "chance": 15},
+        {"type": "stars", "amount": 50, "photo": "gifts/stars.png", "chance": 25},
+        {"type": "stars", "amount": 150, "photo": "gifts/stars.png", "chance": 10}, 
+        {"type": "donuts", "amount": 5, "photo": "gifts/dount.png", "chance": 5}, 
+        {"type": "donuts", "amount": 10, "photo": "gifts/dount.png", "chance": 0},
+        {"type": "donuts", "amount": 50, "photo": "gifts/dount.png", "chance": 0}, 
         {"type": "gift", "gift_id": 1001, "chance": 0},
+        {"type": "gift", "gift_id": 101, "chance": 0},
+        {"type": "gift", "gift_id": 102, "chance": 0},
     ]
 }
 
@@ -104,10 +114,11 @@ FREE_CASE_CONFIG = {
     "name": "Бесплатный кейс",
     "photo": "/gifts/dount.png",
     "items": [
-        {"type": "donuts", "amount": 3,  "chance": 50},
-        {"type": "donuts", "amount": 10, "chance": 30},
-        {"type": "donuts", "amount": 25, "chance": 15},
-        {"type": "stars",  "amount": 1,  "chance": 5},
+        {"type": "stars", "amount": 1,  "chance": 50},
+        {"type": "stars", "amount": 5, "chance": 10},
+        {"type": "stars", "amount": 10, "chance": 5},
+        {"type": "stars",  "amount": 15,  "chance": 1},
+        {"type": "stars",  "amount": 50,  "chance": 0}
     ]
 }
 
@@ -121,8 +132,8 @@ CASES_CONFIG = {
         "currency": "stars", 
         "price": 15,
         "items": [
-            {"type": "donuts", "amount": 5, "chance": 40},
-            {"type": "donuts", "amount": 15, "chance": 30},
+            {"type": "stars", "amount": 5, "chance": 40},
+            {"type": "stars", "amount": 15, "chance": 30},
             {"type": "gift", "gift_id": 15, "chance": 20}, 
             {"type": "gift", "gift_id": 4, "chance": 10} 
         ]

@@ -9,12 +9,13 @@ from contextlib import asynccontextmanager
 
 import config
 import database
-from routers import users, gifts, games, tasks
+from routers import users, gifts, games, tasks, bank
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Инициализация базы данных
     await database.init_db()
+    await database.init_bank()
     
     # --- ДОБАВЛЕННЫЙ КОД ---
     # Обновляем цены подарков из API Portals при запуске веб-приложения
@@ -58,6 +59,7 @@ app.include_router(users.router)
 app.include_router(gifts.router)
 app.include_router(games.router)
 app.include_router(tasks.router)
+app.include_router(bank.router)
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):

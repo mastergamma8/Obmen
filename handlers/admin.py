@@ -160,6 +160,139 @@ def register(dp: Dispatcher, bot: Bot):
         except ValueError:
             await message.answer("Ошибка: ID и Количество должны быть числами.")
 
+    # ── Банк: справка ─────────────────────────────────────────────────────────
+
+    @dp.message(Command("bankhelp"))
+    async def cmd_bank_help(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"⛔ У вас нет прав. Ваш ID: {message.from_user.id}")
+            return
+        await message.answer(
+            "<b>💰 Команды управления банком</b>\n\n"
+            "<b>/bankstatus</b> — текущая ликвидность банка и RTP по всем валютам\n\n"
+            "<b>/addbank &lt;сумма&gt; [stars|donuts]</b> — пополнить банк\n"
+            "  Примеры:\n"
+            "  <code>/addbank 500</code> — +500 звёзд (по умолчанию)\n"
+            "  <code>/addbank 1000 donuts</code> — +1000 пончиков\n"
+            "  <code>/addbank 200 stars</code> — +200 звёзд",
+            parse_mode="HTML"
+        )
+
+    # ── Банк: статус ──────────────────────────────────────────────────────────
+
+    @dp.message(Command("bankstatus"))
+    async def cmd_bank_status(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"⛔ У вас нет прав. Ваш ID: {message.from_user.id}")
+            return
+
+        bank = await database.get_bank()
+
+        stars_bal  = bank.get("stars_balance", 0)
+        donuts_bal = bank.get("donuts_balance", 0)
+        gift_bal   = bank.get("gift_value_balance", 0)
+        total_liq  = stars_bal + donuts_bal + gift_bal
+
+        total_dep  = bank.get("total_deposited_value", 0)
+        total_paid = bank.get("total_paid_out_value", 0)
+        total_edge = bank.get("total_house_edge_value", 0)
+
+        stars_dep   = bank.get("stars_deposited", 0)
+        stars_paid  = bank.get("stars_paid_out", 0)
+        donuts_dep  = bank.get("donuts_deposited", 0)
+        donuts_paid = bank.get("donuts_paid_out", 0)
+        gift_paid   = bank.get("gift_value_paid_out", 0)
+
+        def rtp(paid, dep):
+            return f"{round(paid / dep * 100, 1)}%" if dep > 0 else "—"
+
+        rate = config.DONUTS_TO_STARS_RATE
+        donuts_in_stars = donuts_bal * rate
+        total_liq_stars = stars_bal + donuts_in_stars + gift_bal
+        await message.answer(
+            "<b>🏦 Состояние Глобального Банка</b>\n"
+            f"<i>Курс: 1 🍩 = {rate} ⭐️</i>\n\n"
+            "<b>💧 Ликвидность</b>\n"
+            f"  ⭐️ Звёзды:              <b>{stars_bal}</b>\n"
+            f"  🍩 Пончики:             <b>{donuts_bal}</b>\n"
+            f"  🍩→⭐️ Пончики в звёздах: <b>{donuts_in_stars}</b>\n"
+            f"  🎁 Подарки (value):     <b>{gift_bal}</b>\n"
+            f"  📦 Итого (stars-value): <b>{total_liq_stars}</b>\n\n"
+            "<b>📊 Общая статистика (все валюты)</b>\n"
+            f"  Внесено:     {total_dep}\n"
+            f"  Выплачено:   {total_paid}\n"
+            f"  Комиссия:    {total_edge}\n"
+            f"  RTP:         <b>{rtp(total_paid, total_dep)}</b>\n\n"
+            "<b>⭐️ Звёзды</b>\n"
+            f"  Внесено: {stars_dep}  |  Выплачено: {stars_paid}  |  RTP: <b>{rtp(stars_paid, stars_dep)}</b>\n\n"
+            "<b>🍩 Пончики</b>\n"
+            f"  Внесено: {donuts_dep}  |  Выплачено: {donuts_paid}  |  RTP: <b>{rtp(donuts_paid, donuts_dep)}</b>\n\n"
+            "<b>🎁 Подарки (value-эквивалент)</b>\n"
+            f"  Выплачено: {gift_paid}",
+            parse_mode="HTML"
+        )
+
+    # ── Банк: пополнение ──────────────────────────────────────────────────────
+
+    @dp.message(Command("addbank"))
+    async def cmd_add_bank(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"⛔ У вас нет прав. Ваш ID: {message.from_user.id}")
+            return
+
+        args = message.text.split()
+        if len(args) < 2 or len(args) > 3:
+            await message.answer(
+                "Использование: <code>/addbank &lt;сумма&gt; [stars|donuts]</code>\n"
+                "По умолчанию — звёзды.\n\n"
+                "Примеры:\n"
+                "<code>/addbank 500</code>\n"
+                "<code>/addbank 1000 donuts</code>",
+                parse_mode="HTML"
+            )
+            return
+
+        try:
+            amount = int(args[1])
+        except ValueError:
+            await message.answer("❌ Сумма должна быть целым числом.")
+            return
+
+        if amount <= 0:
+            await message.answer("❌ Сумма должна быть больше нуля.")
+            return
+
+        asset_type = "stars"
+        if len(args) == 3:
+            asset_type = args[2].lower()
+            if asset_type not in ("stars", "donuts"):
+                await message.answer("❌ Тип актива должен быть <code>stars</code> или <code>donuts</code>.", parse_mode="HTML")
+                return
+
+        if asset_type == "donuts":
+            await database.bank_add_donuts(amount)
+            label = f"{amount} 🍩 пончиков"
+        else:
+            await database.bank_add_stars(amount)
+            label = f"{amount} ⭐️ звёзд"
+
+        bank = await database.get_bank()
+        total_liq = (
+            bank.get("stars_balance", 0)
+            + bank.get("donuts_balance", 0)
+            + bank.get("gift_value_balance", 0)
+        )
+
+        await message.answer(
+            f"✅ Банк пополнен на <b>{label}</b>.\n\n"
+            f"⭐️ Звёзды: <b>{bank.get('stars_balance', 0)}</b>\n"
+            f"🍩 Пончики: <b>{bank.get('donuts_balance', 0)}</b>\n"
+            f"📦 Общая ликвидность: <b>{total_liq}</b>",
+            parse_mode="HTML"
+        )
+
+    # ── Отмена FSM ────────────────────────────────────────────────────────────
+
     @dp.message(Command("cancel"))
     async def cmd_cancel(message: Message, state: FSMContext):
         current_state = await state.get_state()
