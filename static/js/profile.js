@@ -69,7 +69,7 @@ async function confirmWithdraw(giftId) {
         const res = await fetch('/api/withdraw', {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify({ tg_id: tgUser.id, gift_id: giftId })
+            body: JSON.stringify({ gift_id: giftId })
         });
         const data = await res.json();
 
@@ -230,7 +230,7 @@ async function loadMoreHistory(isFirstLoad = false) {
     }
 
     try {
-        const res = await fetch(`/api/history?tg_id=${tgUser.id}&offset=${historyOffset}&limit=${HISTORY_PAGE_SIZE}`, { headers: getApiHeaders() });
+        const res = await fetch(`/api/history?offset=${historyOffset}&limit=${HISTORY_PAGE_SIZE}`, { headers: getApiHeaders() });
         const data = await res.json();
 
         // Удаляем спиннер

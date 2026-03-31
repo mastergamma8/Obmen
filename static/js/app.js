@@ -10,7 +10,6 @@ async function initApp() {
             method: 'POST',
             headers: getApiHeaders(),
             body: JSON.stringify({
-                tg_id:      tgUser.id,
                 username:   tgUser.username   || '',
                 first_name: tgUser.first_name || '',
                 photo_url:  tgUser.photo_url  || ''

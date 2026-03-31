@@ -1,8 +1,8 @@
 # db_users.py
-# Пользователи: регистрация, профиль, баланс, подарки, кулдауны рулетки/кейса/вывода.
+# Пользователи: регистрация, профиль, баланс, подарки, кулдауны.
 
 import aiosqlite
-from db_core import DB_NAME, GIFT_CLAIM_COOLDOWN, GIFT_WITHDRAW_COOLDOWN
+from db.db_core import DB_NAME, GIFT_CLAIM_COOLDOWN, GIFT_WITHDRAW_COOLDOWN
 
 
 # ==========================================
@@ -53,7 +53,7 @@ async def get_all_user_ids() -> list[int]:
 
 
 # ==========================================
-# БАЛАНС И ЗВЁЗДЫ
+# БАЛАНС И ЗВЁЗДЫ — АТОМАРНЫЕ ОПЕРАЦИИ
 # ==========================================
 
 async def add_points_to_user(user_id: int, points: int):
@@ -71,15 +71,30 @@ async def add_stars_to_user(user_id: int, stars: int):
         await db.commit()
 
 async def deduct_stars(tg_id: int, amount: int) -> bool:
-    """Списывает звёзды с баланса пользователя, если их достаточно."""
+    """
+    Атомарное списание звёзд: UPDATE ... WHERE stars >= amount.
+    Возвращает True только если строка реально обновилась.
+    """
     async with aiosqlite.connect(DB_NAME) as db:
-        async with db.execute("SELECT stars FROM users WHERE tg_id = ?", (tg_id,)) as cursor:
-            row = await cursor.fetchone()
-            if not row or row[0] < amount:
-                return False
-        await db.execute("UPDATE users SET stars = stars - ? WHERE tg_id = ?", (amount, tg_id))
+        cur = await db.execute(
+            "UPDATE users SET stars = stars - ? WHERE tg_id = ? AND stars >= ?",
+            (amount, tg_id, amount)
+        )
         await db.commit()
-        return True
+        return cur.rowcount == 1
+
+async def deduct_balance(user_id: int, amount: int) -> bool:
+    """
+    Атомарное списание пончиков: UPDATE ... WHERE balance >= amount.
+    Возвращает True только если строка реально обновилась.
+    """
+    async with aiosqlite.connect(DB_NAME) as db:
+        cur = await db.execute(
+            "UPDATE users SET balance = balance - ? WHERE tg_id = ? AND balance >= ?",
+            (amount, user_id, amount)
+        )
+        await db.commit()
+        return cur.rowcount == 1
 
 
 # ==========================================
@@ -117,7 +132,6 @@ async def mark_user_notified(user_id: int):
 # ==========================================
 
 async def get_last_free_case(user_id: int) -> int:
-    """Возвращает timestamp последнего открытия бесплатного кейса."""
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute(
             "SELECT last_free_case FROM users WHERE tg_id = ?", (user_id,)
@@ -126,7 +140,6 @@ async def get_last_free_case(user_id: int) -> int:
             return row[0] if row else 0
 
 async def update_last_free_case(user_id: int, timestamp: int):
-    """Сохраняет время открытия бесплатного кейса и сбрасывает флаг уведомления."""
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
             "UPDATE users SET last_free_case = ?, notified_free_case = 0 WHERE tg_id = ?",
@@ -154,27 +167,39 @@ async def mark_user_notified_free_case(user_id: int):
 
 
 # ==========================================
-# ЛИМИТ ПОКУПКИ ПОДАРКОВ — ГЛАВНАЯ СТРАНИЦА
+# ПОКУПКА ПОДАРКОВ — АТОМАРНАЯ ТРАНЗАКЦИЯ
 # ==========================================
 
 async def claim_main_gift(user_id: int, gift_id: int, cost: int) -> bool:
+    """
+    Атомарно списывает balance и добавляет подарок в инвентарь.
+    Использует BEGIN IMMEDIATE для защиты от гонок.
+    Возвращает True при успехе, False если средств недостаточно.
+    """
     async with aiosqlite.connect(DB_NAME) as db:
-        async with db.execute(
-            "SELECT balance FROM users WHERE tg_id = ?", (user_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            if not row or row[0] < cost:
+        try:
+            await db.execute("BEGIN IMMEDIATE")
+
+            cur = await db.execute(
+                "UPDATE users SET balance = balance - ? WHERE tg_id = ? AND balance >= ?",
+                (cost, user_id, cost)
+            )
+            if cur.rowcount != 1:
+                await db.rollback()
                 return False
-        await db.execute(
-            "UPDATE users SET balance = balance - ? WHERE tg_id = ?", (cost, user_id)
-        )
-        await db.execute("""
-            INSERT INTO user_gifts (user_id, gift_id, amount)
-            VALUES (?, ?, 1)
-            ON CONFLICT(user_id, gift_id) DO UPDATE SET amount = amount + 1
-        """, (user_id, gift_id))
-        await db.commit()
-        return True
+
+            await db.execute("""
+                INSERT INTO user_gifts (user_id, gift_id, amount)
+                VALUES (?, ?, 1)
+                ON CONFLICT(user_id, gift_id)
+                DO UPDATE SET amount = amount + 1
+            """, (user_id, gift_id))
+
+            await db.commit()
+            return True
+        except Exception:
+            await db.rollback()
+            raise
 
 async def get_last_gift_claim(user_id: int) -> int:
     async with aiosqlite.connect(DB_NAME) as db:
@@ -212,7 +237,7 @@ async def mark_user_notified_gift_claim(user_id: int):
 
 
 # ==========================================
-# ЛИМИТ ВЫВОДА ПОДАРКОВ — ИНВЕНТАРЬ
+# ВЫВОД ПОДАРКОВ — ТАЙМЕРЫ
 # ==========================================
 
 async def get_last_gift_withdraw(user_id: int) -> int:
@@ -263,14 +288,19 @@ async def add_gift_to_user(user_id: int, gift_id: int, amount: int):
         """, (user_id, gift_id, amount))
         await db.commit()
 
-async def remove_gift_from_user(user_id: int, gift_id: int):
+async def remove_gift_from_user(user_id: int, gift_id: int) -> bool:
+    """
+    Атомарно списывает 1 подарок из инвентаря.
+    Возвращает True только если подарок реально был (amount > 0).
+    """
     async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("""
-            UPDATE user_gifts SET amount = amount - 1
+        cur = await db.execute("""
+            UPDATE user_gifts
+            SET amount = amount - 1
             WHERE user_id = ? AND gift_id = ? AND amount > 0
         """, (user_id, gift_id))
         await db.commit()
-        return True
+        return cur.rowcount == 1
 
 async def get_user_gifts(user_id: int):
     async with aiosqlite.connect(DB_NAME) as db:

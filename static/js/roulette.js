@@ -57,10 +57,19 @@ async function fetchRouletteInfo() {
     const costText = document.getElementById('spin-cost-text');
     if (!btn) return;
     const btnSpan = btn.querySelector('span');
+
+    // В демо-режиме всегда активна кнопка без запроса к серверу
+    if (isDemoMode) {
+        btnSpan.innerText = (currentLang === 'en' ? 'Spin (Demo)' : 'Крутить (Демо)');
+        if (costText) costText.innerText = (currentLang === 'en' ? 'Demo — nothing is credited' : 'Демо — ничего не начисляется');
+        btn.disabled = false;
+        return;
+    }
+
     btnSpan.innerText = i18n[currentLang].loading;
     btn.disabled = true;
     try {
-        const res = await fetch(`/api/roulette/info?tg_id=${tgUser.id}`, { headers: getApiHeaders() });
+        const res = await fetch(`/api/roulette/info`, { headers: getApiHeaders() });
         const data = await res.json();
         
         // Определяем иконку валюты (Пончики или Звезды)
@@ -83,6 +92,7 @@ async function openRoulette() {
     if (!rouletteConfig.items) return;
     vibrate('medium');
     switchTab('roulette');
+    syncDemoToggles();
     await fetchRouletteInfo();
 }
 
@@ -91,11 +101,32 @@ async function spinRoulette() {
     vibrate('heavy');
     const btn = document.getElementById('btn-spin');
     btn.disabled = true;
+
+    // ── ДЕМО-РЕЖИМ ──────────────────────────────────────────────────────────
+    if (isDemoMode) {
+        rouletteSpinning = true;
+        const items = rouletteConfig.items;
+        const numSegments = items.length;
+        const angle = 360 / numSegments;
+        const demoIndex = Math.floor(Math.random() * numSegments);
+        const winAngle = (demoIndex + 0.5) * angle;
+        const currentMod = rouletteCurrentRotation % 360;
+        let targetRotation = rouletteCurrentRotation + 6*360 + (360 - winAngle - currentMod);
+        targetRotation += (Math.random() - 0.5) * (angle * 0.7);
+
+        animateRouletteWheel(targetRotation, 6500, () => {
+            rouletteSpinning = false;
+            showRouletteResultModal(items[demoIndex], true);
+            fetchRouletteInfo();
+        });
+        return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
     try {
         const res = await fetch('/api/roulette/spin', {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify({ tg_id: tgUser.id })
+            body: JSON.stringify({})
         });
         const data = await res.json();
         if (data.status !== 'ok') { tg.showAlert(data.detail || 'Error!'); btn.disabled = false; return; }
@@ -148,7 +179,7 @@ function animateRouletteWheel(targetRotation, duration, callback) {
     requestAnimationFrame(step);
 }
 
-function showRouletteResultModal(item) {
+function showRouletteResultModal(item, isDemo = false) {
     vibrate('heavy');
     const isGift = item.type === 'gift';
     let photoSrc = 'https://via.placeholder.com/48', text = 'Приз';
@@ -170,6 +201,9 @@ function showRouletteResultModal(item) {
     
     document.getElementById('rr-photo').src = photoSrc;
     document.getElementById('rr-text').innerHTML = text;
+    // Показываем/скрываем плашку ДЕМО в модалке результата
+    const demoBadge = document.getElementById('rr-demo-badge');
+    if (demoBadge) demoBadge.style.display = isDemo ? '' : 'none';
     const content = document.getElementById('rrm-content');
     if (content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); }
     openModal('roulette-result-modal');

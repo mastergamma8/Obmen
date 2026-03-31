@@ -294,7 +294,8 @@ BASE_GIFTS = {
     110: {"name": "Mood Pack", "photo": "https://api.changes.tg/original/MoodPack.png", "value": 50},
     111: {"name": "Pool Float", "photo": "https://api.changes.tg/original/PoolFloat.png", "value": 50},
     112: {"name": "Timeless Book", "photo": "https://api.changes.tg/original/TimelessBook.png", "value": 50},
-    113: {"name": "Chill Flame", "photo": "https://api.changes.tg/original/ChillFlame.png", "value": 50}
+    113: {"name": "Chill Flame", "photo": "https://api.changes.tg/original/ChillFlame.png", "value": 50},
+    114: {"name": "Vice Cream", "photo": "https://api.changes.tg/original/ViceCream.png", "value": 50}
 }
     
     # ==========================================

@@ -64,6 +64,16 @@ def register(dp: Dispatcher, bot: Bot):
                 user_id = int(parts[1])
                 stars_amount = int(parts[2])
 
+                # Защита от подмены: реальный плательщик должен совпадать
+                # с user_id из payload, чтобы нельзя было зачислить звёзды чужому аккаунту.
+                if message.from_user.id != user_id:
+                    logging.warning(
+                        f"successful_payment mismatch: from_user={message.from_user.id}, "
+                        f"payload_user={user_id} — начисление отклонено"
+                    )
+                    await message.answer("❌ Ошибка верификации платежа. Обратитесь в поддержку.")
+                    return
+
                 await database.add_stars_to_user(user_id, stars_amount)
                 await database.add_history_entry(
                     user_id, "topup_stars", f"Пополнение баланса на {stars_amount} ⭐️", stars_amount

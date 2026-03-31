@@ -1,39 +1,20 @@
 """
 routers/bank.py — Административный роутер для управления Глобальным Банком.
 
-Банк работает с тремя типами активов:
-  - stars       (звёзды Telegram)
-  - donuts      (пончики — внутренняя валюта)
-  - gift_value  (стоимость подарков в value-эквиваленте)
-
-Решение о выплате принимается по суммарной ликвидности (liquidity_value),
-RTP считается отдельно по каждому типу и в целом.
-
-Эндпоинты топапа доступны только администратору (ADMIN_ID из config).
+Топап доступен только администратору (ADMIN_ID из config).
+tg_id администратора извлекается из TG InitData через get_current_user.
 """
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 
 import config
 import database
-from security import verify_user
+from handlers.models import AdminBankTopup
+from handlers.security import get_current_user
 
 router = APIRouter(prefix="/bank", tags=["bank"])
 
 
-class AdminBankTopup(BaseModel):
-    tg_id: int
-    amount: int
-    asset_type: str = "stars"   # "stars" | "donuts"
-
-
-def _require_admin(tg_id: int):
-    if tg_id != config.ADMIN_ID:
-        raise HTTPException(status_code=403, detail="Доступ запрещён")
-
-
 def _safe_rtp(paid_out: int, deposited: int) -> float:
-    """Вычисляет RTP (%) без деления на ноль."""
     if deposited <= 0:
         return 0.0
     return round(paid_out / deposited * 100, 2)
@@ -43,25 +24,13 @@ def _safe_rtp(paid_out: int, deposited: int) -> float:
 
 @router.get("/status")
 async def bank_status():
-    """
-    Возвращает полное состояние Глобального Банка.
-
-    Включает:
-      - ликвидность по каждому типу актива и суммарно;
-      - общий RTP по всем валютам;
-      - RTP по звёздам и пончикам отдельно;
-      - выплату подарков в value-эквиваленте.
-
-    Открыт для всех (баланс банка влияет на UI игр).
-    """
     bank = await database.get_bank()
     rate = config.DONUTS_TO_STARS_RATE
 
     stars_bal  = bank.get("stars_balance", 0)
     donuts_bal = bank.get("donuts_balance", 0)
     gift_bal   = bank.get("gift_value_balance", 0)
-    # Суммарная ликвидность в stars-value (пончики × курс)
-    total_liq  = stars_bal + donuts_bal * rate + gift_bal
+    total_liq  = stars_bal + donuts_bal * rate + gift_bal  # FIX: с курсом
 
     total_dep   = bank.get("total_deposited_value", 0)
     total_paid  = bank.get("total_paid_out_value", 0)
@@ -76,7 +45,7 @@ async def bank_status():
     return {
         "exchange_rate": {
             "donuts_to_stars": rate,
-            "note": "1 donut = {} stars (bank value)".format(rate),
+            "note": f"1 donut = {rate} stars (bank value)",
         },
         "liquidity": {
             "stars":           stars_bal,
@@ -107,16 +76,17 @@ async def bank_status():
     }
 
 
-# ── Администраторские операции ────────────────────────────────────────────────
+# ── Администраторский топап ───────────────────────────────────────────────────
 
 @router.post("/topup")
-async def bank_topup(data: AdminBankTopup, is_valid: bool = Depends(verify_user)):
+async def bank_topup(data: AdminBankTopup, current_user: dict = Depends(get_current_user)):
     """
     Пополнение банка администратором.
-
-    asset_type: "stars" (по умолчанию) или "donuts".
+    Проверка прав — по серверному current_user["id"], не по данным из тела.
     """
-    _require_admin(data.tg_id)
+    if current_user["id"] != config.ADMIN_ID:
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
+
     if data.amount <= 0:
         raise HTTPException(status_code=400, detail="Сумма должна быть > 0")
     if data.asset_type not in ("stars", "donuts"):
@@ -127,16 +97,17 @@ async def bank_topup(data: AdminBankTopup, is_valid: bool = Depends(verify_user)
     else:
         await database.bank_add_stars(data.amount)
 
-    bank = await database.get_bank()
+    bank  = await database.get_bank()
+    rate  = config.DONUTS_TO_STARS_RATE
     total_liq = (
         bank.get("stars_balance", 0)
-        + bank.get("donuts_balance", 0)
+        + bank.get("donuts_balance", 0) * rate
         + bank.get("gift_value_balance", 0)
     )
     return {
-        "status": "ok",
-        "asset_type": data.asset_type,
-        "added": data.amount,
+        "status":             "ok",
+        "asset_type":         data.asset_type,
+        "added":              data.amount,
         "new_stars_balance":  bank.get("stars_balance", 0),
         "new_donuts_balance": bank.get("donuts_balance", 0),
         "total_liquidity":    total_liq,

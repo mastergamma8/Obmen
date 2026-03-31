@@ -1,22 +1,11 @@
 # database.py
 # Единая точка входа для всего кода проекта.
-# Весь остальной код (routers, handlers, workers) импортирует отсюда —
-# ничего менять в роутерах не нужно.
-#
-# Структура модулей:
-#   db_core.py        — константы подключения (DB_NAME, кулдауны)
-#   db_init.py        — создание таблиц и миграции (init_db, init_bank→здесь реэкспорт из db_bank)
-#   db_users.py       — пользователи, баланс, подарки, кулдауны
-#   db_history.py     — история действий, задания
-#   db_referrals.py   — реферальная система
-#   db_leaderboard.py — таблицы лидеров
-#   db_bank.py        — банк, RTP, выплаты
 
-from db_core import DB_NAME, GIFT_WITHDRAW_COOLDOWN, GIFT_CLAIM_COOLDOWN  # noqa: F401
+from db.db_core import DB_NAME, GIFT_WITHDRAW_COOLDOWN, GIFT_CLAIM_COOLDOWN  # noqa: F401
 
-from db_init import init_db  # noqa: F401
+from db.db_init import init_db, init_rocket_games_table  # noqa: F401
 
-from db_users import (  # noqa: F401
+from db.db_users import (  # noqa: F401
     upsert_user,
     get_user_profile,
     get_user_data,
@@ -24,6 +13,7 @@ from db_users import (  # noqa: F401
     add_points_to_user,
     add_stars_to_user,
     deduct_stars,
+    deduct_balance,
     update_last_free_spin,
     get_users_to_notify,
     mark_user_notified,
@@ -45,7 +35,7 @@ from db_users import (  # noqa: F401
     get_user_gifts,
 )
 
-from db_history import (  # noqa: F401
+from db.db_history import (  # noqa: F401
     get_completed_tasks,
     mark_task_completed,
     add_history_entry,
@@ -54,20 +44,20 @@ from db_history import (  # noqa: F401
     get_user_history_count,
 )
 
-from db_referrals import (  # noqa: F401
+from db.db_referrals import (  # noqa: F401
     set_referrer,
     get_referrer,
     get_referrals,
     distribute_referral_bonus,
 )
 
-from db_leaderboard import (  # noqa: F401
+from db.db_leaderboard import (  # noqa: F401
     get_leaderboard,
     get_rocket_leaderboard,
     get_lucky_leaderboard,
 )
 
-from db_bank import (  # noqa: F401
+from db.db_bank import (  # noqa: F401
     init_bank,
     get_bank,
     bank_deposit,
@@ -76,4 +66,11 @@ from db_bank import (  # noqa: F401
     bank_get_max_payout,
     bank_add_stars,
     bank_add_donuts,
+)
+
+from db.db_rocket import (  # noqa: F401
+    rocket_start_game,
+    rocket_start_atomic,
+    rocket_get_game,
+    rocket_end_game,
 )

@@ -113,7 +113,7 @@ async function claimGift(giftId) {
     const btn = document.getElementById('btn-claim');
     btn.innerText = i18n[currentLang].processing; btn.disabled = true;
     try {
-        const res = await fetch('/api/claim', { method:'POST', headers:getApiHeaders(), body:JSON.stringify({ tg_id:tgUser.id, gift_id:giftId }) });
+        const res = await fetch('/api/claim', { method:'POST', headers:getApiHeaders(), body:JSON.stringify({ gift_id:giftId }) });
         const data = await res.json();
         if (res.status === 429) {
             // Обработка структурированной ошибки для мультиязычности

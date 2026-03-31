@@ -14,6 +14,7 @@ function openGamesCases() {
         document.getElementById('games-main-view').classList.add('hidden');
         document.getElementById('games-cases-list-view').classList.remove('hidden');
     }
+    if (typeof syncDemoToggles === 'function') syncDemoToggles();
     renderCasesGrid();
 }
 
@@ -36,7 +37,7 @@ function closeGamesCases() {
 
 async function fetchFreeCaseStatus() {
     try {
-        const res = await fetch(`/api/cases/free_status?tg_id=${tgUser.id}`, {
+        const res = await fetch(`/api/cases/free_status`, {
             headers: getApiHeaders()
         });
         const data = await res.json();
@@ -132,16 +133,18 @@ function _renderFreeCaseBannerCooldown(banner, remainingSeconds) {
 async function openFreeCaseDetails() {
     if (typeof vibrate === 'function') vibrate('light');
 
-    // Re-check availability before showing modal
-    const status = await fetchFreeCaseStatus();
-    if (!status.available) {
-        const t = (i18n && i18n[currentLang]) ? i18n[currentLang] : {};
-        const h = Math.floor(status.remaining_seconds / 3600);
-        const m = Math.floor((status.remaining_seconds % 3600) / 60);
-        const msg = (t.free_case_not_yet || 'Free case available in {h}h {m}m.')
-            .replace('{h}', h).replace('{m}', m);
-        if (typeof tg !== 'undefined' && tg) tg.showAlert(msg);
-        return;
+    // В демо-режиме пропускаем проверку cooldown
+    if (!isDemoMode) {
+        const status = await fetchFreeCaseStatus();
+        if (!status.available) {
+            const t = (i18n && i18n[currentLang]) ? i18n[currentLang] : {};
+            const h = Math.floor(status.remaining_seconds / 3600);
+            const m = Math.floor((status.remaining_seconds % 3600) / 60);
+            const msg = (t.free_case_not_yet || 'Free case available in {h}h {m}m.')
+                .replace('{h}', h).replace('{m}', m);
+            if (typeof tg !== 'undefined' && tg) tg.showAlert(msg);
+            return;
+        }
     }
 
     // Populate modal with FREE_CASE_CONFIG data sent from server via casesConfig
@@ -156,7 +159,11 @@ async function openFreeCaseDetails() {
 
     const btn = document.getElementById('btn-open-case');
     btn.classList.remove('opacity-50', 'pointer-events-none');
-    btn.innerHTML = `<span>${t.free_case_open_btn || 'Open for Free!'} </span>`;
+    if (isDemoMode) {
+        btn.innerHTML = `<span>${t.free_case_open_btn || 'Open for Free!'} <span class="text-orange-300/80 text-xs">(Демо)</span></span>`;
+    } else {
+        btn.innerHTML = `<span>${t.free_case_open_btn || 'Open for Free!'} </span>`;
+    }
     btn.onclick = () => buyAndOpenFreeCase();
 
     // Items list
@@ -197,11 +204,36 @@ async function buyAndOpenFreeCase() {
     btn.innerHTML = `<span>${t.case_opening || 'Opening...'}</span>`;
     if (typeof vibrate === 'function') vibrate('heavy');
 
+    // ── ДЕМО-РЕЖИМ ──────────────────────────────────────────────────────────
+    if (isDemoMode) {
+        const c = typeof freeCaseConfig !== 'undefined' ? freeCaseConfig : null;
+        if (c) {
+            const items = c.items || [];
+            const total = items.reduce((s, it) => s + (it.chance || 0), 0);
+            let rand = Math.random() * total;
+            let demoWin = items[0];
+            for (const it of items) { rand -= (it.chance || 0); if (rand <= 0) { demoWin = it; break; } }
+            setTimeout(() => {
+                isOpeningCase = false;
+                btn.classList.remove('btn-disabled');
+                btn.innerHTML = originalBtnHTML;
+                if (typeof closeModal === 'function') closeModal('case-details-modal');
+                playCaseAnimation(c, demoWin, true);
+            }, 300);
+        } else {
+            isOpeningCase = false;
+            btn.classList.remove('btn-disabled');
+            btn.innerHTML = originalBtnHTML;
+        }
+        return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     try {
         const res = await fetch('/api/cases/open_free', {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify({ tg_id: tgUser.id, gift_id: 0 })
+            body: JSON.stringify({})
         });
         const data = await res.json();
 
@@ -303,15 +335,20 @@ function openCaseDetails(caseId) {
     const currentBal = c.currency === 'stars' ? myStars : myBalance;
 
     const btn = document.getElementById('btn-open-case');
-    if (currentBal < c.price) {
+    if (!isDemoMode && currentBal < c.price) {
         btn.classList.add('opacity-50', 'pointer-events-none');
         const notEnoughKey = c.currency === 'stars' ? 'not_enough_stars' : 'not_enough_donuts';
         const txt = (i18n[currentLang] && i18n[currentLang][notEnoughKey]) ? i18n[currentLang][notEnoughKey] : 'Недостаточно средств!';
         btn.innerHTML = `<span>${txt}</span>`;
     } else {
         btn.classList.remove('opacity-50', 'pointer-events-none');
-        const txt = (i18n[currentLang] && i18n[currentLang].open_for) ? i18n[currentLang].open_for : 'Открыть за';
-        btn.innerHTML = `<span data-i18n="open_for">${txt}</span> <span class="flex items-center gap-1 text-yellow-300">${c.price} <img src="${currencyIcon}" class="w-5 h-5 object-contain"></span>`;
+        if (isDemoMode) {
+            const txt = (i18n[currentLang] && i18n[currentLang].open_for) ? i18n[currentLang].open_for : 'Открыть за';
+            btn.innerHTML = `<span>${txt}</span> <span class="flex items-center gap-1 text-orange-300">${c.price} <img src="${currencyIcon}" class="w-5 h-5 object-contain"> <span class="text-orange-300/70 text-xs">(Демо)</span></span>`;
+        } else {
+            const txt = (i18n[currentLang] && i18n[currentLang].open_for) ? i18n[currentLang].open_for : 'Открыть за';
+            btn.innerHTML = `<span data-i18n="open_for">${txt}</span> <span class="flex items-center gap-1 text-yellow-300">${c.price} <img src="${currencyIcon}" class="w-5 h-5 object-contain"></span>`;
+        }
         btn.onclick = () => buyAndOpenCase(caseId);
     }
 
@@ -344,6 +381,34 @@ async function buyAndOpenCase(caseId) {
     if (isOpeningCase) return;
     const c = casesConfig[caseId];
 
+    // ── ДЕМО-РЕЖИМ ──────────────────────────────────────────────────────────
+    if (isDemoMode) {
+        isOpeningCase = true;
+        const btn = document.getElementById('btn-open-case');
+        const originalBtnHTML = btn.innerHTML;
+        btn.classList.add('btn-disabled');
+        const txt = i18n[currentLang]?.case_opening || 'Открываем...';
+        btn.innerHTML = `<span>${txt}</span>`;
+        if (typeof vibrate === 'function') vibrate('heavy');
+
+        // Выбираем случайный предмет на клиенте без запроса к серверу
+        const items = c.items || [];
+        const total = items.reduce((s, it) => s + (it.chance || 0), 0);
+        let rand = Math.random() * total;
+        let demoWin = items[0];
+        for (const it of items) { rand -= (it.chance || 0); if (rand <= 0) { demoWin = it; break; } }
+
+        setTimeout(() => {
+            isOpeningCase = false;
+            btn.classList.remove('btn-disabled');
+            btn.innerHTML = originalBtnHTML;
+            if (typeof closeModal === 'function') closeModal('case-details-modal');
+            playCaseAnimation(c, demoWin, true);
+        }, 300);
+        return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const currentBal = c.currency === 'stars' ? myStars : myBalance;
     if (currentBal < c.price) {
         if (typeof tg !== 'undefined' && tg) tg.showAlert('Недостаточно средств!');
@@ -362,7 +427,7 @@ async function buyAndOpenCase(caseId) {
         const res = await fetch('/api/cases/open', {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify({ tg_id: tgUser.id, gift_id: parseInt(caseId) })
+            body: JSON.stringify({ gift_id: parseInt(caseId) })
         });
         const data = await res.json();
         if (data.status === 'ok') {
@@ -388,7 +453,7 @@ async function buyAndOpenCase(caseId) {
 
 // ── Slot Animation ────────────────────────────────────────────────────────────
 
-function playCaseAnimation(caseConfig, winItem) {
+function playCaseAnimation(caseConfig, winItem, isDemo = false) {
     const modal = document.getElementById('case-animation-modal');
     const track = document.getElementById('cam-reel-track');
     const slotPhase = document.getElementById('cam-slot-phase');
@@ -516,6 +581,10 @@ function playCaseAnimation(caseConfig, winItem) {
                     slotPhase.classList.add('hidden');
                     resultPhase.classList.remove('hidden');
                     resultPhase.style.display = 'flex';
+
+                    // Плашка ДЕМО в результате
+                    const camDemoBadge = document.getElementById('cam-demo-badge');
+                    if (camDemoBadge) camDemoBadge.style.display = isDemo ? '' : 'none';
 
                     resultPhase.style.opacity = '0';
                     resultPhase.style.transform = 'scale(0.85)';

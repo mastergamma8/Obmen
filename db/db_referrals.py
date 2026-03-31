@@ -2,9 +2,9 @@
 # Реферальная система: связи между пользователями и начисление бонусов.
 
 import aiosqlite
-from db_core import DB_NAME
-from db_users import add_points_to_user
-from db_history import add_history_entry
+from db.db_core import DB_NAME
+from db.db_users import add_points_to_user
+from db.db_history import add_history_entry
 
 
 # ==========================================

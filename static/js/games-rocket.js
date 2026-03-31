@@ -10,6 +10,7 @@ let rocketCurrentMult = 1.00;
 let rocketStartTime = 0;
 let rocketAnimFrame = null;
 let rocketTimeout = null;
+let rocketAutoCashout = 0; // 0 = disabled
 
 function resetRocketToIdle() {
     rocketState = 'idle';
@@ -21,7 +22,6 @@ function resetRocketToIdle() {
 }
 
 function openRocketGame() {
-    // Используем универсальный роутер из games.js
     if (typeof showGameView === 'function') {
         showGameView('games-rocket-view');
     } else {
@@ -29,9 +29,10 @@ function openRocketGame() {
         document.getElementById('games-main-view').classList.add('hidden');
         document.getElementById('games-rocket-view').classList.remove('hidden');
     }
-    
+    if (typeof syncDemoToggles === 'function') syncDemoToggles();
     rocketState = 'idle';
     clearTimeout(rocketTimeout);
+    resetAutoCashoutUI();
     updateRocketUI();
 }
 
@@ -64,10 +65,15 @@ function updateRocketUI() {
     const inputIcon = document.getElementById('rocket-currency-icon');
     if (inputIcon) inputIcon.src = currencyIcon;
 
+    const acoRow = document.getElementById('rocket-auto-cashout-row');
+    const acoInput = document.getElementById('rocket-auto-cashout-input');
+
     if (!btnAction || !multText || !txtAction) return;
 
     if (rocketState === 'idle') {
         if (inputEl) inputEl.disabled = false;
+        if (acoRow) { acoRow.style.opacity = '1'; acoRow.style.pointerEvents = 'auto'; }
+        if (acoInput) acoInput.disabled = false;
         if (btnClose) btnClose.classList.remove('opacity-50', 'pointer-events-none');
         btnAction.className = "w-full py-4 rounded-xl font-black text-xl text-white active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg bg-gradient-to-r from-orange-500 to-red-600 shadow-orange-500/40";
         txtAction.innerText = i18n[currentLang]?.place_bet || 'Полететь';
@@ -81,6 +87,8 @@ function updateRocketUI() {
     } 
     else if (rocketState === 'starting') {
         if (inputEl) inputEl.disabled = true;
+        if (acoRow) { acoRow.style.opacity = '0.4'; acoRow.style.pointerEvents = 'none'; }
+        if (acoInput) acoInput.disabled = true;
         if (btnClose) btnClose.classList.add('opacity-50', 'pointer-events-none');
         btnAction.classList.add('opacity-50', 'pointer-events-none');
         txtAction.innerText = i18n[currentLang]?.processing || 'Подготовка...';
@@ -89,6 +97,8 @@ function updateRocketUI() {
     }
     else if (rocketState === 'flying') {
         if (inputEl) inputEl.disabled = true;
+        if (acoRow) { acoRow.style.opacity = '0.4'; acoRow.style.pointerEvents = 'none'; }
+        if (acoInput) acoInput.disabled = true;
         if (btnClose) btnClose.classList.add('opacity-50', 'pointer-events-none');
         btnAction.className = "w-full py-4 rounded-xl font-black text-xl text-white active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg bg-gradient-to-r from-emerald-500 to-green-600 shadow-green-500/40";
         
@@ -131,6 +141,46 @@ function updateRocketUI() {
     }
 }
 
+window.setAutoCashout = function(value) {
+    if (rocketState === 'flying' || rocketState === 'starting') return;
+
+    const inputEl = document.getElementById('rocket-auto-cashout-input');
+    let numVal = parseFloat(value);
+
+    if (isNaN(numVal) || numVal <= 1.0) {
+        rocketAutoCashout = 0;
+    } else {
+        rocketAutoCashout = numVal;
+    }
+
+    // Если вызвано кнопкой — обновляем инпут
+    if (inputEl && document.activeElement !== inputEl) {
+        inputEl.value = rocketAutoCashout > 0 ? rocketAutoCashout : '';
+    }
+
+    // Подсвечиваем активную кнопку оранжевым
+    document.querySelectorAll('.btn-auto-cashout').forEach(btn => {
+        const btnVal = parseFloat(btn.getAttribute('data-val'));
+        if (rocketAutoCashout > 0 && btnVal === rocketAutoCashout) {
+            btn.classList.add('bg-orange-500/20', 'border-orange-500', 'text-orange-400');
+            btn.classList.remove('bg-white/5', 'border-white/10', 'text-white/80');
+        } else {
+            btn.classList.remove('bg-orange-500/20', 'border-orange-500', 'text-orange-400');
+            btn.classList.add('bg-white/5', 'border-white/10', 'text-white/80');
+        }
+    });
+};
+
+function resetAutoCashoutUI() {
+    rocketAutoCashout = 0;
+    const input = document.getElementById('rocket-auto-cashout-input');
+    if (input) input.value = '';
+    document.querySelectorAll('.btn-auto-cashout').forEach(btn => {
+        btn.classList.remove('bg-orange-500/20', 'border-orange-500', 'text-orange-400');
+        btn.classList.add('bg-white/5', 'border-white/10', 'text-white/80');
+    });
+}
+
 function setRocketBet(type) {
     if(rocketState !== 'idle') return;
     if (typeof vibrate === 'function') vibrate('light');
@@ -163,6 +213,19 @@ async function handleRocketAction() {
             if(typeof tg !== 'undefined' && tg) tg.showAlert((i18n[currentLang]?.rocket_err_limits || 'Неверная сумма') + ` (${min} - ${max})`);
             return;
         }
+
+        // ── ДЕМО-РЕЖИМ ──────────────────────────────────────────────────────
+        if (isDemoMode) {
+            rocketState = 'starting';
+            updateRocketUI();
+            // Генерируем случайный краш-поинт локально (1.00–10.00)
+            const demoCrash = parseFloat((1 + Math.random() * 9).toFixed(2));
+            rocketCrashPoint = demoCrash;
+            setTimeout(() => startRocketFlight(), 500);
+            return;
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         if (rocketBetAmount > currentBal) {
             if(typeof tg !== 'undefined' && tg) tg.showAlert('Недостаточно средств!');
             return;
@@ -175,7 +238,7 @@ async function handleRocketAction() {
             const res = await fetch('/api/rocket/start', {
                 method: 'POST',
                 headers: getApiHeaders(),
-                body: JSON.stringify({ tg_id: tgUser.id, bet: rocketBetAmount })
+                body: JSON.stringify({ bet: rocketBetAmount })
             });
             const data = await res.json();
             
@@ -221,6 +284,13 @@ function startRocketFlight() {
             handleRocketCrash();
             return;
         }
+
+        // Авто-вывод: фиксируем множитель ровно на значении и вызываем кэшаут
+        if (rocketAutoCashout > 1.0 && rocketCurrentMult >= rocketAutoCashout) {
+            rocketCurrentMult = rocketAutoCashout;
+            cashoutRocket(true);
+            return;
+        }
         
         const multText = document.getElementById('rocket-multiplier');
         if (multText) multText.innerText = rocketCurrentMult.toFixed(2) + 'x';
@@ -241,25 +311,27 @@ function handleRocketCrash() {
     if (typeof vibrate === 'function') vibrate('heavy');
     updateRocketUI();
 
-    // Сообщаем бэкенду о краше — записываем проигрыш в историю
-    fetch('/api/rocket/crash', {
-        method: 'POST',
-        headers: getApiHeaders(),
-        body: JSON.stringify({ tg_id: tgUser.id, bet: rocketBetAmount })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.balance !== undefined) myBalance = data.balance;
-        if (data.stars !== undefined) myStars = data.stars;
-        if (typeof updateUI === 'function') updateUI();
-    })
-    .catch(e => console.error('Rocket crash report error:', e));
+    // В демо-режиме не сообщаем серверу и не пишем в историю
+    if (!isDemoMode) {
+        fetch('/api/rocket/crash', {
+            method: 'POST',
+            headers: getApiHeaders(),
+            body: JSON.stringify({ bet: rocketBetAmount })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.balance !== undefined) myBalance = data.balance;
+            if (data.stars !== undefined) myStars = data.stars;
+            if (typeof updateUI === 'function') updateUI();
+        })
+        .catch(e => console.error('Rocket crash report error:', e));
+    }
 
     clearTimeout(rocketTimeout);
     rocketTimeout = setTimeout(resetRocketToIdle, 2500);
 }
 
-async function cashoutRocket() {
+async function cashoutRocket(isAuto = false) {
     if (rocketState !== 'flying') return;
     
     cancelAnimationFrame(rocketAnimFrame);
@@ -270,11 +342,35 @@ async function cashoutRocket() {
     if (txtAction) txtAction.innerText = '...'; 
     if (typeof vibrate === 'function') vibrate('medium');
 
+    // ── ДЕМО-РЕЖИМ ──────────────────────────────────────────────────────────
+    if (isDemoMode) {
+        rocketCurrentMult = stoppedMult;
+        if (typeof updateRocketUI === 'function') updateRocketUI();
+        if (isAuto) {
+            const statusText = document.getElementById('rocket-status-text');
+            if (statusText) {
+                statusText.innerText = i18n[currentLang]?.auto_cashout_triggered || 'Auto-cashout!';
+                statusText.className = "text-sm font-bold bg-orange-500/20 px-3 py-1 rounded-full text-orange-300 tracking-widest uppercase border border-orange-500/30";
+            }
+        }
+        // Показываем демо-плашку в статусе
+        const statusText = document.getElementById('rocket-status-text');
+        if (statusText && !isAuto) {
+            const winAmount = Math.floor(rocketBetAmount * stoppedMult);
+            statusText.innerText = `${i18n[currentLang]?.you_won || 'Вы выиграли'} ${winAmount} (Demo)`;
+            statusText.className = "text-sm font-bold bg-emerald-500/20 px-3 py-1 rounded-full text-emerald-400 tracking-widest uppercase border border-emerald-500/30";
+        }
+        clearTimeout(rocketTimeout);
+        rocketTimeout = setTimeout(resetRocketToIdle, 2500);
+        return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     try {
         const res = await fetch('/api/rocket/cashout', {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify({ tg_id: tgUser.id, multiplier: parseFloat(stoppedMult.toFixed(2)) })
+            body: JSON.stringify({ multiplier: stoppedMult })
         });
         const data = await res.json();
         
@@ -284,7 +380,16 @@ async function cashoutRocket() {
             
             rocketCurrentMult = stoppedMult; 
             if (typeof updateUI === 'function') updateUI(); 
-            updateRocketUI(); 
+            updateRocketUI();
+
+            // If triggered by auto-cashout, show extra status message
+            if (isAuto) {
+                const statusText = document.getElementById('rocket-status-text');
+                if (statusText) {
+                    statusText.innerText = i18n[currentLang]?.auto_cashout_triggered || 'Auto-cashout!';
+                    statusText.className = "text-sm font-bold bg-orange-500/20 px-3 py-1 rounded-full text-orange-300 tracking-widest uppercase border border-orange-500/30";
+                }
+            }
         } else {
             if(typeof tg !== 'undefined' && tg) tg.showAlert(data.detail || 'Error');
             rocketState = 'crashed';

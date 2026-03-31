@@ -3,7 +3,7 @@
 # Вызывается один раз при старте приложения.
 
 import aiosqlite
-from db_core import DB_NAME
+from db.db_core import DB_NAME
 
 
 async def init_db():
@@ -79,4 +79,20 @@ async def init_db():
             )
         """)
 
+        await db.commit()
+
+
+async def init_rocket_games_table():
+    """Создаёт таблицу для хранения активных ракетных игр в БД."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS rocket_active_games (
+                user_id     INTEGER PRIMARY KEY,
+                bet         INTEGER NOT NULL,
+                currency    TEXT    NOT NULL DEFAULT 'donuts',
+                crash_point REAL    NOT NULL,
+                pool_amount INTEGER NOT NULL DEFAULT 0,
+                created_at  INTEGER NOT NULL
+            )
+        """)
         await db.commit()

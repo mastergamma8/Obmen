@@ -277,17 +277,21 @@ def register(dp: Dispatcher, bot: Bot):
             label = f"{amount} ⭐️ звёзд"
 
         bank = await database.get_bank()
+        import config as _cfg
+        _rate = _cfg.DONUTS_TO_STARS_RATE
+        # FIX: пончики конвертируются в stars-value перед суммированием
         total_liq = (
             bank.get("stars_balance", 0)
-            + bank.get("donuts_balance", 0)
+            + bank.get("donuts_balance", 0) * _rate
             + bank.get("gift_value_balance", 0)
         )
 
         await message.answer(
             f"✅ Банк пополнен на <b>{label}</b>.\n\n"
             f"⭐️ Звёзды: <b>{bank.get('stars_balance', 0)}</b>\n"
-            f"🍩 Пончики: <b>{bank.get('donuts_balance', 0)}</b>\n"
-            f"📦 Общая ликвидность: <b>{total_liq}</b>",
+            f"🍩 Пончики: <b>{bank.get('donuts_balance', 0)}</b>"
+            f" (≈ <b>{bank.get('donuts_balance', 0) * _rate}</b> ⭐️)\n"
+            f"📦 Общая ликвидность (в ⭐️): <b>{total_liq}</b>",
             parse_mode="HTML"
         )
 

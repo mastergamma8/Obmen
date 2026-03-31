@@ -2,7 +2,7 @@
 # История действий пользователей и выполненные задания.
 
 import aiosqlite
-from db_core import DB_NAME
+from db.db_core import DB_NAME
 
 
 # ==========================================

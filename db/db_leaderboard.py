@@ -2,7 +2,7 @@
 # Таблицы лидеров: богачи, сорвиголовы (ракета), счастливчики (кейсы).
 
 import aiosqlite
-from db_core import DB_NAME
+from db.db_core import DB_NAME
 
 
 # ==========================================

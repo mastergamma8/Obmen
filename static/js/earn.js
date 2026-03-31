@@ -35,7 +35,7 @@ function shareRefLink() {
 
 async function loadEarnData() {
     try {
-        const res = await fetch(`/api/earn_data?tg_id=${tgUser.id}`, { headers: getApiHeaders() });
+        const res = await fetch(`/api/earn_data`, { headers: getApiHeaders() });
         const data = await res.json();
         
         const refList = document.getElementById('referrals-list');
@@ -102,7 +102,7 @@ async function checkTask(taskId) {
         const res = await fetch('/api/check_task', {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify({ tg_id: tgUser.id, task_id: taskId })
+            body: JSON.stringify({ task_id: taskId })
         });
         const data = await res.json();
         if (data.status === 'ok') {

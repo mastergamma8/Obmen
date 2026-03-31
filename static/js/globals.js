@@ -20,6 +20,9 @@ let rouletteCurrentRotation = 0;
 let currentSortMethod = 'value_desc';
 let currentLang = '';
 
+// Демо-режим — только визуал, без списания/начисления
+let isDemoMode = false;
+
 // Telegram SDK
 const tg = window.Telegram?.WebApp;
 window.tg = tg;
@@ -116,7 +119,7 @@ async function buyStars() {
         const response = await fetch('/api/topup/stars', {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify({ tg_id: tgUser.id, stars_amount: amount })
+            body: JSON.stringify({ stars_amount: amount })
         });
         
         const result = await response.json();
@@ -157,3 +160,41 @@ window.openTopupModal = openTopupModal;
 window.setTopupAmount = setTopupAmount;
 window.validateTopupAmount = validateTopupAmount;
 window.buyStars = buyStars;
+
+// ── Демо-режим ───────────────────────────────────────────────────────────────
+function toggleDemoMode(sourceId) {
+    isDemoMode = !isDemoMode;
+    syncDemoToggles();
+    if (typeof vibrate === 'function') vibrate('light');
+    // Если рулетка открыта — обновляем кнопку
+    if (typeof fetchRouletteInfo === 'function') {
+        const roulettePage = document.getElementById('page-roulette');
+        if (roulettePage && !roulettePage.classList.contains('hidden-tab')) {
+            fetchRouletteInfo();
+        }
+    }
+}
+// Синхронизирует визуальное состояние всех тоглеров с текущим isDemoMode
+function syncDemoToggles() {
+    ['demo-toggle-roulette', 'demo-toggle-cases', 'demo-toggle-rocket'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const knob  = el.querySelector('.demo-knob');
+        const track = el.querySelector('.demo-track');
+        const label = el.querySelector('.demo-label');
+        if (isDemoMode) {
+            if (track) { track.classList.remove('bg-white/10'); track.classList.add('bg-orange-500'); }
+            if (knob)  { knob.style.transform = 'translateX(20px)'; }
+            if (label) { label.classList.add('text-orange-300'); label.classList.remove('text-white/50'); }
+        } else {
+            if (track) { track.classList.add('bg-white/10'); track.classList.remove('bg-orange-500'); }
+            if (knob)  { knob.style.transform = 'translateX(0px)'; }
+            if (label) { label.classList.remove('text-orange-300'); label.classList.add('text-white/50'); }
+        }
+    });
+    const rocketRibbon = document.getElementById('rocket-demo-ribbon');
+    if (rocketRibbon) rocketRibbon.classList.toggle('hidden', !isDemoMode);
+}
+window.syncDemoToggles = syncDemoToggles;
+
+window.toggleDemoMode = toggleDemoMode;

@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher
 import config
 import database
 from handlers import start, admin
-from workers import (
+from handlers.workers import (
     roulette_reminder_worker,
     gift_claim_reminder_worker,
     gift_withdraw_reminder_worker,

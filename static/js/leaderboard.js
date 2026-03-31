@@ -141,7 +141,7 @@ function buildStickyRankHTML(rankText, avatar, name, badgeHtml, badgeTextColorCl
 
 // ─── 🍩 Богачи ───────────────────────────────────────
 async function loadRichLeaderboard(list, stickyRank) {
-    const res = await fetch(`/api/leaderboard?tg_id=${tgUser.id}`, { headers: getApiHeaders() });
+    const res = await fetch(`/api/leaderboard`, { headers: getApiHeaders() });
     const data = await res.json();
     list.innerHTML = '';
 
@@ -177,7 +177,7 @@ async function loadRichLeaderboard(list, stickyRank) {
 
 // ─── 🚀 Сорвиголовы ─────────────────────────────────
 async function loadRocketLeaderboard(list, stickyRank) {
-    const res = await fetch(`/api/leaderboard/rocket?tg_id=${tgUser.id}`, { headers: getApiHeaders() });
+    const res = await fetch(`/api/leaderboard/rocket`, { headers: getApiHeaders() });
     const data = await res.json();
     list.innerHTML = '';
 
@@ -218,7 +218,7 @@ async function loadRocketLeaderboard(list, stickyRank) {
 
 // ─── 🍀 Счастливчики ─────────────────────────────────
 async function loadLuckyLeaderboard(list, stickyRank) {
-    const res = await fetch(`/api/leaderboard/lucky?tg_id=${tgUser.id}`, { headers: getApiHeaders() });
+    const res = await fetch(`/api/leaderboard/lucky`, { headers: getApiHeaders() });
     const data = await res.json();
     list.innerHTML = '';
 
