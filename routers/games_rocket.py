@@ -103,10 +103,10 @@ async def cashout_rocket(data: RocketCashoutData, current_user: dict = Depends(g
     crash_point = game["crash_point"]
     created_at  = game.get("created_at", int(time.time()))
 
-    # Серверный расчёт множителя по прошедшему времени
-    elapsed     = time.time() - created_at
-    growth_rate = config.ROCKET_CONFIG.get("growth_rate", 0.1)
-    server_mult = round(1.0 + elapsed * growth_rate, 2)
+    # Серверный расчёт множителя по прошедшему времени (идентично клиенту)
+    growth_speed = config.ROCKET_CONFIG.get("growth_speed", 1.00006)
+    elapsed_ms   = max(0, (time.time() - created_at) * 1000)
+    server_mult  = round(pow(growth_speed, elapsed_ms), 2)
 
     # Проверяем краш по серверному времени — это нельзя обойти со стороны клиента
     crashed = server_mult >= crash_point
@@ -201,9 +201,9 @@ async def rocket_status(current_user: dict = Depends(get_current_user)):
     if not game:
         return {"status": "no_game"}
 
-    elapsed      = time.time() - game.get("created_at", time.time())
-    growth_rate  = config.ROCKET_CONFIG.get("growth_rate", 0.1)
-    current_mult = round(1.0 + elapsed * growth_rate, 2)
+    growth_speed = config.ROCKET_CONFIG.get("growth_speed", 1.00006)
+    elapsed_ms   = max(0, (time.time() - game.get("created_at", time.time())) * 1000)
+    current_mult = round(pow(growth_speed, elapsed_ms), 2)
     crashed      = current_mult >= game["crash_point"]
 
     return {

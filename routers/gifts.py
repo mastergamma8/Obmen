@@ -6,6 +6,7 @@ import config
 import database
 from handlers.models import ActionData
 from handlers.security import get_current_user
+from handlers.tg_gifts import get_gift_def, is_real_tg_gift, send_real_tg_gift, get_tg_exchange_value
 
 router = APIRouter(prefix="/api", tags=["gifts"])
 
@@ -64,6 +65,48 @@ async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_curre
     tg_id = current_user["id"]
     now   = int(time.time())
 
+    gift_def = get_gift_def(data.gift_id)
+    if not gift_def:
+        raise HTTPException(status_code=400, detail="Неверный ID подарка")
+
+    user_gifts = await database.get_user_gifts(tg_id)
+    if user_gifts.get(data.gift_id, 0) <= 0:
+        raise HTTPException(status_code=400, detail="У вас нет этого подарка")
+
+    gift_name = gift_def.get("name", "Неизвестный подарок")
+
+    # Реальные Telegram-подарки выводятся без комиссии и без кулдауна
+    if is_real_tg_gift(data.gift_id):
+        removed = await database.remove_gift_from_user(tg_id, data.gift_id)
+        if not removed:
+            raise HTTPException(status_code=400, detail="Подарок не найден")
+
+        sent = await send_real_tg_gift(
+            tg_id,
+            gift_def["tg_gift_id"],
+            text=f"gift from Space Donut 🍩"
+        )
+        if not sent:
+            await database.add_gift_to_user(tg_id, data.gift_id, 1)
+            raise HTTPException(status_code=502, detail="Не удалось отправить Telegram-подарок")
+
+        await database.add_history_entry(
+            tg_id,
+            "withdraw_tg_gift",
+            f"Вывод Telegram подарка: {gift_name}",
+            0
+        )
+
+        updated_gifts = await database.get_user_gifts(tg_id)
+        updated_user  = await database.get_user_data(tg_id)
+        return {
+            "status": "ok",
+            "user_gifts": updated_gifts,
+            "balance": updated_user.get("balance", 0),
+            "stars": updated_user.get("stars", 0),
+        }
+
+    # Старый вывод для обычных подарков — с комиссией и кулдауном
     last_withdraw = await database.get_last_gift_withdraw(tg_id)
     elapsed       = now - last_withdraw
     if elapsed < GIFT_COOLDOWN_SECONDS:
@@ -78,39 +121,26 @@ async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_curre
             },
         )
 
-    user_gifts = await database.get_user_gifts(tg_id)
-    if user_gifts.get(data.gift_id, 0) <= 0:
-        raise HTTPException(status_code=400, detail="У вас нет этого подарка")
-
     # Атомарное списание комиссии
     success_deduct = await database.deduct_stars(tg_id, config.WITHDRAW_FEE_STARS)
     if not success_deduct:
         raise HTTPException(status_code=400, detail="not_enough_stars")
 
-    # Атомарное списание подарка — проверяем результат (пункт 4)
+    # Атомарное списание подарка — проверяем результат
     removed = await database.remove_gift_from_user(tg_id, data.gift_id)
     if not removed:
-        # Возвращаем звёзды, если подарок не найден
         await database.add_stars_to_user(tg_id, config.WITHDRAW_FEE_STARS)
         raise HTTPException(status_code=400, detail="Подарок не найден")
 
     await database.update_last_gift_withdraw(tg_id, now)
 
-    gift_name = "Неизвестный подарок"
-    if data.gift_id in config.MAIN_GIFTS:
-        gift_name = config.MAIN_GIFTS[data.gift_id]["name"]
-    elif data.gift_id in config.BASE_GIFTS:
-        gift_name = config.BASE_GIFTS[data.gift_id]["name"]
-
     await database.log_action(tg_id, "withdraw_gift", f"Вывод подарка: {gift_name}", 0)
-
-    updated_gifts = await database.get_user_gifts(tg_id)
 
     # Уведомление админа
     try:
-        user_profile  = await database.get_user_profile(tg_id)
-        username_str  = f"@{user_profile['username']}" if user_profile.get("username") else "Отсутствует/Скрыт"
-        first_name    = user_profile.get("first_name", "Без имени")
+        user_profile = await database.get_user_profile(tg_id)
+        username_str = f"@{user_profile['username']}" if user_profile.get("username") else "Отсутствует/Скрыт"
+        first_name   = user_profile.get("first_name", "Без имени")
         admin_text = (
             f"🚨 <b>Новая заявка на вывод подарка!</b>\n\n"
             f"👤 Пользователь: <a href='tg://user?id={tg_id}'>{first_name}</a>\n"
@@ -125,4 +155,45 @@ async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_curre
     except Exception as e:
         print(f"Ошибка при отправке уведомления админу: {e}")
 
+    updated_gifts = await database.get_user_gifts(tg_id)
+
     return {"status": "ok", "user_gifts": updated_gifts}
+
+
+@router.post("/exchange")
+async def exchange_gift(data: ActionData, current_user: dict = Depends(get_current_user)):
+    tg_id = current_user["id"]
+
+    gift_def = get_gift_def(data.gift_id)
+    if not gift_def or not is_real_tg_gift(data.gift_id):
+        raise HTTPException(status_code=400, detail="Можно обменивать только реальные Telegram-подарки")
+
+    user_gifts = await database.get_user_gifts(tg_id)
+    if user_gifts.get(data.gift_id, 0) <= 0:
+        raise HTTPException(status_code=400, detail="У вас нет этого подарка")
+
+    reward_stars = get_tg_exchange_value(data.gift_id)
+    if reward_stars <= 0:
+        raise HTTPException(status_code=400, detail="Неверная цена обмена")
+
+    removed = await database.remove_gift_from_user(tg_id, data.gift_id)
+    if not removed:
+        raise HTTPException(status_code=400, detail="Подарок не найден")
+
+    await database.add_stars_to_user(tg_id, reward_stars)
+    await database.log_action(
+        tg_id,
+        "exchange_tg_gift",
+        f"Обмен Telegram подарка: {gift_def['name']} -> +{reward_stars} ⭐",
+        reward_stars,
+    )
+
+    updated_user  = await database.get_user_data(tg_id)
+    updated_gifts = await database.get_user_gifts(tg_id)
+    return {
+        "status": "ok",
+        "balance": updated_user.get("balance", 0),
+        "stars": updated_user.get("stars", 0),
+        "user_gifts": updated_gifts,
+        "exchange_stars": reward_stars,
+    }

@@ -31,7 +31,7 @@ function renderRouletteWheel() {
         let text = 'Приз';
         
         if (isGift) {
-            const giftDef = mainGifts[item.gift_id] || baseGifts[item.gift_id];
+            const giftDef = mainGifts[item.gift_id] || tgGifts[item.gift_id] || baseGifts[item.gift_id];
             if (giftDef) {
                 photoSrc = getImgSrc(giftDef.photo);
                 text = giftDef.name;
@@ -185,7 +185,7 @@ function showRouletteResultModal(item, isDemo = false) {
     let photoSrc = 'https://via.placeholder.com/48', text = 'Приз';
     
     if (isGift) {
-        const giftDef = mainGifts[item.gift_id] || baseGifts[item.gift_id];
+        const giftDef = mainGifts[item.gift_id] || tgGifts[item.gift_id] || baseGifts[item.gift_id];
         if (giftDef) {
             photoSrc = getImgSrc(giftDef.photo);
             text = giftDef.name;
@@ -201,6 +201,9 @@ function showRouletteResultModal(item, isDemo = false) {
     
     document.getElementById('rr-photo').src = photoSrc;
     document.getElementById('rr-text').innerHTML = text;
+    if (typeof configureCaseGiftActionsIfNeeded === 'function' && isGift) {
+        configureCaseGiftActionsIfNeeded(item.gift_id, 'roulette');
+    }
     // Показываем/скрываем плашку ДЕМО в модалке результата
     const demoBadge = document.getElementById('rr-demo-badge');
     if (demoBadge) demoBadge.style.display = isDemo ? '' : 'none';

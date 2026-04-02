@@ -15,10 +15,10 @@ function renderMainPage() {
             <div onclick="showMainGiftDetails(${id})" class="glass rounded-3xl p-5 flex items-center gap-5 cursor-pointer relative overflow-hidden active:scale-[0.98] transition-transform">
                 ${unlocked ? '<div class="absolute inset-0 bg-green-500/10 pointer-events-none"></div>' : ''}
                 <div class="relative w-20 h-20 flex-shrink-0 flex items-center justify-center bg-black/20 rounded-2xl border border-white/5">
-                    <img src="${getImgSrc(gift.photo)}" class="w-14 h-14 object-contain drop-shadow-xl" onerror="this.src='https://via.placeholder.com/64'">
+                    <img src="${escapeHtml(getImgSrc(gift.photo))}" class="w-14 h-14 object-contain drop-shadow-xl" onerror="this.src='https://via.placeholder.com/64'">
                 </div>
                 <div class="flex-1">
-                    <h4 class="font-bold text-lg mb-2 text-white ${unlocked ? 'glow-text' : ''}">${gift.name}</h4>
+                    <h4 class="font-bold text-lg mb-2 text-white ${unlocked ? 'glow-text' : ''}">${escapeHtml(gift.name)}</h4>
                     <div class="w-full bg-black/40 rounded-full h-2 mb-2 border border-white/5 shadow-inner">
                         <div class="progress-bar-fill h-full rounded-full ${unlocked ? 'from-green-400 to-emerald-500' : ''}" style="width:${pct}%"></div>
                     </div>
@@ -79,8 +79,8 @@ function renderBaseGiftsList() {
     container.innerHTML = arr.map(gift => `
         <div class="flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5">
             <div class="flex items-center gap-3">
-                <img src="${getImgSrc(gift.photo)}" class="w-8 h-8 object-contain" onerror="this.src='https://via.placeholder.com/32'">
-                <span class="text-white font-medium">${gift.name}</span>
+                <img src="${escapeHtml(getImgSrc(gift.photo))}" class="w-8 h-8 object-contain" onerror="this.src='https://via.placeholder.com/32'">
+                <span class="text-white font-medium">${escapeHtml(gift.name)}</span>
             </div>
             <span class="text-blue-300 font-bold bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-500/20 flex items-center gap-1">+${gift.value} <img src="/gifts/dount.png" class="w-3 h-3 object-contain"></span>
         </div>`).join('');

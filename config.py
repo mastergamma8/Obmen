@@ -101,9 +101,9 @@ ROULETTE_CONFIG = {
         {"type": "donuts", "amount": 5, "photo": "gifts/dount.png", "chance": 5}, 
         {"type": "donuts", "amount": 10, "photo": "gifts/dount.png", "chance": 0},
         {"type": "donuts", "amount": 50, "photo": "gifts/dount.png", "chance": 0}, 
-        {"type": "gift", "gift_id": 1001, "chance": 0},
-        {"type": "gift", "gift_id": 101, "chance": 0},
-        {"type": "gift", "gift_id": 102, "chance": 0},
+        {"type": "gift", "gift_id": 2009, "chance": 5},
+        {"type": "gift", "gift_id": 2010, "chance": 5},
+        {"type": "gift", "gift_id": 2007, "chance": 5},
     ]
 }
 
@@ -134,8 +134,8 @@ CASES_CONFIG = {
         "items": [
             {"type": "stars", "amount": 5, "chance": 40},
             {"type": "stars", "amount": 15, "chance": 30},
-            {"type": "gift", "gift_id": 15, "chance": 20}, 
-            {"type": "gift", "gift_id": 4, "chance": 10} 
+            {"type": "gift", "gift_id": 2009, "chance": 20},
+            {"type": "gift", "gift_id": 2011, "chance": 40}
         ]
     },
     2: {
@@ -146,9 +146,9 @@ CASES_CONFIG = {
         "items": [
             {"type": "donuts", "amount": 20, "chance": 30},
             {"type": "donuts", "amount": 50, "chance": 25},
-            {"type": "gift", "gift_id": 12, "chance": 25},
-            {"type": "gift", "gift_id": 1000, "chance": 15},
-            {"type": "gift", "gift_id": 1001, "chance": 5}
+            {"type": "gift", "gift_id": 2007, "chance": 25},
+            {"type": "gift", "gift_id": 2008, "chance": 15},
+            {"type": "gift", "gift_id": 2005, "chance": 5}
         ]
     },
     3: {
@@ -159,8 +159,8 @@ CASES_CONFIG = {
         "items": [
             {"type": "donuts", "amount": 500, "chance": 40},
             {"type": "stars", "amount": 100, "chance": 30},
-            {"type": "gift", "gift_id": 1002, "chance": 20},
-            {"type": "gift", "gift_id": 1004, "chance": 10}
+            {"type": "gift", "gift_id": 2000, "chance": 20},
+            {"type": "gift", "gift_id": 2004, "chance": 10}
         ]
     }
 }
@@ -305,6 +305,31 @@ MAIN_GIFTS = {
     1002: {"name": "Perfume Bottle", "photo": "https://api.changes.tg/original/PerfumeBottle.png", "required_value": 100},
     1003: {"name": "Ion Gem", "photo": "https://api.changes.tg/original/IonGem.png", "required_value": 100},
     1004: {"name": "Durov's Cap", "photo": "https://api.changes.tg/original/DurovsCap.png", "required_value": 700}
+}
+
+
+# ==========================================
+# РЕАЛЬНЫЕ TELEGRAM GIFTS ДЛЯ ВЫИГРЫШЕЙ
+# ==========================================
+TG_GIFTS = {
+    2000: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/6028601630662853006/Original.png", "required_value": 50,  "tg_gift_id": "6028601630662853006"},
+    2001: {"name": "", "photo": "https://cdn.changes.tg/gifts/originals/5170521118301225164/Original.png", "required_value": 100, "tg_gift_id": "5170521118301225164"},
+    2002: {"name": "", "photo": "https://cdn.changes.tg/gifts/originals/5170690322832818290/Original.png", "required_value": 100, "tg_gift_id": "5170690322832818290"},
+    2003: {"name": "", "photo": "https://cdn.changes.tg/gifts/originals/5168043875654172773/Original.png", "required_value": 100, "tg_gift_id": "5168043875654172773"},
+    2004: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5170564780938756245/Original.png", "required_value": 50,  "tg_gift_id": "5170564780938756245"},
+    2005: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5170314324215857265/Original.png", "required_value": 50,  "tg_gift_id": "5170314324215857265"},
+    2006: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5170144170496491616/Original.png", "required_value": 50,  "tg_gift_id": "5170144170496491616"},
+    2007: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5168103777563050263/Original.png", "required_value": 25,  "tg_gift_id": "5168103777563050263"},
+    2008: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5170250947678437525/Original.png", "required_value": 25,  "tg_gift_id": "5170250947678437525"},
+    2009: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5170233102089322756/Original.png", "required_value": 15,  "tg_gift_id": "5170233102089322756"},
+    2010: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5170145012310081615/Original.png", "required_value": 15,  "tg_gift_id": "5170145012310081615"},
+    2011: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5801108895304779062/Original.png", "required_value": 50,  "tg_gift_id": "5801108895304779062"},
+    2012: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5922558454332916696/Original.png", "required_value": 50,  "tg_gift_id": "5922558454332916696"},
+    2013: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5956217000635139069/Original.png", "required_value": 50,  "tg_gift_id": "5956217000635139069"},
+    2014: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5800655655995968830/Original.png", "required_value": 50,  "tg_gift_id": "5800655655995968830"},
+    2015: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5866352046986232958/Original.png", "required_value": 50,  "tg_gift_id": "5866352046986232958"},
+    2016: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5893356958802511476/Original.png", "required_value": 50,  "tg_gift_id": "5893356958802511476"},
+    2017: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5935895822435615975/Original.png", "required_value": 50,  "tg_gift_id": "5935895822435615975"},
 }
 
 

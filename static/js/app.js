@@ -18,6 +18,7 @@ async function initApp() {
         const data = await res.json();
         baseGifts    = data.config.base_gifts;
         mainGifts    = data.config.main_gifts;
+        tgGifts      = data.config.tg_gifts || {};
         botUsername  = data.config.bot_username;
         if (data.config.roulette) rouletteConfig = data.config.roulette;
         if (data.config.cases) casesConfig = data.config.cases;

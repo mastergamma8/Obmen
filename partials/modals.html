@@ -6,8 +6,13 @@
             <div class="absolute inset-0 rounded-full bg-purple-500/30 animate-ping opacity-20"></div>
             <img id="rr-photo" src="" class="w-20 h-20 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] relative z-10">
         </div>
-        <p id="rr-text" class="text-2xl font-bold text-white mb-8 drop-shadow-md"></p>
-        <button onclick="closeModal('roulette-result-modal')" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_15px_rgba(236,72,153,0.4)]" data-i18n="take_prize">Забрать приз!</button>
+        <p id="rr-text" class="text-2xl font-bold text-white mb-5 drop-shadow-md"></p>
+        <div id="rr-gift-actions" class="hidden flex flex-col gap-3 mb-4">
+            <button id="rr-btn-withdraw" class="w-full bg-gradient-to-r from-emerald-500 to-green-600 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_15px_rgba(16,185,129,0.35)]" data-i18n="btn_tg_withdraw">Вывести подарок</button>
+            <button id="rr-btn-exchange" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_15px_rgba(245,158,11,0.35)]" data-i18n="btn_tg_exchange">Обменять</button>
+            <button id="rr-btn-keep" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="btn_tg_keep">Оставить в инвентаре</button>
+        </div>
+        <button id="rr-btn-close" onclick="closeModal('roulette-result-modal')" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_15px_rgba(236,72,153,0.4)]" data-i18n="take_prize">Забрать приз!</button>
     </div>
 </div>
 
@@ -226,8 +231,13 @@
             </div>
         </div>
         <p id="cam-item-name" class="text-2xl font-bold text-white mb-1 glow-text"></p>
-        <p id="cam-item-type-label" class="text-sm text-amber-300/60 font-medium mb-8 uppercase tracking-widest"></p>
-        <button onclick="closeCaseAnimation()" class="w-full max-w-xs py-4 rounded-xl font-extrabold text-white text-lg active:scale-95 transition-transform" style="background:linear-gradient(135deg,#f59e0b,#ea580c);box-shadow:0 0 25px rgba(245,158,11,0.5);" data-i18n="take_prize_case">
+        <p id="cam-item-type-label" class="text-sm text-amber-300/60 font-medium mb-6 uppercase tracking-widest"></p>
+        <div id="cam-gift-actions" class="hidden w-full max-w-xs flex flex-col gap-3 mb-4">
+            <button id="cam-btn-withdraw" class="w-full py-4 rounded-xl font-extrabold text-white text-lg active:scale-95 transition-transform" style="background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 0 25px rgba(16,185,129,0.35);" data-i18n="btn_tg_withdraw">Вывести подарок</button>
+            <button id="cam-btn-exchange" class="w-full py-4 rounded-xl font-extrabold text-white text-lg active:scale-95 transition-transform" style="background:linear-gradient(135deg,#f59e0b,#ea580c);box-shadow:0 0 25px rgba(245,158,11,0.35);" data-i18n="btn_tg_exchange">Обменять</button>
+            <button id="cam-btn-keep" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="btn_tg_keep">Оставить в инвентаре</button>
+        </div>
+        <button id="cam-btn-close" onclick="closeCaseAnimation()" class="w-full max-w-xs py-4 rounded-xl font-extrabold text-white text-lg active:scale-95 transition-transform" style="background:linear-gradient(135deg,#f59e0b,#ea580c);box-shadow:0 0 25px rgba(245,158,11,0.5);" data-i18n="take_prize_case">
             Забрать приз!
         </button>
     </div>
@@ -276,24 +286,30 @@
 <!-- МОДАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ ВЫВОДА ПОДАРКА С КОМИССИЕЙ -->
 <div id="withdraw-confirm-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md hidden flex items-center justify-center z-[70] p-5 transition-opacity">
     <div class="glass-panel rounded-3xl p-6 w-full max-w-sm text-center border border-white/10 relative transform scale-95 transition-transform" id="wcm-content">
-        <!-- Кнопка закрытия -->
         <button onclick="closeModal('withdraw-confirm-modal')" class="absolute top-4 right-4 text-white/50 hover:text-white transition-colors">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
         
-        <h3 class="text-2xl font-extrabold text-white mb-2" data-i18n="withdraw_confirm_title">Вывод подарка</h3>
-        <p class="text-white/70 text-sm mb-6" data-i18n="withdraw_confirm_desc">Для вывода этого подарка необходимо оплатить комиссию сети.</p>
+        <h3 id="wcm-title" class="text-2xl font-extrabold text-white mb-2" data-i18n="withdraw_confirm_title">Вывод подарка</h3>
+        <p id="wcm-desc" class="text-white/70 text-sm mb-6" data-i18n="withdraw_confirm_desc">Для вывода этого подарка необходимо оплатить комиссию сети.</p>
 
-        <!-- Блок с подарком -->
-        <div class="bg-black/30 rounded-2xl p-4 mb-6 border border-white/5">
+        <div class="bg-black/30 rounded-2xl p-4 mb-5 border border-white/5">
             <img id="wcm-gift-img" src="" class="w-20 h-20 mx-auto object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] mb-3">
             <h4 id="wcm-gift-name" class="text-white font-bold text-lg">Название</h4>
+            <p id="wcm-exchange-info" class="hidden mt-2 text-sm text-amber-200/90 font-semibold"></p>
         </div>
 
-        <!-- Кнопка оплаты (дизайн как у покупки звезд) -->
-        <button id="wcm-btn-confirm" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.4)] text-white py-3.5 rounded-xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
-            <span data-i18n="btn_pay_withdraw">Вывести за</span> <span id="wcm-fee-amount">25</span>
-            <img src="/gifts/stars.png" class="w-5 h-5 object-contain" onerror="this.src='https://via.placeholder.com/20?text=⭐'">
-        </button>
+        <div id="wcm-fee-row" class="mb-4">
+            <button id="wcm-btn-confirm" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.4)] text-white py-3.5 rounded-xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+                <span id="wcm-btn-confirm-label">Вывести за</span> <span id="wcm-fee-amount">25</span>
+                <img src="/gifts/stars.png" class="w-5 h-5 object-contain" onerror="this.src='https://via.placeholder.com/20?text=⭐'">
+            </button>
+        </div>
+
+        <div id="wcm-tg-actions" class="hidden flex flex-col gap-3">
+            <button id="wcm-btn-withdraw-tg" class="w-full bg-gradient-to-r from-emerald-500 to-green-600 shadow-[0_0_15px_rgba(16,185,129,0.35)] text-white py-3.5 rounded-xl font-bold text-lg active:scale-95 transition-all" data-i18n="btn_tg_withdraw">Вывести подарок</button>
+            <button id="wcm-btn-exchange" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_15px_rgba(245,158,11,0.35)] text-white py-3.5 rounded-xl font-bold text-lg active:scale-95 transition-all" data-i18n="btn_tg_exchange">Обменять</button>
+            <button id="wcm-btn-keep" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="btn_tg_keep">Оставить в инвентаре</button>
+        </div>
     </div>
 </div>

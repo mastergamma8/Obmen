@@ -103,7 +103,11 @@ function updateRocketUI() {
         btnAction.className = "w-full py-4 rounded-xl font-black text-xl text-white active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg bg-gradient-to-r from-emerald-500 to-green-600 shadow-green-500/40";
         
         let currentWin = Math.floor(rocketBetAmount * rocketCurrentMult);
-        txtAction.innerHTML = `${i18n[currentLang]?.cashout || 'Забрать'} ${currentWin} <img src="${currencyIcon}" class="w-5 h-5 object-contain mb-0.5">`;
+        // Safe DOM construction: cashout label + currency icon
+        txtAction.textContent = `${i18n[currentLang]?.cashout || 'Забрать'} ${currentWin} `;
+        const _icon1 = document.createElement('img');
+        _icon1.src = currencyIcon; _icon1.className = 'w-5 h-5 object-contain mb-0.5';
+        txtAction.appendChild(_icon1);
         
         multText.innerText = rocketCurrentMult.toFixed(2) + 'x';
         multText.className = "text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-orange-300 to-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.8)] scale-110 transition-transform duration-75";
@@ -273,14 +277,21 @@ function startRocketFlight() {
     const growthSpeed = rocketConfigLocal?.growth_speed || 1.00006;
     const currencyIcon = rocketConfigLocal?.currency === 'stars' ? '/gifts/stars.png' : '/gifts/dount.png';
 
+    // Опрашиваем сервер каждые 500ms чтобы узнать о краше.
+    // crash_point не передаётся клиенту намеренно (безопасность),
+    // поэтому единственный способ знать о краше — спросить сервер.
+    let lastStatusCheck = 0;
+    const STATUS_INTERVAL = 500;
+
     function gameLoop() {
         if (rocketState !== 'flying') return;
         
         let elapsed = Date.now() - rocketStartTime;
         rocketCurrentMult = Math.max(1.00, Math.pow(growthSpeed, elapsed));
-        
-        if (rocketCurrentMult >= rocketCrashPoint) {
-            rocketCurrentMult = rocketCrashPoint; 
+
+        // В демо-режиме crash_point установлен локально — проверяем напрямую
+        if (isDemoMode && rocketCurrentMult >= rocketCrashPoint) {
+            rocketCurrentMult = rocketCrashPoint;
             handleRocketCrash();
             return;
         }
@@ -291,13 +302,33 @@ function startRocketFlight() {
             cashoutRocket(true);
             return;
         }
+
+        // Периодически спрашиваем сервер — не улетела ли ракета
+        const now = Date.now();
+        if (!isDemoMode && now - lastStatusCheck >= STATUS_INTERVAL) {
+            lastStatusCheck = now;
+            fetch('/api/rocket/status', { headers: getApiHeaders() })
+                .then(r => r.json())
+                .then(data => {
+                    if (rocketState !== 'flying') return;
+                    if (data.crashed || data.status === 'no_game') {
+                        handleRocketCrash();
+                    }
+                })
+                .catch(() => {});
+        }
         
         const multText = document.getElementById('rocket-multiplier');
         if (multText) multText.innerText = rocketCurrentMult.toFixed(2) + 'x';
         
         const txtAction = document.getElementById('rocket-action-text');
         let currentWin = Math.floor(rocketBetAmount * rocketCurrentMult);
-        if (txtAction) txtAction.innerHTML = `${i18n[currentLang]?.cashout || 'Забрать'} ${currentWin} <img src="${currencyIcon}" class="w-5 h-5 object-contain mb-0.5">`;
+        if (txtAction) {
+            txtAction.textContent = `${i18n[currentLang]?.cashout || 'Забрать'} ${currentWin} `;
+            const _icon2 = document.createElement('img');
+            _icon2.src = currencyIcon; _icon2.className = 'w-5 h-5 object-contain mb-0.5';
+            txtAction.appendChild(_icon2);
+        }
 
         rocketAnimFrame = requestAnimationFrame(gameLoop);
     }

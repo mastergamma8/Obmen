@@ -12,6 +12,18 @@
             </div>
             <h3 class="text-lg font-bold text-white mb-2" data-i18n="invite_friends">Приглашайте друзей</h3>
             <p class="text-sm text-blue-200/70 mb-4 leading-relaxed" id="ref-desc"></p>
+            <div class="flex gap-2 mb-4">
+                <div class="flex-1 bg-blue-500/10 border border-blue-400/20 rounded-2xl p-3 flex flex-col items-center gap-1">
+                    <img src="/gifts/dount.png" class="w-6 h-6 object-contain"/>
+                    <span class="text-xs font-bold text-blue-300" data-i18n="ref_bonus_donuts_label">10% пончиков</span>
+                    <span class="text-xs text-blue-200/50" data-i18n="ref_bonus_donuts_sub">с подарка друга</span>
+                </div>
+                <div class="flex-1 bg-yellow-500/10 border border-yellow-400/20 rounded-2xl p-3 flex flex-col items-center gap-1">
+                    <img src="/gifts/stars.png" class="w-6 h-6 object-contain"/>
+                    <span class="text-xs font-bold text-yellow-300" data-i18n="ref_bonus_stars_label">10% звёзд</span>
+                    <span class="text-xs text-yellow-200/50" data-i18n="ref_bonus_stars_sub">с пополнения друга</span>
+                </div>
+            </div>
             <div class="flex gap-2">
                 <button onclick="shareRefLink()" class="flex-1 btn-primary py-3.5 rounded-xl font-bold text-white active:scale-95 transition-transform" data-i18n="btn_invite">Пригласить друзей</button>
                 <button onclick="copyRefLink()"  class="w-14 glass flex items-center justify-center rounded-xl active:scale-95 transition-transform border border-white/20">

@@ -1,6 +1,40 @@
 // =====================================================
 // ПРОФИЛЬ И ВЫВОД
 // =====================================================
+function isRealTgGift(giftId) {
+    return !!(tgGifts && tgGifts[giftId] && tgGifts[giftId].tg_gift_id);
+}
+
+function getGiftDefinitionById(giftId) {
+    return mainGifts[giftId] || tgGifts[giftId] || baseGifts[giftId] || null;
+}
+
+function getTgGiftExchangeStars(giftId) {
+    const giftDef = getGiftDefinitionById(giftId);
+    const baseValue = giftDef ? parseInt(giftDef.required_value || giftDef.value || 0) : 0;
+    return isRealTgGift(giftId) ? baseValue + 10 : 0;
+}
+
+async function performGiftAction(giftId, action) {
+    const endpoint = action === 'exchange' ? '/api/exchange' : '/api/withdraw';
+    const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: getApiHeaders(),
+        body: JSON.stringify({ gift_id: giftId })
+    });
+    const data = await res.json();
+    return { res, data };
+}
+
+function syncGiftStateFromResponse(data) {
+    if (!data) return;
+    if (data.balance !== undefined) myBalance = data.balance;
+    if (data.stars !== undefined) myStars = data.stars;
+    if (data.user_gifts) myGifts = data.user_gifts;
+    if (typeof updateUI === 'function') updateUI();
+    if (typeof renderProfile === 'function') renderProfile();
+}
+
 function renderProfile() {
     const el = (id) => document.getElementById(id);
     if (tgUser.first_name) el('profile-name').innerText = tgUser.first_name;
@@ -13,18 +47,17 @@ function renderProfile() {
     let hasGifts = false;
     
     for (const [id, amount] of Object.entries(myGifts)) {
-        // Проверяем: это Главный подарок или Базовый подарок?
-        const giftDef = mainGifts[id] || baseGifts[id];
+        const giftDef = getGiftDefinitionById(id);
         
         if (amount > 0 && giftDef) {
             hasGifts = true;
             grid.innerHTML += `
-                <div onclick="openWithdrawModal(${id})" class="glass rounded-2xl p-4 flex flex-col items-center relative transition-transform active:scale-95 cursor-pointer border border-green-500/20 bg-green-500/5">
+                <div onclick="openWithdrawModal('${id}')" class="glass rounded-2xl p-4 flex flex-col items-center relative transition-transform active:scale-95 cursor-pointer border border-green-500/20 bg-green-500/5">
                     <div class="absolute -top-2 -right-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center border-2 border-[#0f172a] shadow-lg z-10">${amount}</div>
                     <div class="bg-black/20 w-16 h-16 rounded-xl flex items-center justify-center mb-3 border border-white/5 shadow-inner">
-                        <img src="${getImgSrc(giftDef.photo)}" class="w-12 h-12 object-contain drop-shadow-md" onerror="this.src='https://via.placeholder.com/48'">
+                        <img src="${escapeHtml(getImgSrc(giftDef.photo))}" class="w-12 h-12 object-contain drop-shadow-md" onerror="this.src='https://via.placeholder.com/48'">
                     </div>
-                    <span class="text-xs text-center font-bold text-white mb-1 leading-tight">${giftDef.name}</span>
+                    <span class="text-xs text-center font-bold text-white mb-1 leading-tight">${escapeHtml(giftDef.name)}</span>
                     <span class="text-[10px] font-bold text-gray-400 bg-black/30 px-2 py-0.5 rounded-full mt-auto">${i18n[currentLang].click}</span>
                 </div>`;
         }
@@ -35,43 +68,70 @@ function renderProfile() {
 }
 
 let currentWithdrawGiftId = null;
-
-// Берет значение из бэкенда (appConfig.withdraw_fee из /init) либо 25 по умолчанию
+let currentWithdrawIsTgGift = false;
+let currentWithdrawExchangeStars = 0;
 let withdrawFeeAmount = (window.appConfig && window.appConfig.withdraw_fee) ? window.appConfig.withdraw_fee : 25;
 
 function openWithdrawModal(giftId) {
     vibrate('medium');
     currentWithdrawGiftId = giftId;
-    const giftDef = mainGifts[giftId] || baseGifts[giftId];
+    const giftDef = getGiftDefinitionById(giftId);
     if (!giftDef) return;
 
-    // Подставляем данные в модалку
-    document.getElementById('wcm-gift-img').src = getImgSrc(giftDef.photo);
-    document.getElementById('wcm-gift-name').innerText = giftDef.name;
-    document.getElementById('wcm-fee-amount').innerText = withdrawFeeAmount;
+    currentWithdrawIsTgGift = isRealTgGift(giftId);
+    currentWithdrawExchangeStars = getTgGiftExchangeStars(giftId);
 
-    // Вешаем обработчик на кнопку подтверждения
-    document.getElementById('wcm-btn-confirm').onclick = () => confirmWithdraw(giftId);
+    const titleEl = document.getElementById('wcm-title');
+    const descEl = document.getElementById('wcm-desc');
+    const imgEl = document.getElementById('wcm-gift-img');
+    const nameEl = document.getElementById('wcm-gift-name');
+    const feeRow = document.getElementById('wcm-fee-row');
+    const tgActions = document.getElementById('wcm-tg-actions');
+    const exchangeInfo = document.getElementById('wcm-exchange-info');
+    const btnConfirm = document.getElementById('wcm-btn-confirm');
+    const btnConfirmLabel = document.getElementById('wcm-btn-confirm-label');
+    const feeAmount = document.getElementById('wcm-fee-amount');
+
+    imgEl.src = getImgSrc(giftDef.photo);
+    nameEl.innerText = giftDef.name;
+
+    if (currentWithdrawIsTgGift) {
+        titleEl.innerText = i18n[currentLang].tg_gift_modal_title;
+        descEl.innerText = i18n[currentLang].tg_gift_modal_desc;
+        feeRow.classList.add('hidden');
+        tgActions.classList.remove('hidden');
+        exchangeInfo.classList.remove('hidden');
+        exchangeInfo.innerText = `${i18n[currentLang].btn_tg_exchange}: +${currentWithdrawExchangeStars} ⭐`;
+        document.getElementById('wcm-btn-withdraw-tg').textContent = i18n[currentLang].btn_tg_withdraw;
+        document.getElementById('wcm-btn-exchange').textContent = `${i18n[currentLang].btn_tg_exchange} +${currentWithdrawExchangeStars} ⭐`;
+        document.getElementById('wcm-btn-keep').textContent = i18n[currentLang].btn_tg_keep;
+        document.getElementById('wcm-btn-withdraw-tg').onclick = () => confirmWithdrawGift(giftId, true);
+        document.getElementById('wcm-btn-exchange').onclick = () => confirmExchangeGift(giftId);
+        document.getElementById('wcm-btn-keep').onclick = () => closeModal('withdraw-confirm-modal');
+    } else {
+        titleEl.innerText = i18n[currentLang].withdraw_confirm_title;
+        descEl.innerText = i18n[currentLang].withdraw_confirm_desc;
+        feeRow.classList.remove('hidden');
+        tgActions.classList.add('hidden');
+        exchangeInfo.classList.add('hidden');
+        btnConfirmLabel.innerText = 'Вывести за';
+        feeAmount.innerText = withdrawFeeAmount;
+        btnConfirm.onclick = () => confirmWithdrawGift(giftId, false);
+    }
 
     openModal('withdraw-confirm-modal');
 }
 
-async function confirmWithdraw(giftId) {
+async function confirmWithdrawGift(giftId, isTgGift = false) {
     vibrate('heavy');
-    const btn = document.getElementById('wcm-btn-confirm');
+    const btn = isTgGift ? document.getElementById('wcm-btn-withdraw-tg') : document.getElementById('wcm-btn-confirm');
     const originalHtml = btn.innerHTML;
 
-    // Показываем лоадер на кнопке
     btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
     btn.disabled = true;
 
     try {
-        const res = await fetch('/api/withdraw', {
-            method: 'POST',
-            headers: getApiHeaders(),
-            body: JSON.stringify({ gift_id: giftId })
-        });
-        const data = await res.json();
+        const { res, data } = await performGiftAction(giftId, 'withdraw');
 
         if (res.status === 429) {
             if (data.detail && data.detail.error === 'cooldown') {
@@ -87,7 +147,6 @@ async function confirmWithdraw(giftId) {
         }
 
         if (!res.ok) {
-            // Если не хватает звезд — закрываем модалку, показываем алерт и открываем пополнение
             if (data.detail === 'not_enough_stars') {
                 closeModal('withdraw-confirm-modal');
                 tg.showAlert(i18n[currentLang].not_enough_stars_alert, () => {
@@ -98,20 +157,14 @@ async function confirmWithdraw(giftId) {
             throw new Error(data.detail || 'Withdraw error');
         }
 
-        // Успех
-        myGifts = data.user_gifts;
+        syncGiftStateFromResponse(data);
+closeModal('withdraw-confirm-modal');
 
-        // Отнимаем звезды визуально
-        const starsEl = document.getElementById('user-stars');
-        if (starsEl) {
-            let currentStars = parseInt(starsEl.innerText) || 0;
-            starsEl.innerText = Math.max(0, currentStars - withdrawFeeAmount);
-        }
-
-        closeModal('withdraw-confirm-modal');
-        updateUI();
-        if (typeof renderProfile === 'function') renderProfile();
-        setTimeout(() => openModal('success-withdraw-modal'), 300);
+if (isTgGift) {
+    tg.showAlert('Подарок отправлен.');
+} else {
+    setTimeout(() => openModal('success-withdraw-modal'), 300);
+}
 
     } catch(e) {
         console.error(e);
@@ -122,22 +175,105 @@ async function confirmWithdraw(giftId) {
     }
 }
 
+async function confirmExchangeGift(giftId) {
+    vibrate('heavy');
+    const btn = document.getElementById('wcm-btn-exchange');
+    const originalHtml = btn.innerHTML;
+
+    btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+    btn.disabled = true;
+
+    try {
+        const { res, data } = await performGiftAction(giftId, 'exchange');
+        if (!res.ok) throw new Error(data.detail || 'Exchange error');
+        syncGiftStateFromResponse(data);
+        closeModal('withdraw-confirm-modal');
+        tg.showAlert(`${i18n[currentLang].tg_exchange_success} +${data.exchange_stars || getTgGiftExchangeStars(giftId)} ⭐`);
+    } catch (e) {
+        console.error(e);
+        tg.showAlert(i18n[currentLang].err_conn);
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+function configureCaseGiftActionsIfNeeded(giftId, source = 'case') {
+    const actionsBox = document.getElementById(source === 'case' ? 'cam-gift-actions' : 'rr-gift-actions');
+    const closeBtn = document.getElementById(source === 'case' ? 'cam-btn-close' : 'rr-btn-close');
+    const withdrawBtn = document.getElementById(source === 'case' ? 'cam-btn-withdraw' : 'rr-btn-withdraw');
+    const exchangeBtn = document.getElementById(source === 'case' ? 'cam-btn-exchange' : 'rr-btn-exchange');
+    const keepBtn = document.getElementById(source === 'case' ? 'cam-btn-keep' : 'rr-btn-keep');
+
+    if (!actionsBox || !closeBtn || !withdrawBtn || !exchangeBtn || !keepBtn) return;
+
+    const giftDef = getGiftDefinitionById(giftId);
+    if (!giftDef || !isRealTgGift(giftId)) {
+        actionsBox.classList.add('hidden');
+        closeBtn.classList.remove('hidden');
+        return;
+    }
+
+    const exchangeStars = getTgGiftExchangeStars(giftId);
+    actionsBox.classList.remove('hidden');
+    closeBtn.classList.add('hidden');
+    withdrawBtn.textContent = i18n[currentLang].btn_tg_withdraw;
+    exchangeBtn.textContent = `${i18n[currentLang].btn_tg_exchange} +${exchangeStars} ⭐`;
+    keepBtn.textContent = i18n[currentLang].btn_tg_keep;
+
+    withdrawBtn.onclick = async () => {
+        try {
+            const { res, data } = await performGiftAction(giftId, 'withdraw');
+            if (!res.ok) throw new Error(data.detail || 'Withdraw error');
+            syncGiftStateFromResponse(data);
+            if (source === 'case') closeCaseAnimation();
+            else closeModal('roulette-result-modal');
+            tg.showAlert(i18n[currentLang].tg_withdraw_success);
+        } catch (e) {
+            console.error(e);
+            tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
+        }
+    };
+
+    exchangeBtn.onclick = async () => {
+        try {
+            const { res, data } = await performGiftAction(giftId, 'exchange');
+            if (!res.ok) throw new Error(data.detail || 'Exchange error');
+            syncGiftStateFromResponse(data);
+            if (source === 'case') closeCaseAnimation();
+            else closeModal('roulette-result-modal');
+            tg.showAlert(`${i18n[currentLang].tg_exchange_success} +${data.exchange_stars || exchangeStars} ⭐`);
+        } catch (e) {
+            console.error(e);
+            tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
+        }
+    };
+
+    keepBtn.onclick = () => {
+        if (source === 'case') closeCaseAnimation();
+        else closeModal('roulette-result-modal');
+    };
+}
+
 // =====================================================
 // ИСТОРИЯ ОПЕРАЦИЙ
 // =====================================================
 
-// Расширенный список иконок для всех событий (включая звезды и новые игры)
+// Список иконок и цветов для всех типов событий истории
 const HISTORY_ICONS = {
+    topup_stars:          { icon: '⭐', color: 'green',  sign: '+' },
     gift_added:           { icon: '🎁', color: 'green',  sign: '+' },
     roulette_win_donuts:  { icon: '🎰', color: 'green',  sign: '+' },
     roulette_win_stars:   { icon: '🎰', color: 'green',  sign: '+' },
     roulette_win_gift:    { icon: '🎁', color: 'green',  sign: null },
+    roulette_win_tg_gift: { icon: '🎁', color: 'green',  sign: null },
     roulette_paid_donuts: { icon: '🎰', color: 'red',    sign: '-' },
     roulette_paid_stars:  { icon: '🎰', color: 'red',    sign: '-' },
     roulette_paid:        { icon: '🎰', color: 'red',    sign: '-' },
     case_win_donuts:      { icon: '📦', color: 'green',  sign: '+' },
     case_win_stars:       { icon: '📦', color: 'green',  sign: '+' },
     case_win_gift:        { icon: '🎁', color: 'green',  sign: null },
+    case_win_tg_gift:     { icon: '🎁', color: 'green',  sign: null },
     case_paid_donuts:     { icon: '📦', color: 'red',    sign: '-' },
     case_paid_stars:      { icon: '📦', color: 'red',    sign: '-' },
     rocket_win_donuts:    { icon: '🚀', color: 'green',  sign: '+' },
@@ -146,8 +282,76 @@ const HISTORY_ICONS = {
     rocket_lose_stars:    { icon: '💥', color: 'red',    sign: '-' },
     claim_gift:           { icon: '🛍️', color: 'red',    sign: '-' },
     withdraw_gift:        { icon: '📤', color: 'gray',   sign: null },
+    withdraw_tg_gift:     { icon: '📤', color: 'gray',   sign: null },
+    exchange_tg_gift:     { icon: '🔁', color: 'amber',  sign: '+' },
     task_reward:          { icon: '✅', color: 'green',  sign: '+' },
+    task_reward_stars:    { icon: '✅', color: 'green',  sign: '+' },
     referral_bonus:       { icon: '👥', color: 'green',  sign: '+' },
+    referral_bonus_stars: { icon: '👥', color: 'green',  sign: '+' },
+};
+
+// Служебные типы, которые не показываются в истории пользователю
+const HISTORY_HIDDEN_TYPES = new Set(['case_lucky_ratio']);
+
+// Читаемые названия событий на двух языках
+const HISTORY_LABELS = {
+    ru: {
+        topup_stars:          'Пополнение баланса',
+        gift_added:           'Получен подарок',
+        roulette_win_donuts:  'Выигрыш в рулетке',
+        roulette_win_stars:   'Выигрыш в рулетке',
+        roulette_win_gift:    'Выигрыш подарка в рулетке',
+        roulette_win_tg_gift: 'Выигрыш Telegram-подарка в рулетке',
+        roulette_paid_donuts: 'Ставка в рулетке',
+        roulette_paid_stars:  'Ставка в рулетке',
+        roulette_paid:        'Ставка в рулетке',
+        case_win_donuts:      'Выигрыш из кейса',
+        case_win_stars:       'Выигрыш из кейса',
+        case_win_gift:        'Выигрыш подарка из кейса',
+        case_win_tg_gift:     'Выигрыш Telegram-подарка из кейса',
+        case_paid_donuts:     'Открытие кейса',
+        case_paid_stars:      'Открытие кейса',
+        rocket_win_donuts:    'Выигрыш в ракете',
+        rocket_win_stars:     'Выигрыш в ракете',
+        rocket_lose_donuts:   'Проигрыш в ракете',
+        rocket_lose_stars:    'Проигрыш в ракете',
+        claim_gift:           'Получение подарка',
+        withdraw_gift:        'Вывод подарка',
+        withdraw_tg_gift:     'Вывод Telegram-подарка',
+        exchange_tg_gift:     'Обмен Telegram-подарка',
+        task_reward:          'Награда за задание',
+        referral_bonus:       'Реферальный бонус',
+        referral_bonus_stars: 'Реферальный бонус ⭐',
+    },
+    en: {
+        topup_stars:          'Balance top-up',
+        gift_added:           'Gift received',
+        roulette_win_donuts:  'Roulette win',
+        roulette_win_stars:   'Roulette win',
+        roulette_win_gift:    'Gift won in roulette',
+        roulette_win_tg_gift: 'Telegram gift won in roulette',
+        roulette_paid_donuts: 'Roulette bet',
+        roulette_paid_stars:  'Roulette bet',
+        roulette_paid:        'Roulette bet',
+        case_win_donuts:      'Case win',
+        case_win_stars:       'Case win',
+        case_win_gift:        'Gift won from case',
+        case_win_tg_gift:     'Telegram gift won from case',
+        case_paid_donuts:     'Case opened',
+        case_paid_stars:      'Case opened',
+        rocket_win_donuts:    'Rocket win',
+        rocket_win_stars:     'Rocket win',
+        rocket_lose_donuts:   'Rocket loss',
+        rocket_lose_stars:    'Rocket loss',
+        claim_gift:           'Gift claimed',
+        withdraw_gift:        'Gift withdrawn',
+        withdraw_tg_gift:     'Telegram gift withdrawn',
+        exchange_tg_gift:     'Telegram gift exchanged',
+        task_reward:          'Task reward',
+        task_reward_stars:    'Task reward',
+        referral_bonus:       'Referral bonus',
+        referral_bonus_stars: 'Referral bonus ⭐',
+    }
 };
 
 function formatHistoryDate(ts) {
@@ -159,7 +363,7 @@ function formatHistoryDate(ts) {
 // Функция для поиска фото подарка по его названию в описании истории
 function getHistoryGiftPhoto(description) {
     if (!description) return null;
-    const allGifts = { ...mainGifts, ...baseGifts };
+    const allGifts = { ...mainGifts, ...tgGifts, ...baseGifts };
     for (const key in allGifts) {
         if (description.includes(allGifts[key].name)) {
             return allGifts[key].photo;
@@ -264,6 +468,9 @@ async function loadMoreHistory(isFirstLoad = false) {
         yesterday.setDate(today.getDate() - 1);
 
         data.history.forEach(entry => {
+            // Скрываем служебные записи (luck ratio и т.п.)
+            if (HISTORY_HIDDEN_TYPES.has(entry.action_type)) return;
+
             const dateObj = new Date(entry.created_at * 1000);
             let displayDate = dateObj.toLocaleDateString(currentLang === 'ru' ? 'ru-RU' : 'en-US', {
                 day: 'numeric', month: 'long'
@@ -299,7 +506,7 @@ async function loadMoreHistory(isFirstLoad = false) {
                 <div class="sticky top-[-5px] z-20 flex items-center justify-between bg-[#0f172a]/80 backdrop-blur-xl py-2.5 px-3 mt-5 mb-3 first:mt-0 rounded-xl border border-white/10 shadow-lg">
                     <div class="flex items-center gap-3">
                         <div class="w-1.5 h-4 bg-gradient-to-b from-blue-400 to-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.6)]"></div>
-                        <span class="text-sm font-bold text-white/90 capitalize tracking-wide drop-shadow-md">${dateLabel}</span>
+                        <span class="text-sm font-bold text-white/90 capitalize tracking-wide drop-shadow-md">${escapeHtml(dateLabel)}</span>
                     </div>
                     <div class="flex items-center gap-1.5 bg-white/5 text-white/70 px-2.5 py-1 rounded-full border border-white/10 shadow-inner">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
@@ -313,12 +520,20 @@ async function loadMoreHistory(isFirstLoad = false) {
                 const meta = HISTORY_ICONS[entry.action_type] || { icon: '📋', color: 'gray', sign: null };
                 const giftPhotoUrl = getHistoryGiftPhoto(entry.description);
                 let displayIconHtml = giftPhotoUrl
-                    ? `<img src="${getImgSrc(giftPhotoUrl)}" class="w-7 h-7 object-contain drop-shadow-md">`
+                    ? `<img src="${escapeHtml(getImgSrc(giftPhotoUrl))}" class="w-7 h-7 object-contain drop-shadow-md">`
                     : meta.icon;
+
+                // Читаемое название события
+                const labels = HISTORY_LABELS[currentLang] || HISTORY_LABELS['ru'];
+                const entryTitle = labels[entry.action_type] || entry.description || entry.action_type;
 
                 let currencyIconUrl = entry.action_type.includes('stars') ? '/gifts/stars.png' : '/gifts/dount.png';
                 let amountHtml = '';
-                if (meta.sign === '+' && entry.amount > 0) {
+
+                if (entry.action_type === 'topup_stars' && entry.amount > 0) {
+                    // Пополнение звёздами: показываем +N зелёным с иконкой звезды
+                    amountHtml = `<span class="text-green-400 font-extrabold text-base flex items-center gap-1.5">+${entry.amount} <img src="/gifts/stars.png" class="w-4 h-4 object-contain"></span>`;
+                } else if (meta.sign === '+' && entry.amount > 0) {
                     amountHtml = `<span class="text-green-400 font-extrabold text-base flex items-center gap-1">+${entry.amount} <img src="${currencyIconUrl}" class="w-4 h-4 object-contain"></span>`;
                 } else if (meta.sign === '-' && entry.amount !== 0) {
                     amountHtml = `<span class="text-red-400 font-extrabold text-base flex items-center gap-1">-${Math.abs(entry.amount)} <img src="${currencyIconUrl}" class="w-4 h-4 object-contain"></span>`;
@@ -340,7 +555,7 @@ async function loadMoreHistory(isFirstLoad = false) {
                                 ${displayIconHtml}
                             </div>
                             <div class="min-w-0">
-                                <div class="font-semibold text-white text-sm leading-tight truncate">${entry.description}</div>
+                                <div class="font-semibold text-white text-sm leading-tight truncate">${escapeHtml(entryTitle)}</div>
                                 <div class="text-[11px] text-blue-200/40 mt-0.5">${formatHistoryDate(entry.created_at)}</div>
                             </div>
                         </div>

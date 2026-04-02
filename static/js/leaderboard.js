@@ -2,6 +2,15 @@
 // ТАБЛИЦА ЛИДЕРОВ — три вкладки
 // =====================================================
 
+function escapeHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 let currentLeaderboardTab = 'rich'; // 'rich' | 'rocket' | 'lucky'
 
 // ─── Переключение вкладок ────────────────────────────
@@ -74,7 +83,7 @@ function getRankStyle(index) {
 
 function buildCard(u, index, isMe, valueBadge) {
     const s = getRankStyle(index);
-    const avatar = u.photo_url || 'https://via.placeholder.com/40';
+    const avatar = escapeHtml(u.photo_url || 'https://via.placeholder.com/40');
 
     // Классы для карточки
     const cardClass = s.card || (isMe ? 'border-blue-400/60 bg-gradient-to-r from-blue-600/20 to-transparent shadow-[0_0_15px_rgba(59,130,246,0.15)]' : 'border-white/5 bg-black/30');
@@ -103,7 +112,7 @@ function buildCard(u, index, isMe, valueBadge) {
                 </div>
                 <div class="font-bold text-white text-[15px] ml-2 flex flex-col justify-center">
                     <div class="flex items-center gap-1.5">
-                        ${u.first_name}
+                        ${escapeHtml(u.first_name || 'Без имени')}
                         ${isMe ? `<span class="text-[10px] leading-none text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider">${i18n[currentLang].you || 'Вы'}</span>` : ''}
                     </div>
                 </div>
@@ -116,18 +125,20 @@ function buildCard(u, index, isMe, valueBadge) {
 
 // ─── Вспомогательная: генерация плавающей плашки (Sticky Rank) ──
 function buildStickyRankHTML(rankText, avatar, name, badgeHtml, badgeTextColorClass) {
+    const safeAvatar = escapeHtml(avatar || 'https://via.placeholder.com/40');
+    const safeName   = escapeHtml(name   || 'Вы');
     return `
         <div class="glass rounded-2xl p-3 flex items-center justify-between relative overflow-hidden border-blue-400/60 bg-gradient-to-r from-blue-600/30 via-blue-500/10 to-black/40 shadow-[0_0_25px_rgba(59,130,246,0.4)] backdrop-blur-3xl">
             <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-300 to-blue-600 shadow-[0_0_15px_rgba(96,165,250,1)]"></div>
             <div class="flex items-center gap-2 pl-2">
                 <div class="w-10 text-center text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-blue-100 to-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)] pr-2">${rankText}</div>
                 <div class="relative">
-                    <img src="${avatar}" class="w-12 h-12 rounded-full object-cover border-2 border-blue-400 shadow-lg relative z-10 bg-black/50">
+                    <img src="${safeAvatar}" class="w-12 h-12 rounded-full object-cover border-2 border-blue-400 shadow-lg relative z-10 bg-black/50">
                     <div class="absolute inset-0 rounded-full blur-md bg-blue-500 opacity-60 z-0 scale-110"></div>
                 </div>
                 <div class="font-bold text-white text-[15px] ml-2 flex flex-col justify-center">
                     <div class="flex items-center gap-1.5">
-                        ${name}
+                        ${safeName}
                         <span class="text-[10px] leading-none text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider">${i18n[currentLang].you || 'Вы'}</span>
                     </div>
                 </div>
@@ -162,8 +173,8 @@ async function loadRichLeaderboard(list, stickyRank) {
 
     const rankText   = currentUserRankData ? currentUserRankData.rank        : '99+';
     const totalGifts = currentUserRankData ? currentUserRankData.total_gifts : myTotalGifts;
-    const myAvatar   = tgUser.photo_url  || 'https://via.placeholder.com/40';
-    const myName     = tgUser.first_name || 'Вы';
+    const myAvatar   = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
+    const myName     = escapeHtml(tgUser.first_name || 'Вы');
 
     if (stickyRank) {
         stickyRank.innerHTML = buildStickyRankHTML(
@@ -193,14 +204,14 @@ async function loadRocketLeaderboard(list, stickyRank) {
         const isMe = (u.tg_id == tgUser.id || (u.username && tgUser.username && u.username === tgUser.username));
         if (isMe) currentUserRankData = { rank: index + 1, max_multiplier: u.max_multiplier };
 
-        const badge = `<span class="text-green-300 font-extrabold">x${u.max_multiplier.toFixed(2)}</span> <img src="/gifts/raketa.png" class="w-4 h-4 object-contain">`;
+        const badge = `<span class="text-green-300 font-extrabold">x${parseFloat(u.max_multiplier ?? 0).toFixed(2)}</span> <img src="/gifts/raketa.png" class="w-4 h-4 object-contain">`;
         list.innerHTML += buildCard(u, index, isMe, badge);
     });
 
     if (!currentUserRankData && data.user_info) currentUserRankData = data.user_info;
 
-    const myAvatar = tgUser.photo_url  || 'https://via.placeholder.com/40';
-    const myName   = tgUser.first_name || 'Вы';
+    const myAvatar = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
+    const myName   = escapeHtml(tgUser.first_name || 'Вы');
     const rankText = currentUserRankData?.rank ?? '—';
     const multText = currentUserRankData?.max_multiplier != null
         ? `x${parseFloat(currentUserRankData.max_multiplier).toFixed(2)}`
@@ -240,8 +251,8 @@ async function loadLuckyLeaderboard(list, stickyRank) {
 
     if (!currentUserRankData && data.user_info) currentUserRankData = data.user_info;
 
-    const myAvatar  = tgUser.photo_url  || 'https://via.placeholder.com/40';
-    const myName    = tgUser.first_name || 'Вы';
+    const myAvatar  = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
+    const myName    = escapeHtml(tgUser.first_name || 'Вы');
     const rankText  = currentUserRankData?.rank ?? '—';
     const ratioText = currentUserRankData?.ratio != null
         ? `${parseFloat(currentUserRankData.ratio).toFixed(2)}x`

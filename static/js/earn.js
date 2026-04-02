@@ -2,6 +2,15 @@
 // ЗАРАБОТОК И РЕФЕРАЛЫ (Earn.js)
 // =====================================================
 
+function escapeHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function switchEarnSubtab(subTabId) {
     vibrate('light');
     ['referrals', 'tasks'].forEach(id => {
@@ -44,8 +53,8 @@ async function loadEarnData() {
         } else {
             refList.innerHTML = '';
             data.referrals.forEach(user => {
-                const avatar = user.photo_url || 'https://via.placeholder.com/40';
-                refList.innerHTML += `<div class="glass rounded-2xl p-3 flex items-center gap-3"><img src="${avatar}" class="w-10 h-10 rounded-full border border-white/10"><div class="font-bold text-white text-sm">${user.first_name}</div></div>`;
+                const avatar = escapeHtml(user.photo_url || 'https://via.placeholder.com/40');
+                refList.innerHTML += `<div class="glass rounded-2xl p-3 flex items-center gap-3"><img src="${avatar}" class="w-10 h-10 rounded-full border border-white/10"><div class="font-bold text-white text-sm">${escapeHtml(user.first_name || 'Без имени')}</div></div>`;
             });
         }
         

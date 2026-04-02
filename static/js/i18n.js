@@ -12,8 +12,7 @@ const i18n = {
             leaderboard: 'Таблица лидеров', earn_title: 'Заработок',
             tab_refs: 'Рефералы', tab_tasks: 'Задания',
             invite_friends: 'Приглашайте друзей',
-            ref_desc: 'Вы будете получать <strong class="text-blue-400 glow-text">10%</strong> пончиков с каждого добавленного вашим другом подарка! <br><span class="text-xs opacity-70">(Например: добавили подарок за 4 <img src="/gifts/dount.png" class="w-3 h-3 inline-block align-middle object-contain"> — вы получите 1 <img src="/gifts/dount.png" class="w-3 h-3 inline-block align-middle object-contain"> бонус)</span>',
-            btn_invite: 'Пригласить друзей', your_refs: 'Ваши приглашенные',
+            ref_desc: 'Вы будете получать <strong class=\"text-blue-400 glow-text\">10%</strong> пончиков с каждого подарка друга, и <strong class=\"text-yellow-400 glow-text\">10%</strong> звёзд с каждого его пополнения! <br><span class=\"text-xs opacity-70\">(Например: друг пополнил 10 <img src=\"/gifts/stars.png\" class=\"w-3 h-3 inline-block align-middle object-contain\"> — вы получите 1 <img src=\"/gifts/stars.png\" class=\"w-3 h-3 inline-block align-middle object-contain\">. Или добавил подарок за 4 <img src=\"/gifts/dount.png\" class=\"w-3 h-3 inline-block align-middle object-contain\"> — вы получите 1 <img src=\"/gifts/dount.png\" class=\"w-3 h-3 inline-block align-middle object-contain\">)</span>',            btn_invite: 'Пригласить друзей', your_refs: 'Ваши приглашенные',
             tasks_desc: 'Выполняйте задания, чтобы получать больше пончиков <img src="/gifts/dount.png" class="w-4 h-4 inline object-contain">',
             add_gift: '+ Добавить подарок', my_gifts: 'Мои подарки', for_withdraw: 'на вывод',
             wheel_fortune: 'Колесо Фортуны', spin_free: 'Крутить бесплатно',
@@ -48,7 +47,9 @@ const i18n = {
             hist_gift_added: 'Добавлен подарок', hist_roulette_paid: 'Платная рулетка',
             hist_roulette_win: 'Выигрыш в рулетке', hist_roulette_free: 'Бесплатная рулетка',
             hist_claim_gift: 'Куплен подарок', hist_withdraw: 'Вывод подарка',
-            hist_task: 'Задание выполнено', hist_referral: 'Реферальный бонус',
+            hist_task: 'Задание выполнено', hist_referral: 'Реферальный бонус', hist_referral_stars: 'Реферальный бонус ⭐',
+            ref_bonus_donuts_label: '10% пончиков', ref_bonus_donuts_sub: 'с подарка друга',
+            ref_bonus_stars_label: '10% звёзд', ref_bonus_stars_sub: 'с пополнения друга',
 
             // КЕЙСЫ
             games_title: 'Игры',
@@ -104,6 +105,20 @@ const i18n = {
             withdraw_confirm_desc: 'Для вывода этого подарка необходимо оплатить комиссию сети.',
             btn_pay_withdraw: 'Вывести за',
             not_enough_stars_alert: 'Недостаточно звезд для вывода!',
+
+            // TG ПОДАРКИ
+            tg_gift_modal_title: 'Подарок из Telegram',
+            tg_gift_modal_desc: 'Можно вывести его в Telegram, обменять на звёзды или оставить в инвентаре.',
+            btn_tg_withdraw: 'Вывести подарок',
+            btn_tg_exchange: 'Обменять',
+            btn_tg_keep: 'Оставить в инвентаре',
+            tg_withdraw_success: 'Подарок отправлен в Telegram!',
+            tg_exchange_success: 'Подарок обменян на звёзды!',
+            tg_withdraw_error: 'Не удалось отправить подарок. Попробуйте позже.',
+            hist_tg_withdraw: 'Вывод Telegram-подарка',
+            hist_tg_exchange: 'Обмен Telegram-подарка',
+            hist_tg_win_roulette: 'Выигрыш Telegram-подарка в рулетке',
+            hist_tg_win_case: 'Выигрыш Telegram-подарка из кейса',
         },
         en: {
             nav_main: 'Main', nav_top: 'Top', nav_earn: 'Earn', nav_profile: 'Profile', nav_games: 'Games',
@@ -114,8 +129,7 @@ const i18n = {
             leaderboard: 'Leaderboard', earn_title: 'Earn',
             tab_refs: 'Referrals', tab_tasks: 'Tasks',
             invite_friends: 'Invite friends',
-            ref_desc: 'You will receive <strong class="text-blue-400 glow-text">10%</strong> of donuts from each gift added by your friend! <br><span class="text-xs opacity-70">(Example: added a gift for 4 <img src="/gifts/dount.png" class="w-3 h-3 inline-block align-middle object-contain"> — you get 1 <img src="/gifts/dount.png" class="w-3 h-3 inline-block align-middle object-contain"> bonus)</span>',
-            btn_invite: 'Invite friends', your_refs: 'Your referrals',
+            ref_desc: 'You will receive <strong class=\"text-blue-400 glow-text\">10%</strong> donuts from each friend&#39;s gift, and <strong class=\"text-yellow-400 glow-text\">10%</strong> stars from each top-up they make! <br><span class=\"text-xs opacity-70\">(Example: friend tops up 10 <img src=\"/gifts/stars.png\" class=\"w-3 h-3 inline-block align-middle object-contain\"> — you get 1 <img src=\"/gifts/stars.png\" class=\"w-3 h-3 inline-block align-middle object-contain\">. Or adds a gift for 4 <img src=\"/gifts/dount.png\" class=\"w-3 h-3 inline-block align-middle object-contain\"> — you get 1 <img src=\"/gifts/dount.png\" class=\"w-3 h-3 inline-block align-middle object-contain\">)</span>',            btn_invite: 'Invite friends', your_refs: 'Your referrals',
             tasks_desc: 'Complete tasks to get more donuts <img src="/gifts/dount.png" class="w-4 h-4 inline object-contain">',
             add_gift: '+ Add gift', my_gifts: 'My gifts', for_withdraw: 'for withdraw',
             wheel_fortune: 'Wheel of Fortune', spin_free: 'Spin for free',
@@ -150,7 +164,9 @@ const i18n = {
             hist_gift_added: 'Gift added', hist_roulette_paid: 'Paid roulette',
             hist_roulette_win: 'Roulette win', hist_roulette_free: 'Free roulette',
             hist_claim_gift: 'Gift purchased', hist_withdraw: 'Gift withdrawn',
-            hist_task: 'Task completed', hist_referral: 'Referral bonus',
+            hist_task: 'Task completed', hist_referral: 'Referral bonus', hist_referral_stars: 'Referral bonus ⭐',
+            ref_bonus_donuts_label: '10% donuts', ref_bonus_donuts_sub: "from friend&#39;s gift",
+            ref_bonus_stars_label: '10% stars', ref_bonus_stars_sub: "from friend&#39;s top-up",
 
             // CASES
             games_title: 'Games',
@@ -206,6 +222,20 @@ const i18n = {
             withdraw_confirm_desc: 'To withdraw this gift, you need to pay the network fee.',
             btn_pay_withdraw: 'Withdraw for',
             not_enough_stars_alert: 'Not enough stars to withdraw!',
+
+            // TG GIFTS
+            tg_gift_modal_title: 'Telegram Gift',
+            tg_gift_modal_desc: 'You can send it to Telegram, exchange it for stars, or keep it in your inventory.',
+            btn_tg_withdraw: 'Send to Telegram',
+            btn_tg_exchange: 'Exchange',
+            btn_tg_keep: 'Keep in inventory',
+            tg_withdraw_success: 'Gift sent to Telegram!',
+            tg_exchange_success: 'Gift exchanged for stars!',
+            tg_withdraw_error: 'Failed to send the gift. Please try again later.',
+            hist_tg_withdraw: 'Telegram gift withdrawn',
+            hist_tg_exchange: 'Telegram gift exchanged',
+            hist_tg_win_roulette: 'Telegram gift won in roulette',
+            hist_tg_win_case: 'Telegram gift won from case',
         }
 };
 

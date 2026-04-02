@@ -7,6 +7,7 @@ const ALL_TABS = ['main', 'leaderboard', 'games', 'earn', 'profile', 'roulette']
 // Глобальное состояние
 let baseGifts = {};
 let mainGifts = {};
+let tgGifts   = {};
 let rouletteConfig = {};
 let casesConfig = {}; 
 let myGifts = {};

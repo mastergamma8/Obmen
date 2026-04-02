@@ -28,6 +28,7 @@ async def init_user(current_user: dict = Depends(get_current_user)):
         "config": {
             "base_gifts":   config.BASE_GIFTS,
             "main_gifts":   config.MAIN_GIFTS,
+            "tg_gifts":     getattr(config, "TG_GIFTS", {}),
             "bot_username": config.BOT_USERNAME,
             "roulette":     config.ROULETTE_CONFIG,
             "cases":        config.CASES_CONFIG,

@@ -4,11 +4,8 @@ uvicorn>=0.32.0
 aiosqlite>=0.20.0
 jinja2>=3.1.4
 pydantic>=2.9.0
-aiogram
-aiosqlite
-fastapi
-jinja2
-pydantic
-uvicorn
 gunicorn
 httpx
+python-dotenv>=1.0.1
+cloudscraper>=1.2.71
+requests>=2.32.3

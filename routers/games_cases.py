@@ -4,6 +4,7 @@ import time
 
 import config
 import database
+from handlers.tg_gifts import get_gift_def, get_gift_value, is_real_tg_gift
 from handlers.models import ActionData
 from handlers.security import get_current_user
 
@@ -15,16 +16,24 @@ CASE_HOUSE_EDGE    = 0.15
 
 # ─── Вспомогательные функции ──────────────────────────────────────────────────
 
-def _get_item_value(item: dict) -> int:
-    if item["type"] in ("donuts", "stars"):
+def _get_item_value_stars(item: dict) -> int:
+    rate = config.DONUTS_TO_STARS_RATE
+
+    if item["type"] == "stars":
         return item.get("amount", 0)
-    elif item["type"] == "gift":
-        gift_id = item.get("gift_id")
-        if gift_id in config.MAIN_GIFTS:
-            return config.MAIN_GIFTS[gift_id].get("required_value", 0)
-        elif gift_id in config.BASE_GIFTS:
-            return config.BASE_GIFTS[gift_id].get("value", 0)
+
+    if item["type"] == "donuts":
+        return item.get("amount", 0) * rate
+
+    if item["type"] == "gift":
+        return get_gift_value(item.get("gift_id"))
+
     return 0
+
+
+# Оставляем старую функцию как алиас для обратной совместимости
+def _get_item_value(item: dict) -> int:
+    return _get_item_value_stars(item)
 
 
 def _roll_item(items: list) -> dict:
@@ -48,9 +57,9 @@ async def _roll_item_bank_aware(items: list, currency: str) -> dict:
         return _roll_item(items)
 
     bank_balance = await database.bank_get_max_payout()
-    affordable   = [i for i in items if _get_item_value(i) <= bank_balance]
+    affordable   = [i for i in items if _get_item_value_stars(i) <= bank_balance]
     if not affordable:
-        return min(items, key=lambda i: _get_item_value(i))
+        return min(items, key=lambda i: _get_item_value_stars(i))
     return _roll_item(affordable)
 
 
@@ -74,18 +83,17 @@ async def _apply_win(tg_id: int, win_item: dict, case: dict, price: int):
         )
 
     elif win_item["type"] == "gift":
-        gift_id    = win_item["gift_id"]
-        gift_name  = "Gift"
-        gift_value = 0
-        if gift_id in config.MAIN_GIFTS:
-            gift_name  = config.MAIN_GIFTS[gift_id]["name"]
-            gift_value = config.MAIN_GIFTS[gift_id].get("required_value", 0)
-        elif gift_id in config.BASE_GIFTS:
-            gift_name  = config.BASE_GIFTS[gift_id]["name"]
-            gift_value = config.BASE_GIFTS[gift_id].get("value", 0)
+        gift_id = win_item["gift_id"]
+        gift_def = get_gift_def(gift_id)
+        gift_name = gift_def["name"] if gift_def else "Gift"
+        gift_value = get_gift_value(gift_id)
 
         await database.add_gift_to_user(tg_id, gift_id, 1)
-        await database.add_history_entry(tg_id, "case_win_gift", f"Case — gift won: {gift_name}", 0)
+        if gift_def and is_real_tg_gift(gift_id):
+            await database.add_history_entry(tg_id, "case_win_tg_gift", f"Case — Telegram gift won: {gift_name}", 0)
+        else:
+            await database.add_history_entry(tg_id, "case_win_gift", f"Case — gift won: {gift_name}", 0)
+
         if gift_value > 0 and price > 0:
             await database.add_history_entry(
                 tg_id, "case_lucky_ratio",
@@ -125,22 +133,33 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
     await database.bank_deposit(price, CASE_HOUSE_EDGE, asset_type=currency)
 
     win_item  = await _roll_item_bank_aware(case["items"], currency)
-    win_value = _get_item_value(win_item)
+    win_value = _get_item_value_stars(win_item)
 
     if win_value > 0:
-        payout_type = "gift_value" if win_item["type"] == "gift" else currency
-        paid = await database.bank_payout(win_value, asset_type=payout_type)
+        if win_item["type"] == "gift":
+            payout_type   = "gift_value"
+            payout_amount = _get_item_value_stars(win_item)
+        else:
+            payout_type   = win_item["type"]
+            payout_amount = win_item.get("amount", 0)
+
+        paid = await database.bank_payout(payout_amount, asset_type=payout_type)
         if not paid:
             # Банк не смог выплатить — выбираем только предметы, реально доступные банку
             bank_max = await database.bank_get_max_payout(asset_type=currency)
-            affordable_items = [i for i in case["items"] if _get_item_value(i) <= bank_max]
+            affordable_items = [i for i in case["items"] if _get_item_value_stars(i) <= bank_max]
 
             if affordable_items:
-                win_item    = min(affordable_items, key=lambda i: _get_item_value(i))
-                win_value   = _get_item_value(win_item)
-                payout_type = "gift_value" if win_item["type"] == "gift" else currency
+                win_item      = min(affordable_items, key=lambda i: _get_item_value_stars(i))
+                win_value     = _get_item_value_stars(win_item)
+                if win_item["type"] == "gift":
+                    fallback_payout_type   = "gift_value"
+                    fallback_payout_amount = win_value
+                else:
+                    fallback_payout_type   = win_item["type"]
+                    fallback_payout_amount = win_item.get("amount", 0)
                 if win_value > 0:
-                    fallback_paid = await database.bank_payout(win_value, asset_type=payout_type)
+                    fallback_paid = await database.bank_payout(fallback_payout_amount, asset_type=fallback_payout_type)
                     if not fallback_paid:
                         # Даже дешевейший предмет не прошёл — не выдаём ничего
                         await database.add_history_entry(

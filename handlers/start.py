@@ -9,6 +9,7 @@ from aiogram.types import (
 
 import config
 import database
+from db.db_referrals import distribute_referral_bonus_stars
 
 
 def register(dp: Dispatcher, bot: Bot):
@@ -78,6 +79,9 @@ def register(dp: Dispatcher, bot: Bot):
                 await database.add_history_entry(
                     user_id, "topup_stars", f"Пополнение баланса на {stars_amount} ⭐️", stars_amount
                 )
+
+                # Реферальный бонус: 10% от пополнения звёздами пригласившему
+                await distribute_referral_bonus_stars(user_id, stars_amount)
 
                 await message.answer(
                     f"🎉 <b>Успешно!</b>\nВаш баланс пополнен на <b>{stars_amount} ⭐️</b>!",

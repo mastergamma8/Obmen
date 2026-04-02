@@ -3,7 +3,7 @@
 
 import aiosqlite
 from db.db_core import DB_NAME
-from db.db_users import add_points_to_user
+from db.db_users import add_points_to_user, add_stars_to_user
 from db.db_history import add_history_entry
 
 
@@ -51,5 +51,27 @@ async def distribute_referral_bonus(user_id: int, gift_value: int):
         referrer_id,
         "referral_bonus",
         f"Реферальный бонус за покупку подарка рефералом (ID {user_id})",
+        bonus
+    )
+
+
+async def distribute_referral_bonus_stars(user_id: int, stars_amount: int):
+    """Начисляет реферальный бонус в звёздах пригласившему пользователю.
+
+    Бонус = 10% от суммы пополнения звёздами рефералом.
+    Минимум 1 звезда (дроби не используются — floor).
+    Если реферера нет — ничего не происходит.
+    """
+    referrer_id = await get_referrer(user_id)
+    if not referrer_id:
+        return
+    bonus = int(stars_amount * 0.10)  # floor, без округления вверх
+    if bonus < 1:
+        return  # Пополнение слишком мало — бонус не начисляется
+    await add_stars_to_user(referrer_id, bonus)
+    await add_history_entry(
+        referrer_id,
+        "referral_bonus_stars",
+        f"Реферальный бонус ⭐ за пополнение рефералом (ID {user_id})",
         bonus
     )

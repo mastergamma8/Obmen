@@ -4,6 +4,7 @@ import random
 
 import config
 import database
+from handlers.tg_gifts import get_gift_def, get_gift_value, is_real_tg_gift
 from handlers.models import SpinData
 from handlers.security import get_current_user
 
@@ -15,12 +16,8 @@ ROULETTE_HOUSE_EDGE = 0.15
 def _get_item_value(item: dict) -> int:
     if item["type"] in ("donuts", "stars"):
         return item.get("amount", 0)
-    elif item["type"] == "gift":
-        gift_id = item.get("gift_id")
-        if gift_id in config.MAIN_GIFTS:
-            return config.MAIN_GIFTS[gift_id].get("required_value", 0)
-        elif gift_id in config.BASE_GIFTS:
-            return config.BASE_GIFTS[gift_id].get("value", 0)
+    if item["type"] == "gift":
+        return get_gift_value(item.get("gift_id"))
     return 0
 
 
@@ -158,15 +155,10 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
             f"{spin_type} — выиграно звезд", prize_value)
 
     elif win_item["type"] == "gift":
-        gift_id    = win_item["gift_id"]
-        gift_name  = "Подарок"
-        gift_value = 0
-        if gift_id in config.MAIN_GIFTS:
-            gift_name  = config.MAIN_GIFTS[gift_id]["name"]
-            gift_value = config.MAIN_GIFTS[gift_id].get("required_value", 0)
-        elif gift_id in config.BASE_GIFTS:
-            gift_name  = config.BASE_GIFTS[gift_id]["name"]
-            gift_value = config.BASE_GIFTS[gift_id].get("value", 0)
+        gift_id = win_item["gift_id"]
+        gift_def = get_gift_def(gift_id)
+        gift_name = gift_def["name"] if gift_def else "Подарок"
+        gift_value = get_gift_value(gift_id)
 
         if not can_free and gift_value > 0:
             paid = await database.bank_payout(gift_value, asset_type="gift_value")
@@ -175,22 +167,26 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
                 fallback_items = [i for i in items if i["type"] != "gift"]
                 if fallback_items:
                     _, win_item = _roll_item(fallback_items)
-                    win_index   = items.index(win_item)
-                    ptype       = win_item["type"]
-                    fv          = win_item["amount"]
+                    win_index = items.index(win_item)
+                    ptype = win_item["type"]
+                    fv = win_item["amount"]
                     if ptype == "stars":
                         await database.add_stars_to_user(tg_id, fv)
                     else:
                         await database.add_points_to_user(tg_id, fv)
                     await database.add_history_entry(tg_id, f"roulette_win_{ptype}",
                         f"{spin_type} — замена подарка (банк пуст)", fv)
-                    updated_user  = await database.get_user_data(tg_id)
+                    updated_user = await database.get_user_data(tg_id)
                     updated_gifts = await database.get_user_gifts(tg_id)
                     return _build_spin_response(win_index, win_item, updated_user, updated_gifts)
 
         await database.add_gift_to_user(tg_id, gift_id, 1)
-        await database.add_history_entry(tg_id, "roulette_win_gift",
-            f"{spin_type} — выигран подарок: {gift_name}", 0)
+        if gift_def and is_real_tg_gift(gift_id):
+            await database.add_history_entry(tg_id, "roulette_win_tg_gift",
+                f"{spin_type} — Telegram gift won: {gift_name}", 0)
+        else:
+            await database.add_history_entry(tg_id, "roulette_win_gift",
+                f"{spin_type} — выигран подарок: {gift_name}", 0)
 
     updated_user  = await database.get_user_data(tg_id)
     updated_gifts = await database.get_user_gifts(tg_id)

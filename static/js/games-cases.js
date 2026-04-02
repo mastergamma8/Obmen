@@ -181,10 +181,10 @@ async function openFreeCaseDetails() {
         row.innerHTML = `
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center p-1">
-                    <img src="${info.photo}" class="w-full h-full object-contain drop-shadow-md"
+                    <img src="${escapeHtml(info.photo)}" class="w-full h-full object-contain drop-shadow-md"
                          onerror="this.src='https://via.placeholder.com/32'">
                 </div>
-                <span class="font-bold text-sm ${colorClass}">${info.name}</span>
+                <span class="font-bold text-sm ${colorClass}">${escapeHtml(info.name)}</span>
             </div>
         `;
         itemsContainer.appendChild(row);
@@ -294,10 +294,10 @@ function renderCasesGrid() {
             <div class="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 bg-indigo-500/30 blur-[30px] rounded-full pointer-events-none group-hover:bg-indigo-400/40 transition-colors"></div>
 
             <div class="w-24 h-24 mb-3 relative z-10">
-                <img src="${photoUrl}" class="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.6)] group-hover:scale-110 group-hover:-translate-y-1 transition-all duration-300" onerror="this.src='https://via.placeholder.com/96?text=📦'">
+                <img src="${escapeHtml(photoUrl)}" class="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.6)] group-hover:scale-110 group-hover:-translate-y-1 transition-all duration-300" onerror="this.src='https://via.placeholder.com/96?text=📦'">
             </div>
 
-            <h4 class="text-white font-extrabold text-sm mb-3 glow-text w-full truncate relative z-10 tracking-wide">${c.name}</h4>
+            <h4 class="text-white font-extrabold text-sm mb-3 glow-text w-full truncate relative z-10 tracking-wide">${escapeHtml(c.name)}</h4>
 
             <div class="bg-black/60 rounded-xl px-3 py-1.5 flex items-center justify-center gap-1.5 border border-white/10 relative z-10 w-full backdrop-blur-sm shadow-inner">
                 <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-indigo-300 font-black text-sm">${c.price}</span>
@@ -314,7 +314,7 @@ function getItemInfoForCase(item) {
     } else if (item.type === 'stars') {
         return { name: `${item.amount}`, photo: '/gifts/stars.png' };
     } else if (item.type === 'gift') {
-        const gift = mainGifts[item.gift_id] || baseGifts[item.gift_id];
+        const gift = mainGifts[item.gift_id] || tgGifts[item.gift_id] || baseGifts[item.gift_id];
         if (gift) return { name: gift.name, photo: getImgSrc(gift.photo) };
     }
     return { name: "???", photo: "https://via.placeholder.com/32" };
@@ -368,7 +368,7 @@ function openCaseDetails(caseId) {
                 <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center p-1">
                     <img src="${info.photo}" class="w-full h-full object-contain drop-shadow-md" onerror="this.src='https://via.placeholder.com/32'">
                 </div>
-                <span class="font-bold text-sm ${colorClass}">${info.name}</span>
+                <span class="font-bold text-sm ${colorClass}">${escapeHtml(info.name)}</span>
             </div>
         `;
         itemsContainer.appendChild(row);
@@ -486,6 +486,9 @@ function playCaseAnimation(caseConfig, winItem, isDemo = false) {
         gift:   t.type_gift   || 'Подарок'
     };
     document.getElementById('cam-item-type-label').innerText = typeLabels[winItem.type] || '';
+    if (typeof configureCaseGiftActionsIfNeeded === 'function' && winItem.type === 'gift') {
+        configureCaseGiftActionsIfNeeded(winItem.gift_id, 'case');
+    }
 
     const items = caseConfig.items || [];
     const pool = items.length > 0 ? items : [winItem];
@@ -520,8 +523,8 @@ function playCaseAnimation(caseConfig, winItem, isDemo = false) {
             transition:none;
         `;
         card.innerHTML = `
-            <img src="${info.photo}" style="width:52px;height:52px;object-fit:contain;pointer-events:none;" onerror="this.src='https://via.placeholder.com/52'">
-            <span style="font-size:10px;color:rgba(255,255,255,0.65);font-weight:700;text-align:center;line-height:1.2;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${info.name}</span>
+            <img src="${escapeHtml(info.photo)}" style="width:52px;height:52px;object-fit:contain;pointer-events:none;" onerror="this.src='https://via.placeholder.com/52'">
+            <span style="font-size:10px;color:rgba(255,255,255,0.65);font-weight:700;text-align:center;line-height:1.2;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(info.name)}</span>
         `;
         track.appendChild(card);
     });

@@ -91,6 +91,24 @@ def register(dp: Dispatcher, bot: Bot):
                     except Exception:
                         pass
 
+            elif gift_id in getattr(config, "TG_GIFTS", {}):
+                await database.add_gift_to_user(user_id, gift_id, amount)
+                gift_name = config.TG_GIFTS[gift_id]['name']
+                await message.answer(
+                    f"✅ Успешно!\nПользователю {user_id} выдан Telegram-подарок '{gift_name}' ({amount} шт.)."
+                )
+
+                try:
+                    await bot.send_message(
+                        user_id,
+                        f"🎁 <b>Вы получили подарок!</b>\n<b>{gift_name}</b> ({amount} шт.).\n"
+                        f"Зайдите в приложение, чтобы увидеть его в профиле!",
+                        parse_mode="HTML",
+                        reply_markup=profile_markup
+                    )
+                except Exception as e:
+                    logging.warning(f"Не удалось отправить уведомление пользователю {user_id}: {e}")
+
             elif gift_id in config.MAIN_GIFTS:
                 await database.add_gift_to_user(user_id, gift_id, amount)
                 gift_name = config.MAIN_GIFTS[gift_id]['name']
