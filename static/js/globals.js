@@ -70,6 +70,7 @@ function updateUI() {
 
     if (typeof renderMainPage === 'function') renderMainPage();
     if (typeof renderProfile === 'function') renderProfile();
+    if (typeof updateTgShopBalance === 'function') updateTgShopBalance();
 }
 
 function openModal(id) {

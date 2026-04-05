@@ -101,10 +101,13 @@ function openWithdrawModal(giftId) {
         feeRow.classList.add('hidden');
         tgActions.classList.remove('hidden');
         exchangeInfo.classList.remove('hidden');
-        exchangeInfo.innerText = `${i18n[currentLang].btn_tg_exchange}: +${currentWithdrawExchangeStars} ⭐`;
+        
+        // Используем иконку звезды вместо емодзи
+        exchangeInfo.innerHTML = `${i18n[currentLang].btn_tg_exchange}: +${currentWithdrawExchangeStars} <img src="/gifts/stars.png" class="w-4 h-4 inline-block align-middle pb-[2px] object-contain">`;
         document.getElementById('wcm-btn-withdraw-tg').textContent = i18n[currentLang].btn_tg_withdraw;
-        document.getElementById('wcm-btn-exchange').textContent = `${i18n[currentLang].btn_tg_exchange} +${currentWithdrawExchangeStars} ⭐`;
+        document.getElementById('wcm-btn-exchange').innerHTML = `<div class="flex items-center justify-center gap-1.5"><span>${i18n[currentLang].btn_tg_exchange} +${currentWithdrawExchangeStars}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
         document.getElementById('wcm-btn-keep').textContent = i18n[currentLang].btn_tg_keep;
+        
         document.getElementById('wcm-btn-withdraw-tg').onclick = () => confirmWithdrawGift(giftId, true);
         document.getElementById('wcm-btn-exchange').onclick = () => confirmExchangeGift(giftId);
         document.getElementById('wcm-btn-keep').onclick = () => closeModal('withdraw-confirm-modal');
@@ -158,13 +161,13 @@ async function confirmWithdrawGift(giftId, isTgGift = false) {
         }
 
         syncGiftStateFromResponse(data);
-closeModal('withdraw-confirm-modal');
+        closeModal('withdraw-confirm-modal');
 
-if (isTgGift) {
-    tg.showAlert('Подарок отправлен.');
-} else {
-    setTimeout(() => openModal('success-withdraw-modal'), 300);
-}
+        if (isTgGift) {
+            tg.showAlert('Подарок отправлен.');
+        } else {
+            setTimeout(() => openModal('success-withdraw-modal'), 300);
+        }
 
     } catch(e) {
         console.error(e);
@@ -198,7 +201,7 @@ async function confirmExchangeGift(giftId) {
     }
 }
 
-function configureCaseGiftActionsIfNeeded(giftId, source = 'case') {
+function configureCaseGiftActionsIfNeeded(giftId, source = 'case', isDemo = false) {
     const actionsBox = document.getElementById(source === 'case' ? 'cam-gift-actions' : 'rr-gift-actions');
     const closeBtn = document.getElementById(source === 'case' ? 'cam-btn-close' : 'rr-btn-close');
     const withdrawBtn = document.getElementById(source === 'case' ? 'cam-btn-withdraw' : 'rr-btn-withdraw');
@@ -218,10 +221,17 @@ function configureCaseGiftActionsIfNeeded(giftId, source = 'case') {
     actionsBox.classList.remove('hidden');
     closeBtn.classList.add('hidden');
     withdrawBtn.textContent = i18n[currentLang].btn_tg_withdraw;
-    exchangeBtn.textContent = `${i18n[currentLang].btn_tg_exchange} +${exchangeStars} ⭐`;
+    
+    // Используем иконку звезды вместо емодзи
+    exchangeBtn.innerHTML = `<div class="flex items-center justify-center gap-1.5"><span>${i18n[currentLang].btn_tg_exchange} +${exchangeStars}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
     keepBtn.textContent = i18n[currentLang].btn_tg_keep;
 
     withdrawBtn.onclick = async () => {
+        if (isDemo) {
+            if (source === 'case') closeCaseAnimation();
+            else closeModal('roulette-result-modal');
+            return;
+        }
         try {
             const { res, data } = await performGiftAction(giftId, 'withdraw');
             if (!res.ok) throw new Error(data.detail || 'Withdraw error');
@@ -236,6 +246,11 @@ function configureCaseGiftActionsIfNeeded(giftId, source = 'case') {
     };
 
     exchangeBtn.onclick = async () => {
+        if (isDemo) {
+            if (source === 'case') closeCaseAnimation();
+            else closeModal('roulette-result-modal');
+            return;
+        }
         try {
             const { res, data } = await performGiftAction(giftId, 'exchange');
             if (!res.ok) throw new Error(data.detail || 'Exchange error');
@@ -360,16 +375,24 @@ function formatHistoryDate(ts) {
     return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Функция для поиска фото подарка по его названию в описании истории
-function getHistoryGiftPhoto(description) {
-    if (!description) return null;
-    const allGifts = { ...mainGifts, ...tgGifts, ...baseGifts };
-    for (const key in allGifts) {
-        if (description.includes(allGifts[key].name)) {
-            return allGifts[key].photo;
-        }
-    }
-    return null;
+// Функция для поиска фото подарка по gift_id из описания истории
+function getHistoryGiftPhoto(entry) {
+    // Только для типов, связанных с подарками
+    const giftTypes = new Set([
+        'gift_added', 'claim_gift', 'withdraw_gift', 'withdraw_tg_gift',
+        'exchange_tg_gift', 'roulette_win_gift', 'roulette_win_tg_gift',
+        'case_win_gift', 'case_win_tg_gift'
+    ]);
+    if (!giftTypes.has(entry.action_type)) return null;
+
+    if (!entry.description) return null;
+
+    // Извлекаем gift_id из тега [gift_id:...] в описании
+    const match = entry.description.match(/\[gift_id:([^\]]+)\]/);
+    if (!match) return null;
+
+    const giftDef = getGiftDefinitionById(match[1]);
+    return giftDef ? giftDef.photo : null;
 }
 
 // =====================================================
@@ -518,7 +541,7 @@ async function loadMoreHistory(isFirstLoad = false) {
 
             htmlContent += entries.map(entry => {
                 const meta = HISTORY_ICONS[entry.action_type] || { icon: '📋', color: 'gray', sign: null };
-                const giftPhotoUrl = getHistoryGiftPhoto(entry.description);
+                const giftPhotoUrl = getHistoryGiftPhoto(entry);
                 let displayIconHtml = giftPhotoUrl
                     ? `<img src="${escapeHtml(getImgSrc(giftPhotoUrl))}" class="w-7 h-7 object-contain drop-shadow-md">`
                     : meta.icon;
@@ -527,7 +550,7 @@ async function loadMoreHistory(isFirstLoad = false) {
                 const labels = HISTORY_LABELS[currentLang] || HISTORY_LABELS['ru'];
                 const entryTitle = labels[entry.action_type] || entry.description || entry.action_type;
 
-                let currencyIconUrl = entry.action_type.includes('stars') ? '/gifts/stars.png' : '/gifts/dount.png';
+                let currencyIconUrl = (entry.action_type.includes('stars') || entry.action_type === 'exchange_tg_gift') ? '/gifts/stars.png' : '/gifts/dount.png';
                 let amountHtml = '';
 
                 if (entry.action_type === 'topup_stars' && entry.amount > 0) {

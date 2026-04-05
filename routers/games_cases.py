@@ -90,9 +90,9 @@ async def _apply_win(tg_id: int, win_item: dict, case: dict, price: int):
 
         await database.add_gift_to_user(tg_id, gift_id, 1)
         if gift_def and is_real_tg_gift(gift_id):
-            await database.add_history_entry(tg_id, "case_win_tg_gift", f"Case — Telegram gift won: {gift_name}", 0)
+            await database.add_history_entry(tg_id, "case_win_tg_gift", f"Case — Telegram gift won: {gift_name} [gift_id:{gift_id}]", 0)
         else:
-            await database.add_history_entry(tg_id, "case_win_gift", f"Case — gift won: {gift_name}", 0)
+            await database.add_history_entry(tg_id, "case_win_gift", f"Case — gift won: {gift_name} [gift_id:{gift_id}]", 0)
 
         if gift_value > 0 and price > 0:
             await database.add_history_entry(

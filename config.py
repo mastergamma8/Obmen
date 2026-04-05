@@ -323,13 +323,13 @@ TG_GIFTS = {
     2008: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5170250947678437525/Original.png", "required_value": 25,  "tg_gift_id": "5170250947678437525"},
     2009: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5170233102089322756/Original.png", "required_value": 15,  "tg_gift_id": "5170233102089322756"},
     2010: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5170145012310081615/Original.png", "required_value": 15,  "tg_gift_id": "5170145012310081615"},
-    2011: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5801108895304779062/Original.png", "required_value": 50,  "tg_gift_id": "5801108895304779062"},
-    2012: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5922558454332916696/Original.png", "required_value": 50,  "tg_gift_id": "5922558454332916696"},
-    2013: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5956217000635139069/Original.png", "required_value": 50,  "tg_gift_id": "5956217000635139069"},
-    2014: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5800655655995968830/Original.png", "required_value": 50,  "tg_gift_id": "5800655655995968830"},
-    2015: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5866352046986232958/Original.png", "required_value": 50,  "tg_gift_id": "5866352046986232958"},
-    2016: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5893356958802511476/Original.png", "required_value": 50,  "tg_gift_id": "5893356958802511476"},
-    2017: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5935895822435615975/Original.png", "required_value": 50,  "tg_gift_id": "5935895822435615975"},
+    2011: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5801108895304779062/Original.png", "required_value": 50,  "tg_gift_id": "5801108895304779062", "price": 60},
+    2012: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5922558454332916696/Original.png", "required_value": 50,  "tg_gift_id": "5922558454332916696", "price": 60},
+    2013: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5956217000635139069/Original.png", "required_value": 50,  "tg_gift_id": "5956217000635139069", "price": 60},
+    2014: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5800655655995968830/Original.png", "required_value": 50,  "tg_gift_id": "5800655655995968830", "price": 60},
+    2015: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5866352046986232958/Original.png", "required_value": 50,  "tg_gift_id": "5866352046986232958", "price": 60},
+    2016: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5893356958802511476/Original.png", "required_value": 50,  "tg_gift_id": "5893356958802511476", "price": 60},
+    2017: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5935895822435615975/Original.png", "required_value": 50,  "tg_gift_id": "5935895822435615975", "price": 60},
 }
 
 

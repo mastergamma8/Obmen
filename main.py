@@ -14,6 +14,7 @@ import config
 import database
 from routers import users, gifts, games, tasks, bank
 from routers import games_roulette, games_rocket, games_cases
+from routers import tg_shop
 from db.db_core import DB_NAME
 
 
@@ -37,6 +38,7 @@ RATE_LIMITS: list[tuple[str, int, int]] = [
     ("/api/gifts/withdraw",  5, 60),
     ("/api/withdraw",        5, 60),
     ("/api/claim",          10, 60),
+    ("/api/tg_shop/buy",     5, 60),
 ]
 
 
@@ -169,6 +171,7 @@ app.include_router(bank.router)
 app.include_router(games_roulette.router)
 app.include_router(games_rocket.router)
 app.include_router(games_cases.router)
+app.include_router(tg_shop.router)
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -183,10 +183,10 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
         await database.add_gift_to_user(tg_id, gift_id, 1)
         if gift_def and is_real_tg_gift(gift_id):
             await database.add_history_entry(tg_id, "roulette_win_tg_gift",
-                f"{spin_type} — Telegram gift won: {gift_name}", 0)
+                f"{spin_type} — Telegram gift won: {gift_name} [gift_id:{gift_id}]", 0)
         else:
             await database.add_history_entry(tg_id, "roulette_win_gift",
-                f"{spin_type} — выигран подарок: {gift_name}", 0)
+                f"{spin_type} — выигран подарок: {gift_name} [gift_id:{gift_id}]", 0)
 
     updated_user  = await database.get_user_data(tg_id)
     updated_gifts = await database.get_user_gifts(tg_id)

@@ -107,7 +107,7 @@ const i18n = {
             not_enough_stars_alert: 'Недостаточно звезд для вывода!',
 
             // TG ПОДАРКИ
-            tg_gift_modal_title: 'Подарок из Telegram',
+            tg_gift_modal_title: 'Telegram подарок',
             tg_gift_modal_desc: 'Можно вывести его в Telegram, обменять на звёзды или оставить в инвентаре.',
             btn_tg_withdraw: 'Вывести подарок',
             btn_tg_exchange: 'Обменять',
@@ -119,6 +119,19 @@ const i18n = {
             hist_tg_exchange: 'Обмен Telegram-подарка',
             hist_tg_win_roulette: 'Выигрыш Telegram-подарка в рулетке',
             hist_tg_win_case: 'Выигрыш Telegram-подарка из кейса',
+
+            // TG МАГАЗИН
+            tg_shop_title: 'Лимитированные подарки',
+            tg_shop_banner_desc: 'Купи подарок за <span class="font-bold text-yellow-300 inline-flex items-center gap-1">{price} <img src="/gifts/stars.png" class="w-4 h-4 inline-block align-middle object-contain"></span> и получи в Telegram!',
+            tg_shop_header_desc: 'Цена: <span class="font-bold text-yellow-300 inline-flex items-center gap-1">{price} <img src="/gifts/stars.png" class="w-4 h-4 inline-block align-middle object-contain"></span> за подарок',
+            tg_buy_modal_title: 'Купить подарок?',
+            tg_buy_modal_desc: 'Подарок будет отправлен в ваш Telegram',
+            tg_buy_cost_label: 'Стоимость',
+            tg_buy_balance_label: 'Ваш баланс',
+            tg_buy_confirm_btn: 'Купить за {price}',
+            tg_buy_sending: '⏳ Отправляем...',
+            tg_buy_success: '🎁 Подарок успешно отправлен в Telegram!',
+            tg_buy_error: 'Произошла ошибка',
         },
         en: {
             nav_main: 'Main', nav_top: 'Top', nav_earn: 'Earn', nav_profile: 'Profile', nav_games: 'Games',
@@ -236,6 +249,19 @@ const i18n = {
             hist_tg_exchange: 'Telegram gift exchanged',
             hist_tg_win_roulette: 'Telegram gift won in roulette',
             hist_tg_win_case: 'Telegram gift won from case',
+
+            // TG SHOP
+            tg_shop_title: 'Limited gifts',
+            tg_shop_banner_desc: 'Buy a gift for <span class="font-bold text-yellow-300 inline-flex items-center gap-1">{price} <img src="/gifts/stars.png" class="w-4 h-4 inline-block align-middle object-contain"></span> and receive it in Telegram!',
+            tg_shop_header_desc: 'Price: <span class="font-bold text-yellow-300 inline-flex items-center gap-1">{price} <img src="/gifts/stars.png" class="w-4 h-4 inline-block align-middle object-contain"></span> per gift',
+            tg_buy_modal_title: 'Buy a gift?',
+            tg_buy_modal_desc: 'The gift will be sent to your Telegram',
+            tg_buy_cost_label: 'Cost',
+            tg_buy_balance_label: 'Your balance',
+            tg_buy_confirm_btn: 'Buy for {price}',
+            tg_buy_sending: '⏳ Sending...',
+            tg_buy_success: '🎁 Gift successfully sent to Telegram!',
+            tg_buy_error: 'An error occurred',
         }
 };
 
@@ -253,7 +279,15 @@ function setLang(lang) {
 
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
-        if (i18n[lang][key] !== undefined) el.innerHTML = i18n[lang][key];
+        if (i18n[lang][key] !== undefined) {
+            let val = i18n[lang][key];
+            if (key === 'tg_shop_banner_desc' || key === 'tg_shop_header_desc' || key === 'tg_buy_confirm_btn') {
+                const _p = (typeof tgGifts !== 'undefined' && tgGifts[2011])
+                    ? (tgGifts[2011].price ?? 60) : 60;
+                val = val.replace(/\{price\}/g, _p);
+            }
+            el.innerHTML = val;
+        }
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
         const key = el.getAttribute('data-i18n-placeholder');
@@ -266,6 +300,13 @@ function setLang(lang) {
     if (el('tasks-desc'))    el('tasks-desc').innerHTML    = i18n[lang].tasks_desc;
     if (el('how-to-desc'))   el('how-to-desc').innerHTML   = i18n[lang].how_to_desc;
     if (el('withdraw-msg'))  el('withdraw-msg').innerHTML  = i18n[lang].withdraw_msg;
+
+    // Подставляем реальную цену вместо {price} в описаниях TG-магазина
+    const _tgShopPrice = (typeof tgGifts !== 'undefined' && tgGifts[2011])
+        ? (tgGifts[2011].price ?? 60) : 60;
+    const _fillPrice = (key) => (i18n[lang][key] || '').replace(/\{price\}/g, _tgShopPrice);
+    if (el('tg-shop-banner-desc')) el('tg-shop-banner-desc').innerHTML = _fillPrice('tg_shop_banner_desc');
+    if (el('tg-shop-header-desc')) el('tg-shop-header-desc').innerHTML = _fillPrice('tg_shop_header_desc');
 
     updateUI();
     if (el('page-leaderboard') && !el('page-leaderboard').classList.contains('hidden-tab') && typeof loadLeaderboard === 'function') loadLeaderboard();

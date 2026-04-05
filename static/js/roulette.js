@@ -201,8 +201,16 @@ function showRouletteResultModal(item, isDemo = false) {
     
     document.getElementById('rr-photo').src = photoSrc;
     document.getElementById('rr-text').innerHTML = text;
-    if (typeof configureCaseGiftActionsIfNeeded === 'function' && isGift) {
-        configureCaseGiftActionsIfNeeded(item.gift_id, 'roulette');
+    if (typeof configureCaseGiftActionsIfNeeded === 'function') {
+        if (isGift) {
+            configureCaseGiftActionsIfNeeded(item.gift_id, 'roulette', isDemo);
+        } else {
+            // Не подарок — скрываем кнопки действий и показываем кнопку закрытия
+            const actionsBox = document.getElementById('rr-gift-actions');
+            const closeBtn = document.getElementById('rr-btn-close');
+            if (actionsBox) actionsBox.classList.add('hidden');
+            if (closeBtn) closeBtn.classList.remove('hidden');
+        }
     }
     // Показываем/скрываем плашку ДЕМО в модалке результата
     const demoBadge = document.getElementById('rr-demo-badge');

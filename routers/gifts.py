@@ -45,7 +45,7 @@ async def claim_gift(data: ActionData, current_user: dict = Depends(get_current_
     await database.update_last_gift_claim(tg_id, now)
 
     gift_name = config.MAIN_GIFTS[data.gift_id]["name"]
-    await database.log_action(tg_id, "claim_gift", f"Покупка подарка: {gift_name}", -cost)
+    await database.log_action(tg_id, "claim_gift", f"Покупка подарка: {gift_name} [gift_id:{data.gift_id}]", -cost)
 
     gift_value = config.MAIN_GIFTS[data.gift_id].get("value", cost)
     await database.distribute_referral_bonus(tg_id, gift_value)
@@ -93,7 +93,7 @@ async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_curre
         await database.add_history_entry(
             tg_id,
             "withdraw_tg_gift",
-            f"Вывод Telegram подарка: {gift_name}",
+            f"Вывод Telegram подарка: {gift_name} [gift_id:{data.gift_id}]",
             0
         )
 
@@ -134,7 +134,7 @@ async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_curre
 
     await database.update_last_gift_withdraw(tg_id, now)
 
-    await database.log_action(tg_id, "withdraw_gift", f"Вывод подарка: {gift_name}", 0)
+    await database.log_action(tg_id, "withdraw_gift", f"Вывод подарка: {gift_name} [gift_id:{data.gift_id}]", 0)
 
     # Уведомление админа
     try:
@@ -146,7 +146,7 @@ async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_curre
             f"👤 Пользователь: <a href='tg://user?id={tg_id}'>{first_name}</a>\n"
             f"🔗 Юзернейм: {username_str}\n"
             f"🆔 ID: <code>{tg_id}</code>\n\n"
-            f"🎁 <b>Подарок:</b> {gift_name} (ID: {data.gift_id})"
+            f"🎁 <b>Подарок:</b> {gift_name} [gift_id:{data.gift_id}] (ID: {data.gift_id})"
         )
         url     = f"https://api.telegram.org/bot{config.BOT_TOKEN}/sendMessage"
         payload = {"chat_id": config.ADMIN_ID, "text": admin_text, "parse_mode": "HTML"}
@@ -184,7 +184,7 @@ async def exchange_gift(data: ActionData, current_user: dict = Depends(get_curre
     await database.log_action(
         tg_id,
         "exchange_tg_gift",
-        f"Обмен Telegram подарка: {gift_def['name']} -> +{reward_stars} ⭐",
+        f"Обмен Telegram подарка: {gift_def['name']} [gift_id:{data.gift_id}] -> +{reward_stars} ⭐",
         reward_stars,
     )
 

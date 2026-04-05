@@ -487,7 +487,7 @@ function playCaseAnimation(caseConfig, winItem, isDemo = false) {
     };
     document.getElementById('cam-item-type-label').innerText = typeLabels[winItem.type] || '';
     if (typeof configureCaseGiftActionsIfNeeded === 'function' && winItem.type === 'gift') {
-        configureCaseGiftActionsIfNeeded(winItem.gift_id, 'case');
+        configureCaseGiftActionsIfNeeded(winItem.gift_id, 'case', isDemo);
     }
 
     const items = caseConfig.items || [];
