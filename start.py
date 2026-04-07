@@ -31,6 +31,7 @@ def main():
     kill_port(5000)
     kill_script("main.py")
     kill_script("bot.py")
+    kill_script("support_bot.py")
     time.sleep(1)
 
     print("🚀 Запускаем FastAPI сервер...")
@@ -41,13 +42,18 @@ def main():
     print("🤖 Запускаем Telegram Бота...")
     bot_process = subprocess.Popen([sys.executable, "bot.py"])
 
+    print("🆘 Запускаем Бота поддержки...")
+    support_process = subprocess.Popen([sys.executable, "support_bot.py"])
+
     try:
         server_process.wait()
         bot_process.wait()
+        support_process.wait()
     except KeyboardInterrupt:
         print("\n⏹️ Выключение...")
         server_process.terminate()
         bot_process.terminate()
+        support_process.terminate()
 
 if __name__ == "__main__":
     main()

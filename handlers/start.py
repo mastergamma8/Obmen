@@ -40,7 +40,13 @@ def register(dp: Dispatcher, bot: Bot):
                 return
 
             markup = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="Открыть приложение", web_app=WebAppInfo(url=config.WEBAPP_URL))]
+                [
+                    
+InlineKeyboardButton(text="Канал", url="https://t.me/Space_Donut"),
+                
+InlineKeyboardButton(text="Открыть приложение", web_app=WebAppInfo(url=config.WEBAPP_URL)),
+                    
+                ]
             ])
 
             text = "Привет! Нажми на кнопку ниже, чтобы открыть приложение."

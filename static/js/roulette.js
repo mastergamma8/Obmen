@@ -44,9 +44,12 @@ function renderRouletteWheel() {
             text = `+${item.amount}`;
         }
         
+        const labelHtml = isGift
+            ? ''
+            : `<span class="text-[11px] sm:text-[13px] font-black text-white drop-shadow-[0_2px_5px_rgba(0,0,0,1)] text-center leading-tight tracking-wider" style="text-shadow:0px 2px 4px black,0px 0px 10px rgba(168,85,247,0.8);">${text}</span>`;
         html += `<div class="absolute top-0 left-1/2 w-20 h-[50%] -ml-10 origin-bottom flex flex-col items-center pt-5 sm:pt-6" style="transform:rotate(${contentRot}deg);z-index:5;">
             <img src="${photoSrc}" class="w-10 h-10 sm:w-12 sm:h-12 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] mb-1 sm:mb-2" onerror="this.src='https://via.placeholder.com/48'">
-            <span class="text-[11px] sm:text-[13px] font-black text-white drop-shadow-[0_2px_5px_rgba(0,0,0,1)] text-center leading-tight tracking-wider" style="text-shadow:0px 2px 4px black,0px 0px 10px rgba(168,85,247,0.8);">${text}</span>
+            ${labelHtml}
         </div>`;
     });
     wheel.innerHTML = html;

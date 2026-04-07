@@ -40,7 +40,7 @@ TASKS = {
         "title": "Подписаться на наш канал",
         "url": "https://t.me/Space_Donut",
         "chat_id": "@Space_Donut",
-        "reward": 1,
+        "reward": 3,
         "reward_type": "stars", 
         "type": "subscription"
     },
@@ -48,7 +48,7 @@ TASKS = {
         "title": "Подписаться на Dewid NFT",
         "url": "https://t.me/DewidNFT",
         "chat_id": "@DewidNFT",
-        "reward": 1,
+        "reward": 3,
         "reward_type": "stars", 
         "type": "subscription"
     },
@@ -56,14 +56,14 @@ TASKS = {
         "title": "Проголосовать за канал",
         "url": "https://t.me/boost/Space_Donut",
         "chat_id": "@Space_Donut",
-        "reward": 1,
+        "reward": 3,
         "reward_type": "stars", 
         "type": "boost"
     },
     4: {
         "title": "Пригласить 1 друга",
         "url": "", 
-        "reward": 1, 
+        "reward": 3, 
         "reward_type": "stars", 
         "type": "referral",
         "required_referrals": 1
@@ -71,7 +71,7 @@ TASKS = {
     5: {
         "title": "Пригласить 5 друзей",
         "url": "",
-        "reward": 5,
+        "reward": 15,
         "reward_type": "stars", 
         "type": "referral",
         "required_referrals": 5
@@ -79,7 +79,7 @@ TASKS = {
     6: {
         "title": "Пригласить 10 друзей",
         "url": "",
-        "reward": 10,
+        "reward": 35,
         "reward_type": "stars", 
         "type": "referral",
         "required_referrals": 10
@@ -96,14 +96,17 @@ ROULETTE_CONFIG = {
         {"type": "stars", "amount": 1, "photo": "gifts/stars.png", "chance": 20},
         {"type": "stars", "amount": 9, "photo": "gifts/stars.png", "chance": 30},  
         {"type": "stars", "amount": 20, "photo": "gifts/stars.png", "chance": 15},
-        {"type": "stars", "amount": 50, "photo": "gifts/stars.png", "chance": 25},
+        {"type": "stars", "amount": 60, "photo": "gifts/stars.png", "chance": 25},
         {"type": "stars", "amount": 150, "photo": "gifts/stars.png", "chance": 10}, 
         {"type": "donuts", "amount": 5, "photo": "gifts/dount.png", "chance": 5}, 
-        {"type": "donuts", "amount": 10, "photo": "gifts/dount.png", "chance": 0},
+        {"type": "donuts", "amount": 10, "photo": "gifts/dount.png", "chance": 1},
         {"type": "donuts", "amount": 50, "photo": "gifts/dount.png", "chance": 0}, 
-        {"type": "gift", "gift_id": 2009, "chance": 5},
-        {"type": "gift", "gift_id": 2010, "chance": 5},
-        {"type": "gift", "gift_id": 2007, "chance": 5},
+        {"type": "gift", "gift_id": 2009, "chance": 25},
+        {"type": "gift", "gift_id": 2017, "chance": 10},
+        {"type": "gift", "gift_id": 2001, "chance": 5},
+        {"type": "gift", "gift_id": 110, "chance": 0},
+        {"type": "gift", "gift_id": 106, "chance": 0},
+        {"type": "gift", "gift_id": 101, "chance": 0},
     ]
 }
 
@@ -112,13 +115,22 @@ ROULETTE_CONFIG = {
 # ==========================================
 FREE_CASE_CONFIG = {
     "name": "Бесплатный кейс",
-    "photo": "/gifts/dount.png",
+    "photo": "/gifts/freecase.png",
     "items": [
         {"type": "stars", "amount": 1,  "chance": 50},
-        {"type": "stars", "amount": 5, "chance": 10},
-        {"type": "stars", "amount": 10, "chance": 5},
-        {"type": "stars",  "amount": 15,  "chance": 1},
-        {"type": "stars",  "amount": 50,  "chance": 0}
+        {"type": "stars", "amount": 2, "chance": 40},
+        {"type": "stars", "amount": 4, "chance": 5},
+        {"type": "stars",  "amount": 7,  "chance": 3},
+        {"type": "stars",  "amount": 9,  "chance": 2},
+        {"type": "stars",  "amount": 12,  "chance": 1},
+        {"type": "stars",  "amount": 20,  "chance": 1},
+        {"type": "stars",  "amount": 50,  "chance": 0},
+        {"type": "donuts", "amount": 1, "chance": 0},
+        {"type": "donuts", "amount": 2, "chance": 0},
+        {"type": "gift", "gift_id": 2009, "chance": 0},
+        {"type": "gift", "gift_id": 2010, "chance": 0},
+        {"type": "gift", "gift_id": 2008, "chance": 0},
+        {"type": "gift", "gift_id": 5, "chance": 0}
     ]
 }
 
@@ -133,9 +145,17 @@ CASES_CONFIG = {
         "price": 15,
         "items": [
             {"type": "stars", "amount": 5, "chance": 40},
-            {"type": "stars", "amount": 15, "chance": 30},
-            {"type": "gift", "gift_id": 2009, "chance": 20},
-            {"type": "gift", "gift_id": 2011, "chance": 40}
+            {"type": "stars", "amount": 7, "chance": 30},
+            {"type": "stars", "amount": 10, "chance": 10},
+            {"type": "stars", "amount": 15, "chance": 15},
+            {"type": "stars", "amount": 20, "chance": 5},
+            {"type": "stars", "amount": 25, "chance": 3},
+            {"type": "stars", "amount": 35, "chance": 1},
+            {"type": "donuts", "amount": 1, "chance": 1},
+            {"type": "donuts", "amount": 2, "chance": 1},
+            {"type": "gift", "gift_id": 2009, "chance": 1},
+            {"type": "gift", "gift_id": 2008, "chance": 1},
+            {"type": "gift", "gift_id": 2007, "chance": 1}
         ]
     },
     2: {
@@ -144,23 +164,46 @@ CASES_CONFIG = {
         "currency": "stars",
         "price": 50,
         "items": [
-            {"type": "donuts", "amount": 20, "chance": 30},
-            {"type": "donuts", "amount": 50, "chance": 25},
-            {"type": "gift", "gift_id": 2007, "chance": 25},
-            {"type": "gift", "gift_id": 2008, "chance": 15},
-            {"type": "gift", "gift_id": 2005, "chance": 5}
+            {"type": "stars", "amount": 15, "chance": 40},
+            {"type": "stars", "amount": 20, "chance": 30},
+            {"type": "stars", "amount": 30, "chance": 20},
+            {"type": "stars", "amount": 50, "chance": 25},
+            {"type": "stars", "amount": 70, "chance": 10},
+            {"type": "donuts", "amount": 1, "chance": 1},                         {"type": "donuts", "amount": 2, "chance": 1},                         {"type": "donuts", "amount": 5, "chance": 1},
+            {"type": "gift", "gift_id": 2008, "chance": 30},
+            {"type": "gift", "gift_id": 2009, "chance": 30},
+            {"type": "gift", "gift_id": 2001, "chance": 5},
+            {"type": "gift", "gift_id": 2017, "chance": 5},
+            {"type": "gift", "gift_id": 1, "chance": 0},
+            {"type": "gift", "gift_id": 5, "chance": 0},
+            {"type": "gift", "gift_id": 7, "chance": 0},
+            {"type": "gift", "gift_id": 51, "chance": 0}
         ]
     },
     3: {
         "name": "Звездный",
         "photo": "/gifts/case_space.png",
         "currency": "stars", 
-        "price": 50,
+        "price": 150,
         "items": [
-            {"type": "donuts", "amount": 500, "chance": 40},
-            {"type": "stars", "amount": 100, "chance": 30},
-            {"type": "gift", "gift_id": 2000, "chance": 20},
-            {"type": "gift", "gift_id": 2004, "chance": 10}
+            {"type": "stars", "amount": 50, "chance": 40},
+            {"type": "stars", "amount": 70, "chance": 30},
+            {"type": "stars", "amount": 100, "chance": 5},
+            {"type": "stars", "amount": 150, "chance": 6},
+            {"type": "stars", "amount": 200, "chance": 1},
+            {"type": "donuts", "amount": 1, "chance": 1},                         {"type": "donuts", "amount": 2, "chance": 1},                         {"type": "donuts", "amount": 5, "chance": 1},
+            {"type": "gift", "gift_id": 2008, "chance": 20},
+            {"type": "gift", "gift_id": 2009, "chance": 30},
+            {"type": "gift", "gift_id": 2000, "chance": 30},
+            {"type": "gift", "gift_id": 2001, "chance": 10},
+            {"type": "gift", "gift_id": 2002, "chance": 10},
+            {"type": "gift", "gift_id": 2011, "chance": 13},
+            {"type": "gift", "gift_id": 2012, "chance": 13},
+            {"type": "gift", "gift_id": 2017, "chance": 13},
+            {"type": "gift", "gift_id": 1, "chance": 0},
+            {"type": "gift", "gift_id": 5, "chance": 0},
+            {"type": "gift", "gift_id": 7, "chance": 0},
+            {"type": "gift", "gift_id": 51, "chance": 0}
         ]
     }
 }

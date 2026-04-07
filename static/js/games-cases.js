@@ -78,7 +78,7 @@ function _renderFreeCaseBannerAvailable(banner) {
              onclick="openFreeCaseDetails()">
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none"></div>
             <div class="w-16 h-16 flex-shrink-0 relative z-10 animate-bounce-slow">
-                <img src="/gifts/dount.png" class="w-full h-full object-contain drop-shadow-[0_0_12px_rgba(52,211,153,0.7)]"
+                <img src="/gifts/freecase.png" class="w-full h-full object-contain drop-shadow-[0_0_12px_rgba(52,211,153,0.7)]"
                      onerror="this.src='https://via.placeholder.com/64?text=🎁'">
             </div>
             <div class="flex-1 relative z-10">
@@ -108,7 +108,7 @@ function _renderFreeCaseBannerCooldown(banner, remainingSeconds) {
         banner.innerHTML = `
             <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-r from-white/5 to-white/5 p-4 flex items-center gap-4">
                 <div class="w-16 h-16 flex-shrink-0 opacity-40">
-                    <img src="/gifts/dount.png" class="w-full h-full object-contain grayscale"
+                    <img src="/gifts/freecase.png" class="w-full h-full object-contain grayscale"
                          onerror="this.src='https://via.placeholder.com/64?text=🎁'">
                 </div>
                 <div class="flex-1">
@@ -174,20 +174,37 @@ async function openFreeCaseDetails() {
     sortedItems.forEach(item => {
         const info = getItemInfoForCase(item);
         const chance = item.chance || 0;
-        let colorClass = chance <= 5 ? "text-yellow-400" : (chance <= 15 ? "text-purple-400" : "text-blue-400");
+        let rarityColor, rarityBorder, rarityGlow, rarityBg;
+        if (chance <= 5) {
+            rarityColor = '#facc15'; rarityBorder = 'rgba(250,204,21,0.45)';
+            rarityGlow  = 'rgba(250,204,21,0.25)'; rarityBg = 'rgba(250,204,21,0.08)';
+        } else if (chance <= 15) {
+            rarityColor = '#c084fc'; rarityBorder = 'rgba(192,132,252,0.45)';
+            rarityGlow  = 'rgba(192,132,252,0.22)'; rarityBg = 'rgba(192,132,252,0.07)';
+        } else {
+            rarityColor = '#60a5fa'; rarityBorder = 'rgba(96,165,250,0.35)';
+            rarityGlow  = 'rgba(96,165,250,0.18)'; rarityBg = 'rgba(96,165,250,0.06)';
+        }
 
-        const row = document.createElement('div');
-        row.className = "flex items-center justify-between bg-black/40 border border-white/5 rounded-xl p-2.5";
-        row.innerHTML = `
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center p-1">
-                    <img src="${escapeHtml(info.photo)}" class="w-full h-full object-contain drop-shadow-md"
-                         onerror="this.src='https://via.placeholder.com/32'">
-                </div>
-                <span class="font-bold text-sm ${colorClass}">${escapeHtml(info.name)}</span>
-            </div>
+        const card = document.createElement('div');
+        card.style.cssText = `
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            gap:6px; padding:10px 6px 8px;
+            border-radius:16px;
+            background:${rarityBg};
+            border:1.5px solid ${rarityBorder};
+            box-shadow:0 4px 18px ${rarityGlow}, inset 0 1px 0 rgba(255,255,255,0.06);
+            cursor:default; position:relative; overflow:hidden;
         `;
-        itemsContainer.appendChild(row);
+        card.innerHTML = `
+            <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,${rarityGlow} 0%,transparent 70%);pointer-events:none;"></div>
+            <div style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:12px;padding:6px;position:relative;z-index:1;">
+                <img src="${escapeHtml(info.photo)}" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 6px ${rarityGlow});"
+                     onerror="this.src='https://via.placeholder.com/40'">
+            </div>
+            <span style="font-size:10px;font-weight:800;color:${rarityColor};text-align:center;line-height:1.25;max-width:72px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;position:relative;z-index:1;">${escapeHtml(info.name)}</span>
+        `;
+        itemsContainer.appendChild(card);
     });
 
     if (typeof openModal === 'function') openModal('case-details-modal');
@@ -286,7 +303,7 @@ function renderCasesGrid() {
         const currencyIcon = c.currency === 'stars' ? '/gifts/stars.png' : '/gifts/dount.png';
 
         const card = document.createElement('div');
-        card.className = "glass rounded-3xl p-4 flex flex-col items-center justify-between text-center cursor-pointer active:scale-95 transition-transform border border-indigo-400/30 shadow-[0_10px_20px_rgba(0,0,0,0.4)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] bg-gradient-to-b from-indigo-500/20 to-black/40 relative overflow-hidden group";
+        card.className = "glass rounded-3xl p-4 flex flex-col items-center justify-between text-center cursor-pointer transition-transform border border-indigo-400/30 shadow-[0_10px_20px_rgba(0,0,0,0.4)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] bg-gradient-to-b from-indigo-500/20 to-black/40 relative overflow-hidden group";
         card.onclick = () => openCaseDetails(id);
 
         card.innerHTML = `
@@ -294,7 +311,7 @@ function renderCasesGrid() {
             <div class="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 bg-indigo-500/30 blur-[30px] rounded-full pointer-events-none group-hover:bg-indigo-400/40 transition-colors"></div>
 
             <div class="w-24 h-24 mb-3 relative z-10">
-                <img src="${escapeHtml(photoUrl)}" class="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.6)] group-hover:scale-110 group-hover:-translate-y-1 transition-all duration-300" onerror="this.src='https://via.placeholder.com/96?text=📦'">
+                <img src="${escapeHtml(photoUrl)}" class="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.6)] transition-all duration-300" onerror="this.src='https://via.placeholder.com/96?text=📦'">
             </div>
 
             <h4 class="text-white font-extrabold text-sm mb-3 glow-text w-full truncate relative z-10 tracking-wide">${escapeHtml(c.name)}</h4>
@@ -359,19 +376,37 @@ function openCaseDetails(caseId) {
     sortedItems.forEach(item => {
         const info = getItemInfoForCase(item);
         const chance = item.chance || 0;
-        let colorClass = chance <= 5 ? "text-yellow-400" : (chance <= 15 ? "text-purple-400" : "text-blue-400");
+        let rarityColor, rarityBorder, rarityGlow, rarityBg;
+        if (chance <= 5) {
+            rarityColor = '#facc15'; rarityBorder = 'rgba(250,204,21,0.45)';
+            rarityGlow  = 'rgba(250,204,21,0.25)'; rarityBg = 'rgba(250,204,21,0.08)';
+        } else if (chance <= 15) {
+            rarityColor = '#c084fc'; rarityBorder = 'rgba(192,132,252,0.45)';
+            rarityGlow  = 'rgba(192,132,252,0.22)'; rarityBg = 'rgba(192,132,252,0.07)';
+        } else {
+            rarityColor = '#60a5fa'; rarityBorder = 'rgba(96,165,250,0.35)';
+            rarityGlow  = 'rgba(96,165,250,0.18)'; rarityBg = 'rgba(96,165,250,0.06)';
+        }
 
-        const row = document.createElement('div');
-        row.className = "flex items-center justify-between bg-black/40 border border-white/5 rounded-xl p-2.5";
-        row.innerHTML = `
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center p-1">
-                    <img src="${info.photo}" class="w-full h-full object-contain drop-shadow-md" onerror="this.src='https://via.placeholder.com/32'">
-                </div>
-                <span class="font-bold text-sm ${colorClass}">${escapeHtml(info.name)}</span>
-            </div>
+        const card = document.createElement('div');
+        card.style.cssText = `
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            gap:6px; padding:10px 6px 8px;
+            border-radius:16px;
+            background:${rarityBg};
+            border:1.5px solid ${rarityBorder};
+            box-shadow:0 4px 18px ${rarityGlow}, inset 0 1px 0 rgba(255,255,255,0.06);
+            cursor:default; position:relative; overflow:hidden;
         `;
-        itemsContainer.appendChild(row);
+        card.innerHTML = `
+            <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,${rarityGlow} 0%,transparent 70%);pointer-events:none;"></div>
+            <div style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:12px;padding:6px;position:relative;z-index:1;">
+                <img src="${info.photo}" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 6px ${rarityGlow});"
+                     onerror="this.src='https://via.placeholder.com/40'">
+            </div>
+            <span style="font-size:10px;font-weight:800;color:${rarityColor};text-align:center;line-height:1.25;max-width:72px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;position:relative;z-index:1;">${escapeHtml(info.name)}</span>
+        `;
+        itemsContainer.appendChild(card);
     });
 
     if (typeof openModal === 'function') openModal('case-details-modal');
@@ -488,6 +523,12 @@ function playCaseAnimation(caseConfig, winItem, isDemo = false) {
     document.getElementById('cam-item-type-label').innerText = typeLabels[winItem.type] || '';
     if (typeof configureCaseGiftActionsIfNeeded === 'function' && winItem.type === 'gift') {
         configureCaseGiftActionsIfNeeded(winItem.gift_id, 'case', isDemo);
+    } else {
+        // Не подарок — скрываем кнопки действий и показываем кнопку закрытия
+        const actionsBox = document.getElementById('cam-gift-actions');
+        const closeBtn = document.getElementById('cam-btn-close');
+        if (actionsBox) actionsBox.classList.add('hidden');
+        if (closeBtn) closeBtn.classList.remove('hidden');
     }
 
     const items = caseConfig.items || [];

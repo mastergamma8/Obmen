@@ -71,6 +71,20 @@ function startApplication() {
     initApp();
 }
 
+// ─── Поддержка: открыть бот @SpaceDonutSupportBot ────────────────────────────
+function openSupportBot() {
+    try {
+        const tg = window.Telegram && window.Telegram.WebApp;
+        if (tg && tg.openTelegramLink) {
+            tg.openTelegramLink('https://t.me/SpaceDonutSupportBot');
+        } else {
+            window.open('https://t.me/SpaceDonutSupportBot', '_blank');
+        }
+    } catch (e) {
+        window.open('https://t.me/SpaceDonutSupportBot', '_blank');
+    }
+}
+
 // ПУЛЕНЕПРОБИВАЕМЫЙ ЗАПУСК:
 if (window.partialsAreLoaded) {
     startApplication();
