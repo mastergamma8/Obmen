@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 import httpx
 import time
 
+import cloudscraper
 import config
 import database
 from handlers.models import ActionData
@@ -196,4 +197,117 @@ async def exchange_gift(data: ActionData, current_user: dict = Depends(get_curre
         "stars": updated_user.get("stars", 0),
         "user_gifts": updated_gifts,
         "exchange_stars": reward_stars,
+    }
+
+def _fetch_portal_floor_price(gift_name: str) -> float | None:
+    """Синхронно запрашивает floor_price подарка у Portal Market API."""
+    try:
+        scraper = cloudscraper.create_scraper(
+            browser={"browser": "chrome", "platform": "windows", "mobile": False}
+        )
+        resp = scraper.get(
+            "https://portal-market.com/api/collections",
+            params={"search": gift_name, "limit": 1},
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            collections = resp.json().get("collections", [])
+            if collections:
+                fp = float(collections[0].get("floor_price", 0))
+                return fp if fp > 0 else None
+    except Exception as e:
+        print(f"[exchange-for-donuts] Portal API error for '{gift_name}': {e}")
+    return None
+
+
+@router.post("/exchange-for-donuts")
+async def exchange_for_donuts(data: ActionData, current_user: dict = Depends(get_current_user)):
+    """Устаревший эндпоинт. Перенаправляет на /api/exchange-for-stars."""
+    raise HTTPException(
+        status_code=410,
+        detail="Этот эндпоинт устарел. Используйте /api/exchange-for-stars",
+    )
+
+
+@router.post("/exchange-for-stars")
+async def exchange_for_stars(data: ActionData, current_user: dict = Depends(get_current_user)):
+    """
+    Обменять BASE_GIFT или MAIN_GIFT подарок на звёзды.
+
+    Для BASE_GIFTS цена берётся с Portal Market API (-20%), затем конвертируется
+    из пончиков в звёзды по курсу config.DONUTS_TO_STARS_RATE (звёзд за 1 пончик).
+
+    Для MAIN_GIFTS в качестве базы используется required_value подарка,
+    аналогично конвертируется в звёзды.
+
+    TG-подарки для этого эндпоинта не принимаются — используйте /api/exchange.
+    """
+    tg_id = current_user["id"]
+
+    # Определяем тип подарка: BASE или MAIN
+    gift_def = config.BASE_GIFTS.get(data.gift_id)
+    gift_type = "base"
+    if not gift_def:
+        gift_def = config.MAIN_GIFTS.get(data.gift_id)
+        gift_type = "main"
+
+    if not gift_def:
+        raise HTTPException(status_code=400, detail="Только базовые и основные подарки можно обменять на звёзды")
+
+    # TG-подарки через этот эндпоинт не обслуживаем
+    from handlers.tg_gifts import is_real_tg_gift as _is_real_tg
+    if _is_real_tg(data.gift_id):
+        raise HTTPException(status_code=400, detail="Используйте /api/exchange для Telegram-подарков")
+
+    # Проверяем наличие подарка в инвентаре
+    user_gifts = await database.get_user_gifts(tg_id)
+    if user_gifts.get(data.gift_id, 0) <= 0:
+        raise HTTPException(status_code=400, detail="У вас нет этого подарка")
+
+    gift_name = gift_def["name"]
+
+    # Получаем базовую стоимость в пончиках
+    if gift_type == "base":
+        # Актуальная цена с Portal API (-20%)
+        floor_price = _fetch_portal_floor_price(gift_name)
+        if floor_price is None or floor_price <= 0:
+            fallback = int(gift_def.get("value", 0))
+            if fallback <= 0:
+                raise HTTPException(status_code=503, detail="Не удалось получить актуальную цену подарка")
+            floor_price = fallback / 0.8  # обратный пересчёт до скидки
+        donuts_value = int(floor_price * 0.8)
+    else:
+        # MAIN_GIFT: берём required_value напрямую
+        donuts_value = int(gift_def.get("required_value", gift_def.get("value", 0)))
+
+    if donuts_value <= 0:
+        raise HTTPException(status_code=400, detail="Цена подарка слишком мала для обмена")
+
+    # Конвертируем пончики -> звёзды
+    # DONUTS_TO_STARS_RATE — количество звёзд за 1 пончик
+    stars_reward = max(1, int(donuts_value * config.DONUTS_TO_STARS_RATE))
+
+    # Атомарно снимаем подарок
+    removed = await database.remove_gift_from_user(tg_id, data.gift_id)
+    if not removed:
+        raise HTTPException(status_code=400, detail="Подарок не найден")
+
+    # Зачисляем звёзды
+    await database.add_stars_to_user(tg_id, stars_reward)
+
+    await database.log_action(
+        tg_id,
+        "exchange_gift_stars",
+        f"Обмен подарка на звёзды: {gift_name} [gift_id:{data.gift_id}] -> +{stars_reward} ⭐",
+        stars_reward,
+    )
+
+    updated_user  = await database.get_user_data(tg_id)
+    updated_gifts = await database.get_user_gifts(tg_id)
+    return {
+        "status": "ok",
+        "stars_reward": stars_reward,
+        "balance": updated_user.get("balance", 0),
+        "stars": updated_user.get("stars", 0),
+        "user_gifts": updated_gifts,
     }

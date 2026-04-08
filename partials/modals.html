@@ -10,6 +10,7 @@
         <div id="rr-gift-actions" class="hidden flex flex-col gap-3 mb-4">
             <button id="rr-btn-withdraw" class="w-full bg-gradient-to-r from-emerald-500 to-green-600 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_15px_rgba(16,185,129,0.35)]" data-i18n="btn_tg_withdraw">Вывести подарок</button>
             <button id="rr-btn-exchange" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_15px_rgba(245,158,11,0.35)]" data-i18n="btn_tg_exchange">Обменять</button>
+            <button id="rr-btn-exchange-donuts" class="hidden w-full bg-gradient-to-r from-pink-500 to-rose-600 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_15px_rgba(244,63,94,0.35)]" data-i18n="btn_exchange_donuts">Обменять на пончики</button>
             <button id="rr-btn-keep" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="btn_tg_keep">Оставить в инвентаре</button>
         </div>
         <button id="rr-btn-close" onclick="closeModal('roulette-result-modal')" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 py-4 rounded-xl font-bold text-white active:scale-95 transition-transform shadow-[0_0_15px_rgba(236,72,153,0.4)]" data-i18n="take_prize">Забрать приз!</button>
@@ -228,6 +229,7 @@
         <div id="cam-gift-actions" class="hidden w-full max-w-xs flex flex-col gap-3 mb-4">
             <button id="cam-btn-withdraw" class="w-full py-4 rounded-xl font-extrabold text-white text-lg active:scale-95 transition-transform" style="background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 0 25px rgba(16,185,129,0.35);" data-i18n="btn_tg_withdraw">Вывести подарок</button>
             <button id="cam-btn-exchange" class="w-full py-4 rounded-xl font-extrabold text-white text-lg active:scale-95 transition-transform" style="background:linear-gradient(135deg,#f59e0b,#ea580c);box-shadow:0 0 25px rgba(245,158,11,0.35);" data-i18n="btn_tg_exchange">Обменять</button>
+            <button id="cam-btn-exchange-donuts" class="hidden w-full py-4 rounded-xl font-extrabold text-white text-lg active:scale-95 transition-transform" style="background:linear-gradient(135deg,#ec4899,#e11d48);box-shadow:0 0 25px rgba(244,63,94,0.35);" data-i18n="btn_exchange_donuts">Обменять на пончики</button>
             <button id="cam-btn-keep" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="btn_tg_keep">Оставить в инвентаре</button>
         </div>
         <button id="cam-btn-close" onclick="closeCaseAnimation()" class="w-full max-w-xs py-4 rounded-xl font-extrabold text-white text-lg active:scale-95 transition-transform" style="background:linear-gradient(135deg,#f59e0b,#ea580c);box-shadow:0 0 25px rgba(245,158,11,0.5);" data-i18n="take_prize_case">
@@ -297,7 +299,7 @@
 
         <div id="wcm-fee-row" class="mb-4">
             <button id="wcm-btn-confirm" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.4)] text-white py-3.5 rounded-xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
-                <span id="wcm-btn-confirm-label">Вывести за</span> <span id="wcm-fee-amount">25</span>
+                <span id="wcm-btn-confirm-label" data-i18n="withdraw_confirm_btn">Вывести за</span> <span id="wcm-fee-amount">25</span>
                 <img src="/gifts/stars.png" class="w-5 h-5 object-contain" onerror="this.src='https://via.placeholder.com/20?text=⭐'">
             </button>
         </div>
@@ -305,6 +307,13 @@
         <div id="wcm-tg-actions" class="hidden flex flex-col gap-3">
             <button id="wcm-btn-withdraw-tg" class="w-full bg-gradient-to-r from-emerald-500 to-green-600 shadow-[0_0_15px_rgba(16,185,129,0.35)] text-white py-3.5 rounded-xl font-bold text-lg active:scale-95 transition-all" data-i18n="btn_tg_withdraw">Вывести подарок</button>
             <button id="wcm-btn-exchange" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_15px_rgba(245,158,11,0.35)] text-white py-3.5 rounded-xl font-bold text-lg active:scale-95 transition-all" data-i18n="btn_tg_exchange">Обменять</button>
+        </div>
+
+        <div id="wcm-base-actions" class="hidden flex flex-col gap-3">
+            <button id="wcm-btn-exchange-donuts" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_15px_rgba(245,158,11,0.35)] text-white py-3.5 rounded-xl font-bold text-lg active:scale-95 transition-all" data-i18n="btn_exchange_stars">Обменять на ⭐</button>
+        </div>
+
+        <div id="wcm-keep-row" class="hidden mt-0">
             <button id="wcm-btn-keep" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="btn_tg_keep">Оставить в инвентаре</button>
         </div>
     </div>

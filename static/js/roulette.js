@@ -227,3 +227,156 @@ window.renderRouletteWheel = renderRouletteWheel;
 window.openRoulette = openRoulette;
 window.spinRoulette = spinRoulette;
 window.fetchRouletteInfo = fetchRouletteInfo;
+
+// =====================================================
+// DRAG-TO-SPIN + БЛОКИРОВКА ГОРИЗОНТАЛЬНОГО СВАЙПА
+// =====================================================
+(function initRouletteDrag() {
+    function getWheel() { return document.getElementById('roulette-wheel-container'); }
+
+    // --- вспомогательные ---
+    function getCenter(el) {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+    function getAngle(cx, cy, px, py) {
+        return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
+    }
+
+    let dragActive   = false;
+    let startAngle   = 0;
+    let lastAngle    = 0;
+    let prevAngle    = 0;
+    let velocity     = 0;
+    let lastTime     = 0;
+    let animFrame    = null;
+    let momentumRunning = false;
+
+    function getEventPoint(e) {
+        if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    function onDragStart(e) {
+        if (rouletteSpinning || momentumRunning) return;
+        const wheel = getWheel();
+        if (!wheel) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        dragActive = true;
+        const pt = getEventPoint(e);
+        const c  = getCenter(wheel);
+        startAngle = getAngle(c.x, c.y, pt.x, pt.y) - rouletteCurrentRotation;
+        lastAngle  = rouletteCurrentRotation;
+        prevAngle  = rouletteCurrentRotation;
+        lastTime   = performance.now();
+        velocity   = 0;
+        wheel.style.cursor = 'grabbing';
+
+        if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+    }
+
+    function onDragMove(e) {
+        if (!dragActive) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const wheel = getWheel();
+        if (!wheel) return;
+        const pt = getEventPoint(e);
+        const c  = getCenter(wheel);
+        const raw = getAngle(c.x, c.y, pt.x, pt.y);
+        let newRot = raw - startAngle;
+
+        // Нормализуем скачок при пересечении 180°
+        let delta = newRot - lastAngle;
+        if (delta >  180) delta -= 360;
+        if (delta < -180) delta += 360;
+        newRot = lastAngle + delta;
+
+        // Скорость для momentum
+        const now = performance.now();
+        const dt  = now - lastTime;
+        if (dt > 0) velocity = (newRot - prevAngle) / dt * 16; // °/frame @60fps
+        prevAngle = lastAngle;
+        lastAngle = newRot;
+        lastTime  = now;
+
+        rouletteCurrentRotation = newRot;
+        wheel.style.transform = `rotate(${newRot}deg) translateZ(0)`;
+    }
+
+    function onDragEnd(e) {
+        if (!dragActive) return;
+        dragActive = false;
+        const wheel = getWheel();
+        if (wheel) wheel.style.cursor = 'grab';
+
+        // Запускаем инерцию если есть скорость
+        if (Math.abs(velocity) > 0.3) {
+            momentumRunning = true;
+            runMomentum(velocity);
+        }
+    }
+
+    function runMomentum(vel) {
+        const friction = 0.97; // замедление
+        const minVel   = 0.05;
+
+        function step() {
+            vel *= friction;
+            rouletteCurrentRotation += vel;
+            const wheel = getWheel();
+            if (wheel) wheel.style.transform = `rotate(${rouletteCurrentRotation}deg) translateZ(0)`;
+
+            if (Math.abs(vel) > minVel) {
+                animFrame = requestAnimationFrame(step);
+            } else {
+                momentumRunning = false;
+                animFrame = null;
+            }
+        }
+        animFrame = requestAnimationFrame(step);
+    }
+
+    // Вешаем события после загрузки DOM
+    function attachDragEvents() {
+        const wheel = getWheel();
+        if (!wheel) { setTimeout(attachDragEvents, 300); return; }
+
+        // Touch
+        wheel.addEventListener('touchstart', onDragStart, { passive: false });
+        wheel.addEventListener('touchmove',  onDragMove,  { passive: false });
+        wheel.addEventListener('touchend',   onDragEnd,   { passive: false });
+        wheel.addEventListener('touchcancel',onDragEnd,   { passive: false });
+        // Mouse (для десктопа)
+        wheel.addEventListener('mousedown', onDragStart);
+        window.addEventListener('mousemove', onDragMove);
+        window.addEventListener('mouseup',   onDragEnd);
+    }
+
+    // Блокируем горизонтальный свайп на всей странице рулетки
+    function blockHorizontalSwipe() {
+        const page = document.getElementById('page-roulette');
+        if (!page) { setTimeout(blockHorizontalSwipe, 300); return; }
+        page.addEventListener('touchstart', function(e) {
+            this._touchStartX = e.touches[0].clientX;
+            this._touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+        page.addEventListener('touchmove', function(e) {
+            const dx = Math.abs(e.touches[0].clientX - (this._touchStartX || 0));
+            const dy = Math.abs(e.touches[0].clientY - (this._touchStartY || 0));
+            if (dx > dy && dx > 8) e.preventDefault(); // горизонталь — блокируем
+        }, { passive: false });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => { attachDragEvents(); blockHorizontalSwipe(); });
+    } else {
+        attachDragEvents();
+        blockHorizontalSwipe();
+    }
+})();

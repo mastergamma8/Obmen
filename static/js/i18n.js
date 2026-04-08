@@ -103,6 +103,7 @@ const i18n = {
             // ВЫВОД С КОМИССИЕЙ
             withdraw_confirm_title: 'Вывод подарка',
             withdraw_confirm_desc: 'Для вывода этого подарка необходимо оплатить комиссию сети.',
+            withdraw_confirm_btn: 'Вывести за',
             btn_pay_withdraw: 'Вывести за',
             not_enough_stars_alert: 'Недостаточно звезд для вывода!',
 
@@ -114,6 +115,11 @@ const i18n = {
             btn_tg_keep: 'Оставить в инвентаре',
             tg_withdraw_success: 'Подарок отправлен в Telegram!',
             tg_exchange_success: 'Подарок обменян на звёзды!',
+            btn_exchange_donuts: 'Обменять на пончики',
+            exchange_donuts_success: 'Подарок обменян на пончики!',
+            btn_exchange_stars: 'Обменять на',
+            exchange_stars_success: 'Подарок обменян на звёзды!',
+            hist_exchange_gift_donuts: 'Обмен подарка на пончики',
             tg_withdraw_error: 'Не удалось отправить подарок. Попробуйте позже.',
             hist_tg_withdraw: 'Вывод Telegram-подарка',
             hist_tg_exchange: 'Обмен Telegram-подарка',
@@ -125,7 +131,7 @@ const i18n = {
             tg_shop_banner_desc: 'Купи подарок за <span class="font-bold text-yellow-300 inline-flex items-center gap-1">{price} <img src="/gifts/stars.png" class="w-4 h-4 inline-block align-middle object-contain"></span> и получи в Telegram!',
             tg_shop_header_desc: 'Цена: <span class="font-bold text-yellow-300 inline-flex items-center gap-1">{price} <img src="/gifts/stars.png" class="w-4 h-4 inline-block align-middle object-contain"></span> за подарок',
             tg_buy_modal_title: 'Купить подарок?',
-            tg_buy_modal_desc: 'Подарок будет отправлен в ваш Telegram',
+            tg_buy_modal_desc: 'Подарок будет отправлен вам в Telegram',
             tg_buy_cost_label: 'Стоимость',
             tg_buy_balance_label: 'Ваш баланс',
             tg_buy_confirm_btn: 'Купить за {price}',
@@ -233,6 +239,7 @@ const i18n = {
             // WITHDRAW WITH FEE
             withdraw_confirm_title: 'Withdraw Gift',
             withdraw_confirm_desc: 'To withdraw this gift, you need to pay the network fee.',
+            withdraw_confirm_btn: 'Withdraw for',
             btn_pay_withdraw: 'Withdraw for',
             not_enough_stars_alert: 'Not enough stars to withdraw!',
 
@@ -244,6 +251,11 @@ const i18n = {
             btn_tg_keep: 'Keep in inventory',
             tg_withdraw_success: 'Gift sent to Telegram!',
             tg_exchange_success: 'Gift exchanged for stars!',
+            btn_exchange_donuts: 'Exchange for donuts',
+            exchange_donuts_success: 'Gift exchanged for donuts!',
+            btn_exchange_stars: 'Exchange for',
+            exchange_stars_success: 'Gift exchanged for stars!',
+            hist_exchange_gift_donuts: 'Gift exchanged for donuts',
             tg_withdraw_error: 'Failed to send the gift. Please try again later.',
             hist_tg_withdraw: 'Telegram gift withdrawn',
             hist_tg_exchange: 'Telegram gift exchanged',
