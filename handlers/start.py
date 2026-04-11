@@ -6,10 +6,18 @@ from aiogram.types import (
     Message, PreCheckoutQuery,
     InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 )
+from aiogram.enums import ButtonStyle
 
 import config
 import database
 from db.db_referrals import distribute_referral_bonus_stars
+
+# --- Premium emoji (как в admin.py) ---
+E_STAR = '<tg-emoji emoji-id="5897920748101571572">⭐</tg-emoji>'
+E_PARTY = '<tg-emoji emoji-id="5461151367559141950">🥳</tg-emoji>'
+E_STOP = '<tg-emoji emoji-id="5260293700088511294">⛔</tg-emoji>'
+E_EYES = '<tg-emoji emoji-id="5210956306952758910">👀</tg-emoji>'
+E_CHECK = '<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji>'
 
 
 def register(dp: Dispatcher, bot: Bot):
@@ -36,24 +44,32 @@ def register(dp: Dispatcher, bot: Bot):
                 await database.set_referrer(user_id, referrer_id)
 
             if not config.WEBAPP_URL.startswith("https://"):
-                await message.answer("⚠️ Ошибка: WEBAPP_URL в config.py должен начинаться с https://")
+                await message.answer(
+                    f"{E_STOP} Ошибка: WEBAPP_URL в config.py должен начинаться с https://",
+                    parse_mode="HTML"
+                )
                 return
 
             markup = InlineKeyboardMarkup(inline_keyboard=[
                 [
-                    
-InlineKeyboardButton(text="Канал", url="https://t.me/Space_Donut"),
-                
-InlineKeyboardButton(text="Открыть приложение", web_app=WebAppInfo(url=config.WEBAPP_URL)),
-                    
+                    InlineKeyboardButton(
+                        text="Канал",
+                        url="https://t.me/Space_Donut",
+                        style=ButtonStyle.PRIMARY
+                    ),
+                    InlineKeyboardButton(
+                        text="Открыть приложение",
+                        web_app=WebAppInfo(url=config.WEBAPP_URL),
+                        style=ButtonStyle.SUCCESS
+                    ),
                 ]
             ])
 
-            text = "Привет! Нажми на кнопку ниже, чтобы открыть приложение."
+            text = f"Привет! Нажми на кнопку ниже, чтобы открыть приложение."
             if referrer_id and referrer_id != user_id:
-                text += "\n\n🎉 Вы перешли по пригласительной ссылке!"
+                text += f"\n\n{E_PARTY} Вы перешли по пригласительной ссылке!"
 
-            await message.answer(text, reply_markup=markup)
+            await message.answer(text, reply_markup=markup, parse_mode="HTML")
 
         except Exception as e:
             logging.error(f"Ошибка в /start: {e}")
@@ -78,18 +94,18 @@ InlineKeyboardButton(text="Открыть приложение", web_app=WebAppI
                         f"successful_payment mismatch: from_user={message.from_user.id}, "
                         f"payload_user={user_id} — начисление отклонено"
                     )
-                    await message.answer("❌ Ошибка верификации платежа. Обратитесь в поддержку.")
+                    await message.answer(f"{E_STOP} Ошибка верификации платежа. Обратитесь в поддержку.")
                     return
 
                 await database.add_stars_to_user(user_id, stars_amount)
                 await database.add_history_entry(
-                    user_id, "topup_stars", f"Пополнение баланса на {stars_amount} ⭐️", stars_amount
+                    user_id, "topup_stars", f"Пополнение баланса на {stars_amount} {E_STAR}", stars_amount
                 )
 
                 # Реферальный бонус: 10% от пополнения звёздами пригласившему
                 await distribute_referral_bonus_stars(user_id, stars_amount)
 
                 await message.answer(
-                    f"🎉 <b>Успешно!</b>\nВаш баланс пополнен на <b>{stars_amount} ⭐️</b>!",
+                    f"{E_PARTY} <b>Успешно!</b>\nВаш баланс пополнен на <b>{stars_amount} {E_STAR}</b>!",
                     parse_mode="HTML"
                 )

@@ -142,7 +142,7 @@ async function openFreeCaseDetails() {
             const m = Math.floor((status.remaining_seconds % 3600) / 60);
             const msg = (t.free_case_not_yet || 'Free case available in {h}h {m}m.')
                 .replace('{h}', h).replace('{m}', m);
-            if (typeof tg !== 'undefined' && tg) tg.showAlert(msg);
+            showNotify(msg, 'warning');
             return;
         }
     }
@@ -270,11 +270,11 @@ async function buyAndOpenFreeCase() {
                 if (banner) _renderFreeCaseBannerCooldown(banner, data.next_free_in);
             }
         } else {
-            if (typeof tg !== 'undefined' && tg) tg.showAlert(data.detail || 'Error');
+            showNotify(data.detail || 'Error', 'error');
         }
     } catch (e) {
         console.error("Open free case error:", e);
-        if (typeof tg !== 'undefined' && tg) tg.showAlert(t.err_conn || 'Connection error');
+        showNotify(t.err_conn || 'Connection error', 'error');
     } finally {
         isOpeningCase = false;
         btn.classList.remove('btn-disabled');
@@ -446,7 +446,7 @@ async function buyAndOpenCase(caseId) {
 
     const currentBal = c.currency === 'stars' ? myStars : myBalance;
     if (currentBal < c.price) {
-        if (typeof tg !== 'undefined' && tg) tg.showAlert('Недостаточно средств!');
+        showNotify('Недостаточно средств!', 'error');
         return;
     }
 
@@ -474,11 +474,11 @@ async function buyAndOpenCase(caseId) {
             if (typeof closeModal === 'function') closeModal('case-details-modal');
             playCaseAnimation(c, data.win_item);
         } else {
-            if (typeof tg !== 'undefined' && tg) tg.showAlert(data.detail || 'Error');
+            showNotify(data.detail || 'Error', 'error');
         }
     } catch (e) {
         console.error("Open case error:", e);
-        if (typeof tg !== 'undefined' && tg) tg.showAlert(i18n[currentLang]?.err_conn || 'Connection error');
+        showNotify(i18n[currentLang]?.err_conn || 'Connection error', 'error');
     } finally {
         isOpeningCase = false;
         btn.classList.remove('btn-disabled');

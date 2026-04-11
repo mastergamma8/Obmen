@@ -121,18 +121,18 @@ async function claimGift(giftId) {
                 const msg = i18n[currentLang].cooldown_claim_wait
                     .replace('{h}', data.detail.hours)
                     .replace('{m}', data.detail.minutes);
-                tg.showAlert(`⏳ ${msg}`);
+                showNotify(msg, 'warning');
             } else {
-                tg.showAlert(`⏳ ${data.detail || 'Limit reached'}`);
+                showNotify(data.detail || 'Limit reached', 'warning');
             }
             return;
         }
         if (data.status === 'ok') {
             myBalance = data.balance; myGifts = data.user_gifts;
             closeModal('main-gift-modal'); updateUI(); switchTab('profile');
-            setTimeout(() => tg.showAlert(i18n[currentLang].gift_added), 300);
-        } else { tg.showAlert(data.detail || 'Error'); }
-    } catch(e) { tg.showAlert(i18n[currentLang].err_conn); }
+            setTimeout(() => showNotify(i18n[currentLang].gift_added, 'success'), 300);
+        } else { showNotify(data.detail || 'Error', 'error'); }
+    } catch(e) { showNotify(i18n[currentLang].err_conn, 'error'); }
     finally { btn.innerText = i18n[currentLang].claim_gift; btn.disabled = false; }
 }
 

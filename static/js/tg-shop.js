@@ -180,27 +180,20 @@ async function confirmTgGiftPurchase() {
             closeTgBuyModal();
 
             // Показываем успех
-            const tg = window.Telegram?.WebApp;
             const successMsg = i18n[(typeof currentLang !== 'undefined') ? currentLang : 'ru'].tg_buy_success;
-            if (tg?.showAlert) {
-                tg.showAlert(successMsg);
-            } else {
-                alert(successMsg);
-            }
+            showNotify(successMsg, 'success');
         } else if (data.detail === 'not_enough_stars') {
             closeTgBuyModal();
             if (typeof openTopupModal === 'function') openTopupModal();
         } else {
-            const tg = window.Telegram?.WebApp;
             const lang = (typeof currentLang !== 'undefined') ? currentLang : 'ru';
             const msg = data.detail || i18n[lang].tg_buy_error;
-            if (tg?.showAlert) tg.showAlert(msg); else alert(msg);
+            showNotify(msg, 'error');
         }
     } catch (e) {
         console.error('TG Shop buy error:', e);
-        const tg = window.Telegram?.WebApp;
         const errMsg = i18n[(typeof currentLang !== 'undefined') ? currentLang : 'ru'].err_conn;
-        if (tg?.showAlert) tg.showAlert(errMsg); else alert(errMsg);
+        showNotify(errMsg, 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = originalHTML; }
     }

@@ -63,22 +63,26 @@ async def _roll_item_bank_aware(items: list, currency: str) -> dict:
     return _roll_item(affordable)
 
 
-async def _apply_win(tg_id: int, win_item: dict, case: dict, price: int):
+async def _apply_win(tg_id: int, win_item: dict, case: dict, price: int, case_id: int = 0):
+    case_tag = f" [case_id:{case_id}]" if case_id else ""
+
     if win_item["type"] == "donuts":
         await database.add_points_to_user(tg_id, win_item["amount"])
-        await database.add_history_entry(tg_id, "case_win_donuts", "Case — donuts won", win_item["amount"])
+        await database.add_history_entry(tg_id, "case_win_donuts",
+            f"Case '{case['name']}' — donuts won{case_tag}", win_item["amount"])
         await database.add_history_entry(
             tg_id, "case_lucky_ratio",
-            f"Case '{case['name']}' — luck ratio",
+            f"Case '{case['name']}' — luck ratio{case_tag}",
             round(win_item["amount"] / max(price, 1) * 100)
         )
 
     elif win_item["type"] == "stars":
         await database.add_stars_to_user(tg_id, win_item["amount"])
-        await database.add_history_entry(tg_id, "case_win_stars", "Case — stars won", win_item["amount"])
+        await database.add_history_entry(tg_id, "case_win_stars",
+            f"Case '{case['name']}' — stars won{case_tag}", win_item["amount"])
         await database.add_history_entry(
             tg_id, "case_lucky_ratio",
-            f"Case '{case['name']}' — luck ratio",
+            f"Case '{case['name']}' — luck ratio{case_tag}",
             round(win_item["amount"] / max(price, 1) * 100)
         )
 
@@ -90,14 +94,16 @@ async def _apply_win(tg_id: int, win_item: dict, case: dict, price: int):
 
         await database.add_gift_to_user(tg_id, gift_id, 1)
         if gift_def and is_real_tg_gift(gift_id):
-            await database.add_history_entry(tg_id, "case_win_tg_gift", f"Case — Telegram gift won: {gift_name} [gift_id:{gift_id}]", 0)
+            await database.add_history_entry(tg_id, "case_win_tg_gift",
+                f"Case '{case['name']}' — Telegram gift won: {gift_name} [gift_id:{gift_id}]{case_tag}", 0)
         else:
-            await database.add_history_entry(tg_id, "case_win_gift", f"Case — gift won: {gift_name} [gift_id:{gift_id}]", 0)
+            await database.add_history_entry(tg_id, "case_win_gift",
+                f"Case '{case['name']}' — gift won: {gift_name} [gift_id:{gift_id}]{case_tag}", 0)
 
         if gift_value > 0 and price > 0:
             await database.add_history_entry(
                 tg_id, "case_lucky_ratio",
-                f"Case '{case['name']}' — luck ratio (gift)",
+                f"Case '{case['name']}' — luck ratio (gift){case_tag}",
                 round(gift_value / price * 100)
             )
 
@@ -129,7 +135,7 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
         )
 
     await database.add_history_entry(tg_id, f"case_paid_{currency}",
-        f"Case opened: '{case['name']}'", -price)
+        f"Case opened: '{case['name']}' [case_id:{case_id}]", -price)
     await database.bank_deposit(price, CASE_HOUSE_EDGE, asset_type=currency)
 
     win_item  = await _roll_item_bank_aware(case["items"], currency)
@@ -192,7 +198,7 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
                     "user_gifts": updated_gifts,
                 }
 
-    await _apply_win(tg_id, win_item, case, price)
+    await _apply_win(tg_id, win_item, case, price, case_id=case_id)
 
     updated_user  = await database.get_user_data(tg_id)
     updated_gifts = await database.get_user_gifts(tg_id)
@@ -241,8 +247,8 @@ async def open_free_case(current_user: dict = Depends(get_current_user)):
 
     await database.update_last_free_case(tg_id, now)
     await database.add_history_entry(tg_id, "case_free_open",
-        f"Free case opened: '{case['name']}'", 0)
-    await _apply_win(tg_id, win_item, case, price=0)
+        f"Free case opened: '{case['name']}' [case_id:free]", 0)
+    await _apply_win(tg_id, win_item, case, price=0, case_id="free")
 
     updated_user  = await database.get_user_data(tg_id)
     updated_gifts = await database.get_user_gifts(tg_id)

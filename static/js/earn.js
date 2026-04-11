@@ -33,7 +33,7 @@ function copyRefLink() {
     tmp.select();
     document.execCommand('copy');
     document.body.removeChild(tmp);
-    tg.showAlert(i18n[currentLang].ref_copied);
+    showNotify(i18n[currentLang].ref_copied, 'info');
 }
 
 function shareRefLink() {
@@ -116,7 +116,7 @@ async function checkTask(taskId) {
         const data = await res.json();
         if (data.status === 'ok') {
             vibrate('heavy');
-            tg.showAlert(i18n[currentLang].task_done);
+            showNotify(i18n[currentLang].task_done, 'success');
             
             // --- ИЗМЕНЕНИЯ: Обновляем оба баланса сразу ---
             myBalance = data.balance;
@@ -127,11 +127,11 @@ async function checkTask(taskId) {
             if (typeof updateUI === 'function') updateUI();
             loadEarnData();
         } else {
-            tg.showAlert(data.detail || i18n[currentLang].err_check);
+            showNotify(data.detail || i18n[currentLang].err_check, 'error');
             if (btn) { btn.innerText = i18n[currentLang].check; btn.disabled = false; }
         }
     } catch(e) {
-        tg.showAlert(i18n[currentLang].err_conn_srv);
+        showNotify(i18n[currentLang].err_conn_srv, 'error');
         if (btn) { btn.innerText = i18n[currentLang].check; btn.disabled = false; }
     }
 }

@@ -356,4 +356,38 @@
         </button>
         <button onclick="closeTgBuyModal()" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/15 active:scale-95 transition-transform" data-i18n="cancel">Отмена</button>
     </div>
+</div><!-- ===== NOTIFICATION MODAL (errors, success, warning, info) =====
+
+<!-- ===== КРАСИВЫЕ УВЕДОМЛЕНИЯ ===== -->
+<div id="notify-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center z-[300] p-5" style="transition:opacity .2s;">
+    <div id="notify-card" class="glass-panel rounded-3xl p-7 w-full max-w-xs text-center border shadow-2xl" style="transform:scale(0.92);opacity:0;transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s;">
+        <!-- Animated icon ring -->
+        <div id="notify-icon-wrap" class="relative w-18 h-18 mx-auto mb-5 flex items-center justify-center" style="width:72px;height:72px;">
+            <div id="notify-ring-ping" class="absolute inset-0 rounded-full animate-ping opacity-20"></div>
+            <div id="notify-ring" class="w-full h-full rounded-full flex items-center justify-center border-2">
+                <!-- error -->
+                <svg id="notify-icon-error" class="hidden w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                <!-- success -->
+                <svg id="notify-icon-success" class="hidden w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+                <!-- warning -->
+                <svg id="notify-icon-warning" class="hidden w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+                <!-- info -->
+                <svg id="notify-icon-info" class="hidden w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+        </div>
+        <!-- Title -->
+        <p id="notify-title" class="text-xs uppercase tracking-widest font-bold mb-2 opacity-60"></p>
+        <!-- Message -->
+        <p id="notify-message" class="text-white font-semibold text-[15px] leading-relaxed mb-6"></p>
+        <!-- OK Button -->
+        <button id="notify-btn" onclick="closeNotify()" class="w-full py-3.5 rounded-xl font-bold text-white text-sm active:scale-95 transition-transform">OK</button>
+    </div>
 </div>

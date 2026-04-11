@@ -132,7 +132,7 @@ async function spinRoulette() {
             body: JSON.stringify({})
         });
         const data = await res.json();
-        if (data.status !== 'ok') { tg.showAlert(data.detail || 'Error!'); btn.disabled = false; return; }
+        if (data.status !== 'ok') { showNotify(data.detail || 'Error!', 'error'); btn.disabled = false; return; }
 
         rouletteSpinning = true;
         const numSegments = rouletteConfig.items.length;
@@ -152,7 +152,7 @@ async function spinRoulette() {
             fetchRouletteInfo();
         });
     } catch(e) {
-        tg.showAlert(i18n[currentLang].err_conn);
+        showNotify(i18n[currentLang].err_conn, 'error');
         btn.disabled = false;
     }
 }

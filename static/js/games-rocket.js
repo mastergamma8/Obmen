@@ -38,7 +38,7 @@ function openRocketGame() {
 
 function closeRocketGame() {
     if (rocketState === 'starting' || rocketState === 'flying') {
-        if(typeof tg !== 'undefined' && tg) tg.showAlert(i18n[currentLang]?.rocket_cant_close || 'Нельзя закрыть во время полета!');
+        if(typeof tg !== 'undefined' && tg) showNotify(i18n[currentLang]?.rocket_cant_close || 'Нельзя закрыть во время полета!', 'warning');
         return;
     }
     
@@ -214,7 +214,7 @@ async function handleRocketAction() {
         const currentBal = rocketConfigLocal?.currency === 'stars' ? myStars : myBalance;
         
         if (rocketBetAmount < min || rocketBetAmount > max) {
-            if(typeof tg !== 'undefined' && tg) tg.showAlert((i18n[currentLang]?.rocket_err_limits || 'Неверная сумма') + ` (${min} - ${max})`);
+            if(typeof tg !== 'undefined' && tg) showNotify((i18n[currentLang]?.rocket_err_limits || 'Неверная сумма') + ` (${min} - ${max})`, 'error');
             return;
         }
 
@@ -231,7 +231,7 @@ async function handleRocketAction() {
         // ────────────────────────────────────────────────────────────────────
 
         if (rocketBetAmount > currentBal) {
-            if(typeof tg !== 'undefined' && tg) tg.showAlert('Недостаточно средств!');
+            if(typeof tg !== 'undefined' && tg) showNotify('Недостаточно средств!', 'error');
             return;
         }
 
@@ -254,11 +254,11 @@ async function handleRocketAction() {
                 if (typeof updateUI === 'function') updateUI(); 
                 startRocketFlight();
             } else {
-                if(typeof tg !== 'undefined' && tg) tg.showAlert(data.detail || 'Error');
+                if(typeof tg !== 'undefined' && tg) showNotify(data.detail || 'Error', 'error');
                 resetRocketToIdle();
             }
         } catch (e) {
-            if(typeof tg !== 'undefined' && tg) tg.showAlert(i18n[currentLang]?.err_conn || 'Connection error');
+            if(typeof tg !== 'undefined' && tg) showNotify(i18n[currentLang]?.err_conn || 'Connection error', 'error');
             resetRocketToIdle();
         }
 
@@ -422,7 +422,7 @@ async function cashoutRocket(isAuto = false) {
                 }
             }
         } else {
-            if(typeof tg !== 'undefined' && tg) tg.showAlert(data.detail || 'Error');
+            if(typeof tg !== 'undefined' && tg) showNotify(data.detail || 'Error', 'error');
             rocketState = 'crashed';
             updateRocketUI();
         }

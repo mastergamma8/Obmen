@@ -108,7 +108,7 @@ async function buyStars() {
     const amount = parseInt(input.value);
     
     if (!amount || amount <= 0) {
-        tg?.showAlert(i18n[currentLang]?.err_invalid_amount || 'Неверная сумма');
+        showNotify(i18n[currentLang]?.err_invalid_amount || 'Неверная сумма', 'error');
         return;
     }
 
@@ -134,11 +134,11 @@ async function buyStars() {
                         closeModal('topup-stars-modal');
                         myStars += amount; // Локальное зачисление для мгновенного отображения
                         updateUI();
-                        tg.showAlert(i18n[currentLang]?.topup_success || 'Звезды успешно зачислены!');
+                        showNotify(i18n[currentLang]?.topup_success || 'Звезды успешно зачислены!', 'success');
                     } else if (payment_status === 'cancelled') {
                         console.log('Оплата отменена пользователем');
                     } else {
-                        tg.showAlert('Ошибка оплаты (failed)');
+                        showNotify('Ошибка оплаты', 'error');
                     }
                 });
             } else {
@@ -146,16 +146,143 @@ async function buyStars() {
                 tg.openTelegramLink(result.invoice_url);
             }
         } else {
-            tg.showAlert(result.detail || 'Ошибка создания инвойса');
+            showNotify(result.detail || 'Ошибка создания инвойса', 'error');
         }
     } catch (e) {
-        tg.showAlert(i18n[currentLang]?.err_conn || 'Ошибка соединения');
+        showNotify(i18n[currentLang]?.err_conn || 'Ошибка соединения', 'error');
     } finally {
         btn.disabled = false;
         btn.innerText = originalText;
     }
 }
 
+// =====================================================
+// КРАСИВЫЕ МОДАЛЬНЫЕ УВЕДОМЛЕНИЯ
+// =====================================================
+
+let _notifyCallback = null;
+let _notifyAutoClose = null;
+
+const _NOTIFY_STYLES = {
+    error: {
+        title: 'Ошибка',
+        border: 'border-red-500/40',
+        shadow: '0 0 50px rgba(239,68,68,0.35)',
+        ringBg: 'rgba(239,68,68,0.15)',
+        ringBorder: 'border-red-500/60',
+        ringPing: 'rgba(239,68,68,0.4)',
+        iconColor: '#f87171',
+        btn: 'background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 20px rgba(239,68,68,0.5);',
+    },
+    success: {
+        title: 'Успешно',
+        border: 'border-emerald-500/40',
+        shadow: '0 0 50px rgba(16,185,129,0.35)',
+        ringBg: 'rgba(16,185,129,0.15)',
+        ringBorder: 'border-emerald-500/60',
+        ringPing: 'rgba(16,185,129,0.4)',
+        iconColor: '#34d399',
+        btn: 'background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 0 20px rgba(16,185,129,0.5);',
+    },
+    warning: {
+        title: 'Внимание',
+        border: 'border-amber-500/40',
+        shadow: '0 0 50px rgba(245,158,11,0.35)',
+        ringBg: 'rgba(245,158,11,0.15)',
+        ringBorder: 'border-amber-500/60',
+        ringPing: 'rgba(245,158,11,0.4)',
+        iconColor: '#fbbf24',
+        btn: 'background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 0 20px rgba(245,158,11,0.5);',
+    },
+    info: {
+        title: 'Информация',
+        border: 'border-blue-500/40',
+        shadow: '0 0 50px rgba(59,130,246,0.35)',
+        ringBg: 'rgba(59,130,246,0.15)',
+        ringBorder: 'border-blue-500/60',
+        ringPing: 'rgba(59,130,246,0.4)',
+        iconColor: '#60a5fa',
+        btn: 'background:linear-gradient(135deg,#3b82f6,#2563eb);box-shadow:0 0 20px rgba(59,130,246,0.5);',
+    },
+};
+
+function showNotify(message, type = 'error', callback = null) {
+    if (_notifyAutoClose) { clearTimeout(_notifyAutoClose); _notifyAutoClose = null; }
+    vibrate(type === 'error' ? 'heavy' : 'light');
+    _notifyCallback = callback || null;
+
+    const modal   = document.getElementById('notify-modal');
+    const card    = document.getElementById('notify-card');
+    const titleEl = document.getElementById('notify-title');
+    const msgEl   = document.getElementById('notify-message');
+    const btn     = document.getElementById('notify-btn');
+    const ring    = document.getElementById('notify-ring');
+    const ping    = document.getElementById('notify-ring-ping');
+    if (!modal) return;
+
+    const s = _NOTIFY_STYLES[type] || _NOTIFY_STYLES.error;
+
+    // Message & title
+    msgEl.textContent = message;
+    titleEl.textContent = s.title;
+
+    // Icons — show only the matching one
+    ['error','success','warning','info'].forEach(t => {
+        const ic = document.getElementById(`notify-icon-${t}`);
+        if (ic) {
+            ic.classList.toggle('hidden', t !== type);
+            ic.style.color = s.iconColor;
+        }
+    });
+
+    // Ring styles
+    ring.style.background = s.ringBg;
+    ring.style.borderColor = '';
+    ring.className = `w-full h-full rounded-full flex items-center justify-center border-2 ${s.ringBorder}`;
+    ping.style.background = s.ringPing;
+
+    // Card border & shadow
+    card.className = `glass-panel rounded-3xl p-7 w-full max-w-xs text-center border shadow-2xl ${s.border}`;
+    card.style.boxShadow = s.shadow;
+
+    // Button gradient
+    btn.setAttribute('style', s.btn + 'width:100%;padding:14px;border-radius:12px;font-weight:700;color:#fff;font-size:14px;');
+
+    // Show + animate in
+    modal.classList.remove('hidden');
+    card.style.transform = 'scale(0.92)';
+    card.style.opacity = '0';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        card.style.transform = 'scale(1)';
+        card.style.opacity = '1';
+    }));
+
+    // Auto-close for success & info
+    if (type === 'success' || type === 'info') {
+        _notifyAutoClose = setTimeout(() => closeNotify(), 2800);
+    }
+}
+
+function closeNotify() {
+    if (_notifyAutoClose) { clearTimeout(_notifyAutoClose); _notifyAutoClose = null; }
+    const modal = document.getElementById('notify-modal');
+    const card  = document.getElementById('notify-card');
+    if (!modal) return;
+    card.style.transform = 'scale(0.88)';
+    card.style.opacity = '0';
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        if (_notifyCallback) {
+            const cb = _notifyCallback;
+            _notifyCallback = null;
+            cb();
+        }
+    }, 220);
+    vibrate('light');
+}
+
+window.showNotify = showNotify;
+window.closeNotify = closeNotify;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.openTopupModal = openTopupModal;

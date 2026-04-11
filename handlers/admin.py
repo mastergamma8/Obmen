@@ -3,6 +3,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
+from aiogram.enums import ButtonStyle
 from aiogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 )
@@ -11,6 +12,26 @@ from aiogram.fsm.state import StatesGroup, State
 
 import config
 import database
+
+# --- Константы Премиум эмодзи для текста сообщений ---
+E_DONUT = '<tg-emoji emoji-id="5354980321462885651">🍩</tg-emoji>'
+E_GIFT = '<tg-emoji emoji-id="5963213811597970978">🎁</tg-emoji>'
+E_STAR = '<tg-emoji emoji-id="5897920748101571572">⭐</tg-emoji>'
+E_EYES = '<tg-emoji emoji-id="5210956306952758910">👀</tg-emoji>'
+E_STOP = '<tg-emoji emoji-id="5260293700088511294">⛔</tg-emoji>'
+E_CHECK = '<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji>'
+E_PARTY = '<tg-emoji emoji-id="5461151367559141950">🥳</tg-emoji>'
+E_MONEY = '<tg-emoji emoji-id="5409048419211682843">💰</tg-emoji>'
+E_BANK = '<tg-emoji emoji-id="5264895611517300926">🏦</tg-emoji>'
+E_DROP = '<tg-emoji emoji-id="5393512611968995988">💧</tg-emoji>'
+E_BOX = '<tg-emoji emoji-id="5884479287171485878">📦</tg-emoji>'
+E_CHART = '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>'
+E_CROSS = '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>'
+E_TIME = '<tg-emoji emoji-id="5386367538735104399">⏳</tg-emoji>'
+
+# --- ID для иконок на кнопках ---
+ID_EYES = "5210956306952758910"
+ID_STAR = "5897920748101571572"
 
 
 class SendMessage(StatesGroup):
@@ -23,7 +44,7 @@ def register(dp: Dispatcher, bot: Bot):
     @dp.message(Command("addgift"))
     async def cmd_add_gift(message: Message):
         if message.from_user.id != config.ADMIN_ID:
-            await message.answer(f"⛔ У вас нет прав. Ваш ID: {message.from_user.id}")
+            await message.answer(f"{E_STOP} У вас нет прав. Ваш ID: {message.from_user.id}", parse_mode="HTML")
             return
 
         args = message.text.split()
@@ -39,12 +60,20 @@ def register(dp: Dispatcher, bot: Bot):
             gift_id = int(args[2])
             amount = int(args[3])
 
+            # Кнопка теперь зеленая и с премиум иконкой глаз
             profile_markup = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="👀 Посмотреть в профиле", web_app=WebAppInfo(url=config.WEBAPP_URL))]
+                [
+                    InlineKeyboardButton(
+                        text="Посмотреть в профиле", 
+                        web_app=WebAppInfo(url=config.WEBAPP_URL),
+                        style=ButtonStyle.SUCCESS,
+                        icon_custom_emoji_id=ID_EYES
+                    )
+                ]
             ])
 
             if gift_id in config.BASE_GIFTS:
-                await message.answer("⏳ Получаю актуальную цену из API...")
+                await message.answer(f"{E_TIME} Получаю актуальную цену из API...", parse_mode="HTML")
                 await asyncio.to_thread(config.update_base_gifts_prices)
 
                 fresh_value = config.BASE_GIFTS[gift_id]['value']
@@ -53,21 +82,21 @@ def register(dp: Dispatcher, bot: Bot):
 
                 await database.add_points_to_user(user_id, points_to_add)
                 await database.add_history_entry(
-                    user_id, "gift_added", f"Добавлен подарок: {gift_name} ({amount} шт.)", points_to_add
+                    user_id, "gift_added", f"Добавлен подарок: {gift_name} ({amount} шт.) [gift_id:{gift_id}]", points_to_add
                 )
 
                 await message.answer(
-                    f"✅ Успешно!\n"
-                    f"Пользователю {user_id} начислено <b>{points_to_add} 🍩</b> "
-                    f"(за {amount} шт. '{gift_name}' по актуальной цене <b>{fresh_value} 🍩/шт.</b>).",
+                    f"{E_CHECK} Успешно!\n"
+                    f"Пользователю {user_id} начислено <b>{points_to_add} {E_DONUT}</b> "
+                    f"(за {amount} шт. '{gift_name}' по актуальной цене <b>{fresh_value} {E_DONUT}/шт.</b>).",
                     parse_mode="HTML"
                 )
 
                 try:
                     await bot.send_message(
                         user_id,
-                        f"🎁 <b>Получен новый подарок!</b>\n<b>{gift_name}</b> ({amount} шт.).\n"
-                        f"Вам начислено <b>{points_to_add} 🍩</b>!",
+                        f"{E_GIFT} <b>Получен новый подарок!</b>\n<b>{gift_name}</b> ({amount} шт.).\n"
+                        f"Вам начислено <b>{points_to_add} {E_DONUT}</b>!",
                         parse_mode="HTML",
                         reply_markup=profile_markup
                     )
@@ -85,7 +114,7 @@ def register(dp: Dispatcher, bot: Bot):
                     try:
                         await bot.send_message(
                             referrer_id,
-                            f"🥳 Ваш реферал добавил подарок!\nВам начислено <b>{ref_bonus} 🍩</b> (10% бонус).",
+                            f"{E_PARTY} Ваш реферал добавил подарок!\nВам начислено <b>{ref_bonus} {E_DONUT}</b> (10% бонус).",
                             parse_mode="HTML"
                         )
                     except Exception:
@@ -94,14 +123,18 @@ def register(dp: Dispatcher, bot: Bot):
             elif gift_id in getattr(config, "TG_GIFTS", {}):
                 await database.add_gift_to_user(user_id, gift_id, amount)
                 gift_name = config.TG_GIFTS[gift_id]['name']
+                await database.add_history_entry(
+                    user_id, "gift_added", f"Добавлен подарок: {gift_name} ({amount} шт.) [gift_id:{gift_id}]", 0
+                )
                 await message.answer(
-                    f"✅ Успешно!\nПользователю {user_id} выдан Telegram-подарок '{gift_name}' ({amount} шт.)."
+                    f"{E_CHECK} Успешно!\nПользователю {user_id} выдан Telegram-подарок '{gift_name}' ({amount} шт.).",
+                    parse_mode="HTML"
                 )
 
                 try:
                     await bot.send_message(
                         user_id,
-                        f"🎁 <b>Вы получили подарок!</b>\n<b>{gift_name}</b> ({amount} шт.).\n"
+                        f"{E_GIFT} <b>Вы получили подарок!</b>\n<b>{gift_name}</b> ({amount} шт.).\n"
                         f"Зайдите в приложение, чтобы увидеть его в профиле!",
                         parse_mode="HTML",
                         reply_markup=profile_markup
@@ -112,14 +145,18 @@ def register(dp: Dispatcher, bot: Bot):
             elif gift_id in config.MAIN_GIFTS:
                 await database.add_gift_to_user(user_id, gift_id, amount)
                 gift_name = config.MAIN_GIFTS[gift_id]['name']
+                await database.add_history_entry(
+                    user_id, "gift_added", f"Добавлен подарок: {gift_name} ({amount} шт.) [gift_id:{gift_id}]", 0
+                )
                 await message.answer(
-                    f"✅ Успешно!\nПользователю {user_id} выдан Главный подарок '{gift_name}' ({amount} шт.)."
+                    f"{E_CHECK} Успешно!\nПользователю {user_id} выдан Главный подарок '{gift_name}' ({amount} шт.).",
+                    parse_mode="HTML"
                 )
 
                 try:
                     await bot.send_message(
                         user_id,
-                        f"🎁 <b>Вы получили подарок!</b>\n<b>{gift_name}</b> ({amount} шт.).\n"
+                        f"{E_GIFT} <b>Вы получили подарок!</b>\n<b>{gift_name}</b> ({amount} шт.).\n"
                         f"Зайдите в приложение, чтобы увидеть его в профиле!",
                         parse_mode="HTML",
                         reply_markup=profile_markup
@@ -136,7 +173,7 @@ def register(dp: Dispatcher, bot: Bot):
     @dp.message(Command("addstars"))
     async def cmd_add_stars(message: Message):
         if message.from_user.id != config.ADMIN_ID:
-            await message.answer(f"⛔ У вас нет прав. Ваш ID: {message.from_user.id}")
+            await message.answer(f"{E_STOP} У вас нет прав. Ваш ID: {message.from_user.id}", parse_mode="HTML")
             return
 
         args = message.text.split()
@@ -160,15 +197,23 @@ def register(dp: Dispatcher, bot: Bot):
                 user_id, "admin_add_stars", "Выдача звезд администратором", stars_amount
             )
 
-            await message.answer(f"✅ Успешно!\nПользователю {user_id} начислено {stars_amount} ⭐️.")
+            await message.answer(f"{E_CHECK} Успешно!\nПользователю {user_id} начислено {stars_amount} {E_STAR}.", parse_mode="HTML")
 
             try:
+                # Кнопка зеленая с премиум иконкой звезды
                 profile_markup = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="👀 Посмотреть баланс", web_app=WebAppInfo(url=config.WEBAPP_URL))]
+                    [
+                        InlineKeyboardButton(
+                            text="Посмотреть баланс", 
+                            web_app=WebAppInfo(url=config.WEBAPP_URL),
+                            style=ButtonStyle.SUCCESS,
+                            icon_custom_emoji_id=ID_STAR
+                        )
+                    ]
                 ])
                 await bot.send_message(
                     user_id,
-                    f"🌟 <b>Вам начислены звезды!</b>\nАдминистратор выдал вам <b>{stars_amount} ⭐️</b>.",
+                    f"{E_STAR} <b>Вам начислены звезды!</b>\nАдминистратор выдал вам <b>{stars_amount} {E_STAR}</b>.",
                     parse_mode="HTML",
                     reply_markup=profile_markup
                 )
@@ -178,15 +223,13 @@ def register(dp: Dispatcher, bot: Bot):
         except ValueError:
             await message.answer("Ошибка: ID и Количество должны быть числами.")
 
-    # ── Банк: справка ─────────────────────────────────────────────────────────
-
     @dp.message(Command("bankhelp"))
     async def cmd_bank_help(message: Message):
         if message.from_user.id != config.ADMIN_ID:
-            await message.answer(f"⛔ У вас нет прав. Ваш ID: {message.from_user.id}")
+            await message.answer(f"{E_STOP} У вас нет прав. Ваш ID: {message.from_user.id}", parse_mode="HTML")
             return
         await message.answer(
-            "<b>💰 Команды управления банком</b>\n\n"
+            f"<b>{E_MONEY} Команды управления банком</b>\n\n"
             "<b>/bankstatus</b> — текущая ликвидность банка и RTP по всем валютам\n\n"
             "<b>/addbank &lt;сумма&gt; [stars|donuts]</b> — пополнить банк\n"
             "  Примеры:\n"
@@ -196,12 +239,10 @@ def register(dp: Dispatcher, bot: Bot):
             parse_mode="HTML"
         )
 
-    # ── Банк: статус ──────────────────────────────────────────────────────────
-
     @dp.message(Command("bankstatus"))
     async def cmd_bank_status(message: Message):
         if message.from_user.id != config.ADMIN_ID:
-            await message.answer(f"⛔ У вас нет прав. Ваш ID: {message.from_user.id}")
+            await message.answer(f"{E_STOP} У вас нет прав. Ваш ID: {message.from_user.id}", parse_mode="HTML")
             return
 
         bank = await database.get_bank()
@@ -228,34 +269,32 @@ def register(dp: Dispatcher, bot: Bot):
         donuts_in_stars = donuts_bal * rate
         total_liq_stars = stars_bal + donuts_in_stars + gift_bal
         await message.answer(
-            "<b>🏦 Состояние Глобального Банка</b>\n"
-            f"<i>Курс: 1 🍩 = {rate} ⭐️</i>\n\n"
-            "<b>💧 Ликвидность</b>\n"
-            f"  ⭐️ Звёзды:              <b>{stars_bal}</b>\n"
-            f"  🍩 Пончики:             <b>{donuts_bal}</b>\n"
-            f"  🍩→⭐️ Пончики в звёздах: <b>{donuts_in_stars}</b>\n"
-            f"  🎁 Подарки (value):     <b>{gift_bal}</b>\n"
-            f"  📦 Итого (stars-value): <b>{total_liq_stars}</b>\n\n"
-            "<b>📊 Общая статистика (все валюты)</b>\n"
+            f"<b>{E_BANK} Состояние Глобального Банка</b>\n"
+            f"<i>Курс: 1 {E_DONUT} = {rate} {E_STAR}</i>\n\n"
+            f"<b>{E_DROP} Ликвидность</b>\n"
+            f"  {E_STAR} Звёзды:              <b>{stars_bal}</b>\n"
+            f"  {E_DONUT} Пончики:             <b>{donuts_bal}</b>\n"
+            f"  {E_DONUT}→{E_STAR} Пончики в звёздах: <b>{donuts_in_stars}</b>\n"
+            f"  {E_GIFT} Подарки (value):     <b>{gift_bal}</b>\n"
+            f"  {E_BOX} Итого (stars-value): <b>{total_liq_stars}</b>\n\n"
+            f"<b>{E_CHART} Общая статистика (все валюты)</b>\n"
             f"  Внесено:     {total_dep}\n"
             f"  Выплачено:   {total_paid}\n"
             f"  Комиссия:    {total_edge}\n"
             f"  RTP:         <b>{rtp(total_paid, total_dep)}</b>\n\n"
-            "<b>⭐️ Звёзды</b>\n"
+            f"<b>{E_STAR} Звёзды</b>\n"
             f"  Внесено: {stars_dep}  |  Выплачено: {stars_paid}  |  RTP: <b>{rtp(stars_paid, stars_dep)}</b>\n\n"
-            "<b>🍩 Пончики</b>\n"
+            f"<b>{E_DONUT} Пончики</b>\n"
             f"  Внесено: {donuts_dep}  |  Выплачено: {donuts_paid}  |  RTP: <b>{rtp(donuts_paid, donuts_dep)}</b>\n\n"
-            "<b>🎁 Подарки (value-эквивалент)</b>\n"
+            f"<b>{E_GIFT} Подарки (value-эквивалент)</b>\n"
             f"  Выплачено: {gift_paid}",
             parse_mode="HTML"
         )
 
-    # ── Банк: пополнение ──────────────────────────────────────────────────────
-
     @dp.message(Command("addbank"))
     async def cmd_add_bank(message: Message):
         if message.from_user.id != config.ADMIN_ID:
-            await message.answer(f"⛔ У вас нет прав. Ваш ID: {message.from_user.id}")
+            await message.answer(f"{E_STOP} У вас нет прав. Ваш ID: {message.from_user.id}", parse_mode="HTML")
             return
 
         args = message.text.split()
@@ -273,31 +312,30 @@ def register(dp: Dispatcher, bot: Bot):
         try:
             amount = int(args[1])
         except ValueError:
-            await message.answer("❌ Сумма должна быть целым числом.")
+            await message.answer(f"{E_CROSS} Сумма должна быть целым числом.", parse_mode="HTML")
             return
 
         if amount <= 0:
-            await message.answer("❌ Сумма должна быть больше нуля.")
+            await message.answer(f"{E_CROSS} Сумма должна быть больше нуля.", parse_mode="HTML")
             return
 
         asset_type = "stars"
         if len(args) == 3:
             asset_type = args[2].lower()
             if asset_type not in ("stars", "donuts"):
-                await message.answer("❌ Тип актива должен быть <code>stars</code> или <code>donuts</code>.", parse_mode="HTML")
+                await message.answer(f"{E_CROSS} Тип актива должен быть <code>stars</code> или <code>donuts</code>.", parse_mode="HTML")
                 return
 
         if asset_type == "donuts":
             await database.bank_add_donuts(amount)
-            label = f"{amount} 🍩 пончиков"
+            label = f"{amount} {E_DONUT} пончиков"
         else:
             await database.bank_add_stars(amount)
-            label = f"{amount} ⭐️ звёзд"
+            label = f"{amount} {E_STAR} звёзд"
 
         bank = await database.get_bank()
         import config as _cfg
         _rate = _cfg.DONUTS_TO_STARS_RATE
-        # FIX: пончики конвертируются в stars-value перед суммированием
         total_liq = (
             bank.get("stars_balance", 0)
             + bank.get("donuts_balance", 0) * _rate
@@ -305,15 +343,13 @@ def register(dp: Dispatcher, bot: Bot):
         )
 
         await message.answer(
-            f"✅ Банк пополнен на <b>{label}</b>.\n\n"
-            f"⭐️ Звёзды: <b>{bank.get('stars_balance', 0)}</b>\n"
-            f"🍩 Пончики: <b>{bank.get('donuts_balance', 0)}</b>"
-            f" (≈ <b>{bank.get('donuts_balance', 0) * _rate}</b> ⭐️)\n"
-            f"📦 Общая ликвидность (в ⭐️): <b>{total_liq}</b>",
+            f"{E_CHECK} Банк пополнен на <b>{label}</b>.\n\n"
+            f"{E_STAR} Звёзды: <b>{bank.get('stars_balance', 0)}</b>\n"
+            f"{E_DONUT} Пончики: <b>{bank.get('donuts_balance', 0)}</b>"
+            f" (≈ <b>{bank.get('donuts_balance', 0) * _rate}</b> {E_STAR})\n"
+            f"{E_BOX} Общая ликвидность (в {E_STAR}): <b>{total_liq}</b>",
             parse_mode="HTML"
         )
-
-    # ── Отмена FSM ────────────────────────────────────────────────────────────
 
     @dp.message(Command("cancel"))
     async def cmd_cancel(message: Message, state: FSMContext):
@@ -326,7 +362,7 @@ def register(dp: Dispatcher, bot: Bot):
     @dp.message(Command("send"))
     async def cmd_send(message: Message, state: FSMContext):
         if message.from_user.id != config.ADMIN_ID:
-            await message.answer("⛔ У вас нет прав.")
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
             return
         await message.answer(
             "Кому отправить сообщение? Напишите слово <b>всем</b> или отправьте <b>ID пользователя</b>.\n"
@@ -356,7 +392,7 @@ def register(dp: Dispatcher, bot: Bot):
         data = await state.get_data()
         target = data.get("target")
         await state.clear()
-        await message.answer("⏳ Начинаю отправку...")
+        await message.answer(f"{E_TIME} Начинаю отправку...", parse_mode="HTML")
 
         success_count, fail_count = 0, 0
         if target == "all":
@@ -369,11 +405,54 @@ def register(dp: Dispatcher, bot: Bot):
                 except Exception:
                     fail_count += 1
             await message.answer(
-                f"✅ Рассылка завершена!\nУспешно доставлено: {success_count}\nОшибок: {fail_count}"
+                f"{E_CHECK} Рассылка завершена!\nУспешно доставлено: {success_count}\nОшибок: {fail_count}",
+                parse_mode="HTML"
             )
         else:
             try:
                 await message.copy_to(chat_id=target)
-                await message.answer(f"✅ Сообщение успешно доставлено пользователю {target}!")
+                await message.answer(f"{E_CHECK} Сообщение успешно доставлено пользователю {target}!", parse_mode="HTML")
             except Exception as e:
-                await message.answer(f"❌ Ошибка при отправке.\nДетали: {e}")
+                await message.answer(f"{E_CROSS} Ошибка при отправке.\nДетали: {e}", parse_mode="HTML")
+    @dp.message(Command("setexchangerate"))
+    async def cmd_set_exchange_rate(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        args = message.text.split()
+        if len(args) != 2:
+            current = getattr(config, "GIFT_EXCHANGE_STARS_RATE", "не задан")
+            await message.answer(
+                f"<b>Курс обмена подарков на звёзды</b>\n\n"
+                f"Текущий курс: <b>{current} ⭐ за 1 🍩</b>\n\n"
+                f"Использование: <code>/setexchangerate &lt;значение&gt;</code>\n"
+                f"Пример: <code>/setexchangerate 0.015</code>\n\n"
+                f"<i>Подарок стоимостью 1000 🍩 при курсе 0.01 = 10 ⭐</i>",
+                parse_mode="HTML"
+            )
+            return
+
+        try:
+            new_rate = float(args[1])
+            if new_rate <= 0:
+                await message.answer(f"{E_CROSS} Курс должен быть больше нуля.", parse_mode="HTML")
+                return
+            if new_rate > 100:
+                await message.answer(f"{E_CROSS} Курс не может быть больше 100.", parse_mode="HTML")
+                return
+
+            old_rate = getattr(config, "GIFT_EXCHANGE_STARS_RATE", "?")
+            config.GIFT_EXCHANGE_STARS_RATE = new_rate
+
+            await message.answer(
+                f"{E_CHECK} <b>Курс обмена обновлён!</b>\n\n"
+                f"Было: <b>{old_rate}</b>\n"
+                f"Стало: <b>{new_rate} ⭐ за 1 🍩</b>",
+                parse_mode="HTML"
+            )
+        except ValueError:
+            await message.answer(
+                f"{E_CROSS} Некорректное значение. Введите число, например: <code>0.015</code>",
+                parse_mode="HTML"
+            )

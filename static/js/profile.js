@@ -73,10 +73,12 @@ let currentWithdrawExchangeStars = 0;
 let withdrawFeeAmount = (window.appConfig && window.appConfig.withdraw_fee) ? window.appConfig.withdraw_fee : 25;
 
 // Рассчитывает приблизительное кол-во звёзд за BASE/MAIN подарок до запроса к серверу.
-// Курс читается лениво при каждом вызове, чтобы не зависеть от порядка загрузки appConfig.
+// Использует отдельный курс gift_exchange_stars_rate, не банковский.
 function calcApproxExchangeStars(giftId) {
-    const rate = (window.appConfig && window.appConfig.donuts_to_stars_rate)
-        ? window.appConfig.donuts_to_stars_rate : 100;
+    const rate = (window.appConfig && window.appConfig.gift_exchange_stars_rate != null)
+        ? window.appConfig.gift_exchange_stars_rate
+        : (window.appConfig && window.appConfig.donuts_to_stars_rate
+            ? window.appConfig.donuts_to_stars_rate : 0.01);
     const gid = Number(giftId);
     if (baseGifts && baseGifts[gid]) {
         const val = parseInt(baseGifts[gid].value || 0);
@@ -137,11 +139,10 @@ function openWithdrawModal(giftId) {
         document.getElementById('wcm-btn-exchange').onclick    = () => confirmExchangeGift(giftId);
         document.getElementById('wcm-btn-keep').onclick        = () => closeModal('withdraw-confirm-modal');
 
-    } else if (isBaseGift(Number(giftId))) {
+    } else if (isBaseGift(Number(giftId)) || isMainGift(Number(giftId))) {
         titleEl.innerText = i18n[currentLang].tg_gift_modal_title || 'Ваш подарок';
         descEl.innerText  = i18n[currentLang].tg_gift_modal_desc  || '';
         if (baseActions) baseActions.classList.remove('hidden');
-        // Кнопка «Вывести за 25 ⭐»
         feeRow.classList.remove('hidden');
         btnConfirmLabel.innerText = i18n[currentLang].withdraw_confirm_btn || 'Вывести за';
         feeAmount.innerText = withdrawFeeAmount;
@@ -150,10 +151,31 @@ function openWithdrawModal(giftId) {
 
         const wcmStarsBtn = document.getElementById('wcm-btn-exchange-donuts');
         if (wcmStarsBtn) {
+            const t = i18n[currentLang];
             const approxStars = calcApproxExchangeStars(giftId);
-            wcmStarsBtn.innerHTML = `<div class="flex items-center justify-center gap-1.5"><span>${i18n[currentLang].btn_exchange_stars || 'Обменять на'} ~${approxStars}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
+
+            // Сразу показываем спиннер, затем грузим точное значение с сервера
+            const _setLabel = (stars, loading) => {
+                const prefix = t.btn_exchange_stars || 'Обменять на';
+                wcmStarsBtn.innerHTML = loading
+                    ? `<div class="flex items-center justify-center gap-2"><svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg><span>${prefix} ...</span></div>`
+                    : `<div class="flex items-center justify-center gap-1.5"><span>${prefix} ${stars}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
+            };
+
+            _setLabel(approxStars, true);
+
+            // Запрашиваем у сервера точное значение (тот же расчёт, что при реальном обмене)
+            fetch(`/api/exchange-preview?gift_id=${Number(giftId)}`, { headers: getApiHeaders() })
+                .then(r => r.json())
+                .then(data => {
+                    _setLabel(data.stars_reward ?? approxStars, false);
+                })
+                .catch(() => _setLabel(approxStars, false));
+
             wcmStarsBtn.onclick = async () => {
                 wcmStarsBtn.disabled = true;
+                wcmStarsBtn._savedHTML = wcmStarsBtn.innerHTML;
+                wcmStarsBtn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>`;
                 try {
                     const res  = await fetch('/api/exchange-for-stars', {
                         method: 'POST',
@@ -164,11 +186,12 @@ function openWithdrawModal(giftId) {
                     if (!res.ok) throw new Error(data.detail || 'Exchange error');
                     syncGiftStateFromResponse(data);
                     closeModal('withdraw-confirm-modal');
-                    tg.showAlert(`${i18n[currentLang].exchange_stars_success || 'Обменяно!'} +${data.stars_reward} ⭐`);
+                    showNotify(`${t.exchange_stars_success || 'Обменяно!'} +${data.stars_reward} ⭐`, 'success');
                 } catch (e) {
-                    tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
+                    showNotify((e && e.message) ? e.message : (t.err_conn || 'Connection error'), 'error');
                 } finally {
                     wcmStarsBtn.disabled = false;
+                    if (wcmStarsBtn._savedHTML) wcmStarsBtn.innerHTML = wcmStarsBtn._savedHTML;
                 }
             };
         }
@@ -177,48 +200,6 @@ function openWithdrawModal(giftId) {
         if (keepBtn) {
             keepBtn.textContent = i18n[currentLang].btn_tg_keep;
             keepBtn.onclick = () => closeModal('withdraw-confirm-modal');
-        }
-
-    } else if (isMainGift(Number(giftId))) {
-        // MAIN_GIFT: кнопка «Вывести за 25 ⭐» + кнопка «Обменять на ⭐»
-        titleEl.innerText = i18n[currentLang].tg_gift_modal_title || 'Ваш подарок';
-        descEl.innerText  = i18n[currentLang].tg_gift_modal_desc  || '';
-        if (baseActions) baseActions.classList.remove('hidden');
-        feeRow.classList.remove('hidden');
-        btnConfirmLabel.innerText = i18n[currentLang].withdraw_confirm_btn || 'Вывести за';
-        feeAmount.innerText = withdrawFeeAmount;
-        btnConfirm.onclick  = () => confirmWithdrawGift(giftId, false);
-        if (keepRow) keepRow.classList.remove('hidden');
-
-        const wcmMainStarsBtn = document.getElementById('wcm-btn-exchange-donuts');
-        if (wcmMainStarsBtn) {
-            const approxStars = calcApproxExchangeStars(giftId);
-            wcmMainStarsBtn.innerHTML = `<div class="flex items-center justify-center gap-1.5"><span>${i18n[currentLang].btn_exchange_stars || 'Обменять на'} ~${approxStars}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
-            wcmMainStarsBtn.onclick = async () => {
-                wcmMainStarsBtn.disabled = true;
-                try {
-                    const res  = await fetch('/api/exchange-for-stars', {
-                        method: 'POST',
-                        headers: getApiHeaders(),
-                        body: JSON.stringify({ gift_id: Number(giftId) })
-                    });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.detail || 'Exchange error');
-                    syncGiftStateFromResponse(data);
-                    closeModal('withdraw-confirm-modal');
-                    tg.showAlert(`${i18n[currentLang].exchange_stars_success || 'Обменяно!'} +${data.stars_reward} ⭐`);
-                } catch (e) {
-                    tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
-                } finally {
-                    wcmMainStarsBtn.disabled = false;
-                }
-            };
-        }
-
-        const mainKeepBtn = document.getElementById('wcm-btn-keep');
-        if (mainKeepBtn) {
-            mainKeepBtn.textContent = i18n[currentLang].btn_tg_keep;
-            mainKeepBtn.onclick = () => closeModal('withdraw-confirm-modal');
         }
 
     } else {
@@ -250,9 +231,9 @@ async function confirmWithdrawGift(giftId, isTgGift = false) {
                     .replace('{h}', data.detail.hours)
                     .replace('{m}', data.detail.minutes);
                 closeModal('withdraw-confirm-modal');
-                tg.showAlert(`⏳ ${msg}`);
+                showNotify(msg, 'warning');
             } else {
-                tg.showAlert(`⏳ ${data.detail || 'Limit reached'}`);
+                showNotify(data.detail || 'Limit reached', 'warning');
             }
             return;
         }
@@ -260,7 +241,7 @@ async function confirmWithdrawGift(giftId, isTgGift = false) {
         if (!res.ok) {
             if (data.detail === 'not_enough_stars') {
                 closeModal('withdraw-confirm-modal');
-                tg.showAlert(i18n[currentLang].not_enough_stars_alert, () => {
+                showNotify(i18n[currentLang].not_enough_stars_alert, 'error', () => {
                     openModal('topup-stars-modal');
                 });
                 return;
@@ -272,14 +253,14 @@ async function confirmWithdrawGift(giftId, isTgGift = false) {
         closeModal('withdraw-confirm-modal');
 
         if (isTgGift) {
-            tg.showAlert('Подарок отправлен.');
+            showNotify('Подарок отправлен.', 'success');
         } else {
             setTimeout(() => openModal('success-withdraw-modal'), 300);
         }
 
     } catch(e) {
         console.error(e);
-        tg.showAlert(i18n[currentLang].err_conn);
+        showNotify(i18n[currentLang].err_conn, 'error');
     } finally {
         btn.innerHTML = originalHtml;
         btn.disabled = false;
@@ -299,10 +280,10 @@ async function confirmExchangeGift(giftId) {
         if (!res.ok) throw new Error(data.detail || 'Exchange error');
         syncGiftStateFromResponse(data);
         closeModal('withdraw-confirm-modal');
-        tg.showAlert(`${i18n[currentLang].tg_exchange_success} +${data.exchange_stars || getTgGiftExchangeStars(giftId)} ⭐`);
+        showNotify(`${i18n[currentLang].tg_exchange_success} +${data.exchange_stars || getTgGiftExchangeStars(giftId)} ⭐`, 'success');
     } catch (e) {
         console.error(e);
-        tg.showAlert(i18n[currentLang].err_conn);
+        showNotify(i18n[currentLang].err_conn, 'error');
     } finally {
         btn.innerHTML = originalHtml;
         btn.disabled = false;
@@ -322,20 +303,79 @@ function _closeGameModal(source) {
     else closeModal('roulette-result-modal');
 }
 
+// ── Спиннер на кнопке во время async-запроса ─────────────────────────────────
+const _SPINNER_HTML = `<svg class="animate-spin h-5 w-5 text-white mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+
+function _setBtnLoading(btn, loading) {
+    if (loading) {
+        btn._savedHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = _SPINNER_HTML;
+    } else {
+        btn.disabled = false;
+        if (btn._savedHTML !== undefined) btn.innerHTML = btn._savedHTML;
+    }
+}
+
+// ── Единый обработчик ошибок вывода (cooldown / not_enough_stars / generic) ──
+// Возвращает true если ошибка была обработана, false если всё ок.
+function _handleWithdrawErrorInGame(res, data, source) {
+    const t = (i18n && i18n[currentLang]) ? i18n[currentLang] : {};
+
+    // 429 — лимит/кулдаун
+    if (res.status === 429) {
+        const detail = data.detail;
+        if (detail && typeof detail === 'object' && detail.error === 'cooldown') {
+            const h = detail.hours   ?? 0;
+            const m = detail.minutes ?? 0;
+            const msg = (t.cooldown_withdraw_wait || 'Подождите {h}ч {m}м')
+                .replace('{h}', h).replace('{m}', m);
+            showNotify(msg, 'warning');
+        } else {
+            const msg = typeof detail === 'string' ? detail : (t.limit_reached || 'Лимит достигнут. Попробуйте позже.');
+            showNotify(msg, 'warning');
+        }
+        return true;
+    }
+
+    // Ошибки 4xx/5xx
+    if (!res.ok) {
+        const detail = data.detail;
+
+        // Недостаточно звёзд на комиссию
+        if (detail === 'not_enough_stars') {
+            _closeGameModal(source);
+            showNotify(t.not_enough_stars_alert || 'Недостаточно звёзд для вывода', 'error', () => {
+                openModal('topup-stars-modal');
+            });
+            return true;
+        }
+
+        // Любая другая ошибка — показываем читаемый текст
+        const msg = typeof detail === 'object'
+            ? (detail?.message || detail?.detail || t.err_conn || 'Ошибка')
+            : (detail || t.err_conn || 'Ошибка');
+        showNotify(msg, 'error');
+        return true;
+    }
+
+    return false; // ошибок нет, можно продолжать
+}
+
 function configureCaseGiftActionsIfNeeded(giftId, source = 'case', isDemo = false) {
     const prefix = source === 'case' ? 'cam' : 'rr';
-    const actionsBox       = document.getElementById(`${prefix}-gift-actions`);
-    const closeBtn         = document.getElementById(`${prefix}-btn-close`);
-    const withdrawBtn      = document.getElementById(`${prefix}-btn-withdraw`);
-    const exchangeBtn      = document.getElementById(`${prefix}-btn-exchange`);
-    const exchangeDonutsBtn= document.getElementById(`${prefix}-btn-exchange-donuts`);
-    const keepBtn          = document.getElementById(`${prefix}-btn-keep`);
+    const actionsBox        = document.getElementById(`${prefix}-gift-actions`);
+    const closeBtn          = document.getElementById(`${prefix}-btn-close`);
+    const withdrawBtn       = document.getElementById(`${prefix}-btn-withdraw`);
+    const exchangeBtn       = document.getElementById(`${prefix}-btn-exchange`);
+    const exchangeDonutsBtn = document.getElementById(`${prefix}-btn-exchange-donuts`);
+    const keepBtn           = document.getElementById(`${prefix}-btn-keep`);
 
     if (!actionsBox || !closeBtn || !withdrawBtn || !exchangeBtn || !keepBtn) return;
 
-    const giftDef   = getGiftDefinitionById(giftId);
-    const isTgGift  = isRealTgGift(giftId);
-    const isBase    = isBaseGift(giftId);
+    const giftDef  = getGiftDefinitionById(giftId);
+    const isTgGift = isRealTgGift(giftId);
+    const isBase   = isBaseGift(giftId);
 
     // Ни TG, ни BASE — просто кнопка «Забрать»
     if (!giftDef || (!isTgGift && !isBase)) {
@@ -347,75 +387,89 @@ function configureCaseGiftActionsIfNeeded(giftId, source = 'case', isDemo = fals
     actionsBox.classList.remove('hidden');
     closeBtn.classList.add('hidden');
     keepBtn.textContent = i18n[currentLang].btn_tg_keep;
+    keepBtn.onclick = () => _closeGameModal(source);
 
-    // ── TG-подарок: вывод в Telegram + обмен на звёзды ─────────────────────
+    // ── TG-подарок: вывод в Telegram + обмен на звёзды ────────────────────
     if (isTgGift) {
         const exchangeStars = getTgGiftExchangeStars(giftId);
 
         withdrawBtn.textContent = i18n[currentLang].btn_tg_withdraw;
         withdrawBtn.classList.remove('hidden');
-
         exchangeBtn.innerHTML = `<div class="flex items-center justify-center gap-1.5"><span>${i18n[currentLang].btn_tg_exchange} +${exchangeStars}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
         exchangeBtn.classList.remove('hidden');
-
         if (exchangeDonutsBtn) exchangeDonutsBtn.classList.add('hidden');
 
         withdrawBtn.onclick = async () => {
             if (isDemo) { _closeGameModal(source); return; }
+            _setBtnLoading(withdrawBtn, true);
             try {
                 const { res, data } = await performGiftAction(giftId, 'withdraw');
-                if (!res.ok) throw new Error(data.detail || 'Withdraw error');
+                if (_handleWithdrawErrorInGame(res, data, source)) return;
                 syncGiftStateFromResponse(data);
                 _closeGameModal(source);
-                tg.showAlert(i18n[currentLang].tg_withdraw_success);
+                showNotify(i18n[currentLang].tg_withdraw_success || 'Подарок отправлен!', 'success');
             } catch (e) {
-                tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
+                showNotify(i18n[currentLang]?.err_conn || 'Ошибка соединения', 'error');
+            } finally {
+                _setBtnLoading(withdrawBtn, false);
             }
         };
 
         exchangeBtn.onclick = async () => {
             if (isDemo) { _closeGameModal(source); return; }
+            _setBtnLoading(exchangeBtn, true);
             try {
                 const { res, data } = await performGiftAction(giftId, 'exchange');
-                if (!res.ok) throw new Error(data.detail || 'Exchange error');
+                if (_handleWithdrawErrorInGame(res, data, source)) return;
                 syncGiftStateFromResponse(data);
                 _closeGameModal(source);
-                tg.showAlert(`${i18n[currentLang].tg_exchange_success} +${data.exchange_stars || exchangeStars} ⭐`);
+                showNotify(`${i18n[currentLang].tg_exchange_success || 'Обменяно!'} +${data.exchange_stars || exchangeStars} ⭐`, 'success');
             } catch (e) {
-                tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
+                showNotify(i18n[currentLang]?.err_conn || 'Ошибка соединения', 'error');
+            } finally {
+                _setBtnLoading(exchangeBtn, false);
             }
         };
 
-    // ── BASE-подарок: кнопка «Обменять на ⭐» + «Вывести за 25 ⭐» ──────────
-    } else if (isBase) {
-        const approxStarsBase = calcApproxExchangeStars(giftId);
+    // ── BASE / MAIN-подарок: «Вывести за N ⭐» + «Обменять на ~N ⭐» ────────
+    } else {
+        const approxStars = calcApproxExchangeStars(giftId);
         withdrawBtn.innerHTML = `<div class="flex items-center justify-center gap-1.5"><span>${i18n[currentLang].withdraw_confirm_btn || 'Вывести за'} ${withdrawFeeAmount}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
         withdrawBtn.classList.remove('hidden');
-
-        exchangeBtn.innerHTML = `<div class="flex items-center justify-center gap-1.5"><span>${i18n[currentLang].btn_exchange_stars || 'Обменять на'} ~${approxStarsBase}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
+        // Показываем спиннер, потом запрашиваем точное значение у сервера
+        const _setExchangeLabel = (stars, loading) => {
+            const prefix = i18n[currentLang].btn_exchange_stars || 'Обменять на';
+            exchangeBtn.innerHTML = loading
+                ? `<div class="flex items-center justify-center gap-2"><svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg><span>${prefix} ...</span></div>`
+                : `<div class="flex items-center justify-center gap-1.5"><span>${prefix} ${stars}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
+        };
+        _setExchangeLabel(approxStars, true);
+        fetch(`/api/exchange-preview?gift_id=${Number(giftId)}`, { headers: getApiHeaders() })
+            .then(r => r.json())
+            .then(data => { _setExchangeLabel(data.stars_reward ?? approxStars, false); })
+            .catch(() => _setExchangeLabel(approxStars, false));
         exchangeBtn.classList.remove('hidden');
-
         if (exchangeDonutsBtn) exchangeDonutsBtn.classList.add('hidden');
 
         withdrawBtn.onclick = async () => {
             if (isDemo) { _closeGameModal(source); return; }
+            _setBtnLoading(withdrawBtn, true);
             try {
                 const { res, data } = await performGiftAction(giftId, 'withdraw');
-                if (!res.ok) {
-                    const detail = data.detail;
-                    throw new Error(typeof detail === 'object' ? JSON.stringify(detail) : (detail || 'Withdraw error'));
-                }
+                if (_handleWithdrawErrorInGame(res, data, source)) return;
                 syncGiftStateFromResponse(data);
                 _closeGameModal(source);
-                tg.showAlert(i18n[currentLang].tg_withdraw_success || 'Подарок выведен!');
+                showNotify(i18n[currentLang].tg_withdraw_success || 'Подарок выведен!', 'success');
             } catch (e) {
-                tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
+                showNotify(i18n[currentLang]?.err_conn || 'Ошибка соединения', 'error');
+            } finally {
+                _setBtnLoading(withdrawBtn, false);
             }
         };
 
         exchangeBtn.onclick = async () => {
             if (isDemo) { _closeGameModal(source); return; }
-            exchangeBtn.disabled = true;
+            _setBtnLoading(exchangeBtn, true);
             try {
                 const res = await fetch('/api/exchange-for-stars', {
                     method: 'POST',
@@ -423,67 +477,17 @@ function configureCaseGiftActionsIfNeeded(giftId, source = 'case', isDemo = fals
                     body: JSON.stringify({ gift_id: giftId })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || 'Exchange error');
+                if (_handleWithdrawErrorInGame(res, data, source)) return;
                 syncGiftStateFromResponse(data);
                 _closeGameModal(source);
-                tg.showAlert(`${i18n[currentLang].exchange_stars_success || 'Обменяно!'} +${data.stars_reward} ⭐`);
+                showNotify(`${i18n[currentLang].exchange_stars_success || 'Обменяно!'} +${data.stars_reward} ⭐`, 'success');
             } catch (e) {
-                tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
+                showNotify(i18n[currentLang]?.err_conn || 'Ошибка соединения', 'error');
             } finally {
-                exchangeBtn.disabled = false;
-            }
-        };
-
-    // ── MAIN-подарок: кнопка «Обменять на ⭐» + «Вывести за 25 ⭐» ─────────
-    } else if (isMainGift(giftId)) {
-        const approxStarsMain = calcApproxExchangeStars(giftId);
-        withdrawBtn.innerHTML = `<div class="flex items-center justify-center gap-1.5"><span>${i18n[currentLang].withdraw_confirm_btn || 'Вывести за'} ${withdrawFeeAmount}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
-        withdrawBtn.classList.remove('hidden');
-
-        exchangeBtn.innerHTML = `<div class="flex items-center justify-center gap-1.5"><span>${i18n[currentLang].btn_exchange_stars || 'Обменять на'} ~${approxStarsMain}</span> <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></div>`;
-        exchangeBtn.classList.remove('hidden');
-
-        if (exchangeDonutsBtn) exchangeDonutsBtn.classList.add('hidden');
-
-        withdrawBtn.onclick = async () => {
-            if (isDemo) { _closeGameModal(source); return; }
-            try {
-                const { res, data } = await performGiftAction(giftId, 'withdraw');
-                if (!res.ok) {
-                    const detail = data.detail;
-                    throw new Error(typeof detail === 'object' ? JSON.stringify(detail) : (detail || 'Withdraw error'));
-                }
-                syncGiftStateFromResponse(data);
-                _closeGameModal(source);
-                tg.showAlert(i18n[currentLang].tg_withdraw_success || 'Подарок выведен!');
-            } catch (e) {
-                tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
-            }
-        };
-
-        exchangeBtn.onclick = async () => {
-            if (isDemo) { _closeGameModal(source); return; }
-            exchangeBtn.disabled = true;
-            try {
-                const res = await fetch('/api/exchange-for-stars', {
-                    method: 'POST',
-                    headers: getApiHeaders(),
-                    body: JSON.stringify({ gift_id: giftId })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || 'Exchange error');
-                syncGiftStateFromResponse(data);
-                _closeGameModal(source);
-                tg.showAlert(`${i18n[currentLang].exchange_stars_success || 'Обменяно!'} +${data.stars_reward} ⭐`);
-            } catch (e) {
-                tg.showAlert((e && e.message) ? e.message : (i18n[currentLang].err_conn || 'Connection error'));
-            } finally {
-                exchangeBtn.disabled = false;
+                _setBtnLoading(exchangeBtn, false);
             }
         };
     }
-
-    keepBtn.onclick = () => _closeGameModal(source);
 }
 
 // =====================================================
@@ -521,6 +525,7 @@ const HISTORY_ICONS = {
     task_reward_stars:    { icon: '✅', color: 'green',  sign: '+' },
     referral_bonus:       { icon: '👥', color: 'green',  sign: '+' },
     referral_bonus_stars: { icon: '👥', color: 'green',  sign: '+' },
+    case_free_open:       { icon: '🎁', color: 'green',  sign: null },
 };
 
 // Служебные типы, которые не показываются в истории пользователю
@@ -554,7 +559,11 @@ const HISTORY_LABELS = {
         exchange_tg_gift:     'Обмен Telegram-подарка',
         exchange_gift_donuts: 'Обмен подарка на пончики',
         exchange_gift_stars:  'Обмен подарка на звёзды',
+        task_reward:          'Награда за задание',
+        task_reward_stars:    'Награда за задание',
+        referral_bonus:       'Реферальный бонус',
         referral_bonus_stars: 'Реферальный бонус ⭐',
+        case_free_open:       'Бесплатный кейс',
     },
     en: {
         topup_stars:          'Balance top-up',
@@ -582,8 +591,11 @@ const HISTORY_LABELS = {
         exchange_tg_gift:     'Telegram gift exchanged',
         exchange_gift_donuts: 'Gift exchanged for donuts',
         exchange_gift_stars:  'Gift exchanged for stars',
+        task_reward:          'Task reward',
+        task_reward_stars:    'Task reward',
         referral_bonus:       'Referral bonus',
         referral_bonus_stars: 'Referral bonus ⭐',
+        case_free_open:       'Free case',
     }
 };
 
@@ -593,8 +605,30 @@ function formatHistoryDate(ts) {
     return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Функция для поиска фото подарка по gift_id из описания истории
+// Функция для поиска фото подарка по gift_id или case_id из описания истории
 function getHistoryGiftPhoto(entry) {
+    // Бесплатный кейс — всегда показываем его изображение
+    if (entry.action_type === 'case_free_open') return '/gifts/freecase.png';
+
+    // Для записей кейса — ищем [case_id:...] и берём фото кейса
+    // Только donuts/stars/paid — для gift-выигрышей показываем фото подарка, не кейса
+    const caseTypes = new Set([
+        'case_win_donuts', 'case_win_stars',
+        'case_paid_donuts', 'case_paid_stars'
+    ]);
+    if (caseTypes.has(entry.action_type) && entry.description) {
+        const caseMatch = entry.description.match(/\[case_id:([^\]]+)\]/);
+        if (caseMatch) {
+            const cid = caseMatch[1];
+            // Платный кейс — ищем в casesConfig
+            if (casesConfig && casesConfig[cid] && casesConfig[cid].photo) {
+                return casesConfig[cid].photo;
+            }
+            // Бесплатный кейс
+            if (cid === 'free') return '/gifts/freecase.png';
+        }
+    }
+
     // Только для типов, связанных с подарками
     const giftTypes = new Set([
         'gift_added', 'claim_gift', 'withdraw_gift', 'withdraw_tg_gift',
@@ -766,7 +800,29 @@ async function loadMoreHistory(isFirstLoad = false) {
 
                 // Читаемое название события
                 const labels = HISTORY_LABELS[currentLang] || HISTORY_LABELS['ru'];
-                const entryTitle = labels[entry.action_type] || entry.description || entry.action_type;
+                let entryTitle = labels[entry.action_type] || entry.action_type;
+
+                // Для кейс-записей donuts/stars/paid — подставляем название кейса
+                // case_win_gift / case_win_tg_gift оставляем как есть — там показывается имя подарка
+                const caseActionTypes = new Set([
+                    'case_win_donuts', 'case_win_stars',
+                    'case_paid_donuts', 'case_paid_stars', 'case_free_open'
+                ]);
+                if (caseActionTypes.has(entry.action_type) && entry.description) {
+                    const nameMatch = entry.description.match(/Case '([^']+)'/);
+                    if (nameMatch) {
+                        const caseName = nameMatch[1];
+                        const isWin  = entry.action_type.startsWith('case_win');
+                        const isFree = entry.action_type === 'case_free_open';
+                        if (isFree) {
+                            entryTitle = currentLang === 'ru' ? `Бесплатный кейс` : `Free case`;
+                        } else if (isWin) {
+                            entryTitle = currentLang === 'ru' ? `Выигрыш: ${caseName}` : `Win: ${caseName}`;
+                        } else {
+                            entryTitle = currentLang === 'ru' ? `Кейс: ${caseName}` : `Case: ${caseName}`;
+                        }
+                    }
+                }
 
                 let currencyIconUrl = (entry.action_type.includes('stars') || entry.action_type === 'exchange_tg_gift' || entry.action_type === 'exchange_gift_stars') ? '/gifts/stars.png' : '/gifts/dount.png';
                 let amountHtml = '';

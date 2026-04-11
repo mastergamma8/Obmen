@@ -2,6 +2,7 @@
 import asyncio
 import logging
 from aiogram import Bot
+from aiogram.enums import ButtonStyle
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 import config
@@ -17,16 +18,23 @@ async def roulette_reminder_worker(bot: Bot):
 
             if users_to_notify:
                 markup = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🎰 Крутить рулетку", web_app=WebAppInfo(url=config.WEBAPP_URL))]
+                    [
+                        InlineKeyboardButton(
+                            text="Крутить рулетку",
+                            web_app=WebAppInfo(url=config.WEBAPP_URL),
+                            style=ButtonStyle.SUCCESS,
+                            icon_custom_emoji_id="5357376676990851742",
+                        )
+                    ]
                 ])
                 text = (
-                    "🎁 Напоминание! Твоя бесплатная прокрутка рулетки снова доступна.\n\n"
+                    "<tg-emoji emoji-id=\"5357376676990851742\">🐥</tg-emoji> Напоминание! Твоя бесплатная прокрутка рулетки снова доступна.\n\n"
                     "Заходи в приложение и забирай свои награды!"
                 )
 
                 for user_id in users_to_notify:
                     try:
-                        await bot.send_message(user_id, text, reply_markup=markup)
+                        await bot.send_message(user_id, text, parse_mode="HTML", reply_markup=markup)
                         await database.mark_user_notified(user_id)
                         await asyncio.sleep(0.05)
                     except Exception as e:
@@ -47,10 +55,17 @@ async def gift_claim_reminder_worker(bot: Bot):
 
             if users_to_notify:
                 markup = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🎁 Купить подарок", web_app=WebAppInfo(url=config.WEBAPP_URL))]
+                    [
+                        InlineKeyboardButton(
+                            text="Купить подарок",
+                            web_app=WebAppInfo(url=config.WEBAPP_URL),
+                            style=ButtonStyle.SUCCESS,
+                            icon_custom_emoji_id="5963213811597970978",
+                        )
+                    ]
                 ])
                 text = (
-                    "🛒 <b>Ограничение на покупку снято!</b>\n\n"
+                    "<tg-emoji emoji-id=\"5354970962729148604\">🐥</tg-emoji> <b>Ограничение на покупку снято!</b>\n\n"
                     "Вы снова можете покупать подарки за пончики. Заходите в приложение!"
                 )
 
@@ -77,10 +92,17 @@ async def gift_withdraw_reminder_worker(bot: Bot):
 
             if users_to_notify:
                 markup = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🎁 Открыть приложение", web_app=WebAppInfo(url=config.WEBAPP_URL))]
+                    [
+                        InlineKeyboardButton(
+                            text="Открыть приложение",
+                            web_app=WebAppInfo(url=config.WEBAPP_URL),
+                            style=ButtonStyle.SUCCESS,
+                            icon_custom_emoji_id="5963213811597970978",
+                        )
+                    ]
                 ])
                 text = (
-                    "🎁 <b>Вывод подарка снова доступен!</b>\n\n"
+                    "<tg-emoji emoji-id=\"5963213811597970978\">🐥</tg-emoji> <b>Вывод подарка снова доступен!</b>\n\n"
                     "Прошло 5 часов — вы можете купить или вывести новый подарок. "
                     "Заходите в приложение!"
                 )
@@ -108,10 +130,17 @@ async def free_case_reminder_worker(bot: Bot):
 
             if users_to_notify:
                 markup = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🎁 Открыть бесплатный кейс", web_app=WebAppInfo(url=config.WEBAPP_URL))]
+                    [
+                        InlineKeyboardButton(
+                            text="Открыть бесплатный кейс",
+                            web_app=WebAppInfo(url=config.WEBAPP_URL),
+                            style=ButtonStyle.SUCCESS,
+                            icon_custom_emoji_id="5384216206796430362",
+                        )
+                    ]
                 ])
                 text = (
-                    "📦 <b>Бесплатный кейс снова доступен!</b>\n\n"
+                    "<tg-emoji emoji-id=\"5384216206796430362\">🐥</tg-emoji> <b>Бесплатный кейс снова доступен!</b>\n\n"
                     "Прошло 24 часа — заходи в приложение и открывай свой бесплатный кейс!"
                 )
 

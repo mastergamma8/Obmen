@@ -40,14 +40,14 @@ def parse_telegram_init_data(init_data: str) -> dict:
             f"{k}={v}" for k, v in sorted(parsed.items())
         )
         secret_key = hmac.new(
-            b"WebAppData",
-            config.BOT_TOKEN.encode(),
-            hashlib.sha256
+            key=b"WebAppData",
+            msg=config.BOT_TOKEN.encode(),
+            digestmod=hashlib.sha256,
         ).digest()
         calculated_hash = hmac.new(
-            secret_key,
-            data_check_string.encode(),
-            hashlib.sha256
+            key=secret_key,
+            msg=data_check_string.encode(),
+            digestmod=hashlib.sha256,
         ).hexdigest()
 
         if not hmac.compare_digest(calculated_hash, received_hash):

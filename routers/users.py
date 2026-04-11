@@ -35,6 +35,7 @@ async def init_user(current_user: dict = Depends(get_current_user)):
             "rocket":       config.ROCKET_CONFIG,
             "withdraw_fee": getattr(config, "WITHDRAW_FEE_STARS", 25),
             "donuts_to_stars_rate": getattr(config, "DONUTS_TO_STARS_RATE", 115),
+            "gift_exchange_stars_rate": getattr(config, "GIFT_EXCHANGE_STARS_RATE", 0.01),
             "free_case":    getattr(config, "FREE_CASE_CONFIG", None),
         },
     }
