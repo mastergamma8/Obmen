@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/tg_shop", tags=["tg_shop"])
 
 # Подарки, доступные в магазине (IDs 2011–2017)
 # Цена каждого подарка задаётся в config.py через поле "price" в TG_GIFTS
-TG_SHOP_GIFT_IDS = {2011, 2012, 2013, 2014, 2015, 2016, 2017}
+TG_SHOP_GIFT_IDS = {2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018}
 
 
 @router.post("/buy")

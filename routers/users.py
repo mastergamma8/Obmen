@@ -82,37 +82,55 @@ async def get_history(
     return {"history": history, "total": total, "offset": offset, "limit": limit}
 
 
+def _cap_rank(rank) -> str | int:
+    """Если место > 100, возвращает строку '99+', иначе — само число."""
+    if isinstance(rank, int) and rank > 100:
+        return "99+"
+    return rank
+
+
 @router.get("/leaderboard")
 async def get_leaderboard(current_user: dict = Depends(get_current_user)):
     tg_id = current_user["id"]
     board = await database.get_leaderboard()
-    user_rank = {"rank": "99+", "total_gifts": 0}
+    user_rank = None
     for i, u in enumerate(board):
         if u["tg_id"] == tg_id:
             user_rank = {"rank": i + 1, "total_gifts": u["total_gifts"]}
             break
+    # Пользователь не попал в топ-50 — считаем его реальное место
+    if user_rank is None:
+        user_rank = await database.get_user_rich_rank(tg_id)
+    if user_rank:
+        user_rank["rank"] = _cap_rank(user_rank["rank"])
     return {"leaderboard": board, "user_info": user_rank}
 
 
 @router.get("/leaderboard/rocket")
 async def get_rocket_leaderboard(current_user: dict = Depends(get_current_user)):
     tg_id = current_user["id"]
-    board = await database.get_rocket_leaderboard()
+    full_board = await database.get_rocket_leaderboard_full()
     user_rank = {"rank": "—", "max_multiplier": None}
-    for i, u in enumerate(board):
+    for i, u in enumerate(full_board):
         if u["tg_id"] == tg_id:
             user_rank = {"rank": i + 1, "max_multiplier": u["max_multiplier"]}
             break
-    return {"leaderboard": board, "user_info": user_rank}
+    user_rank["rank"] = _cap_rank(user_rank["rank"])
+    return {"leaderboard": full_board[:50], "user_info": user_rank}
 
 
 @router.get("/leaderboard/lucky")
 async def get_lucky_leaderboard(current_user: dict = Depends(get_current_user)):
     tg_id = current_user["id"]
     board = await database.get_lucky_leaderboard()
-    user_rank = {"rank": "—", "ratio": None}
+    user_rank = None
     for i, u in enumerate(board):
         if u["tg_id"] == tg_id:
             user_rank = {"rank": i + 1, "ratio": u["ratio"]}
             break
+    # Пользователь не попал в топ-50 — считаем его реальное место
+    if user_rank is None:
+        user_rank = await database.get_user_lucky_rank(tg_id)
+    if user_rank:
+        user_rank["rank"] = _cap_rank(user_rank["rank"])
     return {"leaderboard": board, "user_info": user_rank}

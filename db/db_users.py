@@ -104,25 +104,32 @@ async def deduct_balance(user_id: int, amount: int) -> bool:
 async def update_last_free_spin(user_id: int, timestamp: int):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
-            "UPDATE users SET last_free_spin = ?, notified_free_spin = 0 WHERE tg_id = ?",
-            (timestamp, user_id)
+            # Сбрасываем last_notified_free_spin чтобы первое уведомление
+            # пришло ровно через 24ч после использования
+            "UPDATE users SET last_free_spin = ?, notified_free_spin = 0, last_notified_free_spin = ? WHERE tg_id = ?",
+            (timestamp, timestamp, user_id)
         )
         await db.commit()
 
 async def get_users_to_notify(current_timestamp: int):
+    """Возвращает пользователей, которым нужно отправить (или повторить) уведомление о рулетке.
+    Условие: прошло 24ч с последнего спина И прошло 24ч с последнего уведомления.
+    """
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute("""
             SELECT tg_id FROM users
             WHERE (? - last_free_spin) >= 86400
-              AND notified_free_spin = 0
-        """, (current_timestamp,)) as cursor:
+              AND (? - last_notified_free_spin) >= 86400
+        """, (current_timestamp, current_timestamp)) as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
 async def mark_user_notified(user_id: int):
+    import time
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
-            "UPDATE users SET notified_free_spin = 1 WHERE tg_id = ?", (user_id,)
+            "UPDATE users SET notified_free_spin = 1, last_notified_free_spin = ? WHERE tg_id = ?",
+            (int(time.time()), user_id)
         )
         await db.commit()
 
@@ -142,26 +149,33 @@ async def get_last_free_case(user_id: int) -> int:
 async def update_last_free_case(user_id: int, timestamp: int):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
-            "UPDATE users SET last_free_case = ?, notified_free_case = 0 WHERE tg_id = ?",
-            (timestamp, user_id)
+            # Сбрасываем last_notified_free_case чтобы первое уведомление
+            # пришло ровно через 24ч после использования
+            "UPDATE users SET last_free_case = ?, notified_free_case = 0, last_notified_free_case = ? WHERE tg_id = ?",
+            (timestamp, timestamp, user_id)
         )
         await db.commit()
 
 async def get_users_to_notify_free_case(current_timestamp: int) -> list[int]:
+    """Возвращает пользователей, которым нужно отправить (или повторить) уведомление о кейсе.
+    Условие: прошло 24ч с последнего открытия И прошло 24ч с последнего уведомления.
+    """
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute("""
             SELECT tg_id FROM users
             WHERE last_free_case > 0
               AND (? - last_free_case) >= 86400
-              AND notified_free_case = 0
-        """, (current_timestamp,)) as cursor:
+              AND (? - last_notified_free_case) >= 86400
+        """, (current_timestamp, current_timestamp)) as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
 async def mark_user_notified_free_case(user_id: int):
+    import time
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
-            "UPDATE users SET notified_free_case = 1 WHERE tg_id = ?", (user_id,)
+            "UPDATE users SET notified_free_case = 1, last_notified_free_case = ? WHERE tg_id = ?",
+            (int(time.time()), user_id)
         )
         await db.commit()
 

@@ -51,6 +51,12 @@ async def init_db():
         try: await db.execute("ALTER TABLE users ADD COLUMN notified_free_case INTEGER DEFAULT 1")
         except Exception: pass
 
+        # Метки времени последней отправки — для повторных уведомлений каждые 24ч
+        try: await db.execute("ALTER TABLE users ADD COLUMN last_notified_free_spin INTEGER DEFAULT 0")
+        except Exception: pass
+        try: await db.execute("ALTER TABLE users ADD COLUMN last_notified_free_case INTEGER DEFAULT 0")
+        except Exception: pass
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_gifts (
                 user_id INTEGER,

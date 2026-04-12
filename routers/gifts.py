@@ -61,6 +61,91 @@ async def claim_gift(data: ActionData, current_user: dict = Depends(get_current_
     }
 
 
+async def _check_withdraw_requirements(tg_id: int) -> list[dict]:
+    """
+    Проверяет все требования вывода из WITHDRAW_REQUIREMENTS для данного пользователя.
+    Возвращает список объектов с полями: type, title, url, done, [current, required].
+    """
+    reqs = getattr(config, "WITHDRAW_REQUIREMENTS", {})
+    if not reqs.get("enabled", False):
+        return []
+
+    results = []
+
+    async with httpx.AsyncClient(timeout=6) as client:
+        # ── Подписки ──────────────────────────────────────────────────────────
+        for sub in reqs.get("subscriptions", []):
+            done = False
+            try:
+                resp = await client.get(
+                    f"https://api.telegram.org/bot{config.BOT_TOKEN}/getChatMember",
+                    params={"chat_id": sub["chat_id"], "user_id": tg_id}
+                )
+                res = resp.json()
+                if res.get("ok") and res["result"]["status"] in ("member", "administrator", "creator"):
+                    done = True
+            except Exception:
+                pass
+            results.append({
+                "type": "subscription",
+                "chat_id": sub["chat_id"],
+                "title": sub["title"],
+                "url": sub.get("url", ""),
+                "done": done,
+            })
+
+        # ── Бусты ─────────────────────────────────────────────────────────────
+        for boost in reqs.get("boosts", []):
+            done = False
+            try:
+                resp = await client.get(
+                    f"https://api.telegram.org/bot{config.BOT_TOKEN}/getUserChatBoosts",
+                    params={"chat_id": boost["chat_id"], "user_id": tg_id}
+                )
+                res = resp.json()
+                if res.get("ok") and len(res["result"].get("boosts", [])) > 0:
+                    done = True
+            except Exception:
+                pass
+            results.append({
+                "type": "boost",
+                "chat_id": boost["chat_id"],
+                "title": boost["title"],
+                "url": boost.get("url", ""),
+                "done": done,
+            })
+
+    # ── Рефералы ──────────────────────────────────────────────────────────────
+    required_refs = reqs.get("referrals", 0)
+    if required_refs > 0:
+        referrals = await database.get_referrals(tg_id)
+        current = len(referrals)
+        results.append({
+            "type": "referrals",
+            "title": f"Пригласить {required_refs} {'друзей' if required_refs >= 5 else 'друга'}",
+            "url": "",
+            "done": current >= required_refs,
+            "current": current,
+            "required": required_refs,
+        })
+
+    return results
+
+
+@router.get("/withdraw/requirements")
+async def get_withdraw_requirements(current_user: dict = Depends(get_current_user)):
+    """Возвращает список требований вывода и статус их выполнения для текущего пользователя."""
+    tg_id = current_user["id"]
+    reqs = getattr(config, "WITHDRAW_REQUIREMENTS", {})
+
+    if not reqs.get("enabled", False):
+        return {"all_done": True, "requirements": []}
+
+    items = await _check_withdraw_requirements(tg_id)
+    all_done = all(r["done"] for r in items)
+    return {"all_done": all_done, "requirements": items}
+
+
 @router.post("/withdraw")
 async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_current_user)):
     tg_id = current_user["id"]
@@ -73,6 +158,17 @@ async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_curre
     user_gifts = await database.get_user_gifts(tg_id)
     if user_gifts.get(data.gift_id, 0) <= 0:
         raise HTTPException(status_code=400, detail="У вас нет этого подарка")
+
+    # ── Проверка требований вывода ────────────────────────────────────────────
+    reqs = getattr(config, "WITHDRAW_REQUIREMENTS", {})
+    if reqs.get("enabled", False):
+        items = await _check_withdraw_requirements(tg_id)
+        unmet = [r["title"] for r in items if not r["done"]]
+        if unmet:
+            raise HTTPException(
+                status_code=403,
+                detail={"error": "requirements_not_met", "unmet": unmet}
+            )
 
     gift_name = gift_def.get("name", "Неизвестный подарок")
 
@@ -147,7 +243,7 @@ async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_curre
             f"👤 Пользователь: <a href='tg://user?id={tg_id}'>{first_name}</a>\n"
             f"🔗 Юзернейм: {username_str}\n"
             f"🆔 ID: <code>{tg_id}</code>\n\n"
-            f"🎁 <b>Подарок:</b> {gift_name} [gift_id:{data.gift_id}] (ID: {data.gift_id})"
+            f"🎁 <b>Подарок:</b> {gift_name} (ID: {data.gift_id})"
         )
         url     = f"https://api.telegram.org/bot{config.BOT_TOKEN}/sendMessage"
         payload = {"chat_id": config.ADMIN_ID, "text": admin_text, "parse_mode": "HTML"}

@@ -42,6 +42,39 @@ TON_TO_STARS_FALLBACK: float = 200.0
 WITHDRAW_FEE_STARS = 25
 
 # ==========================================
+# ТРЕБОВАНИЯ ДЛЯ ВЫВОДА ПОДАРКОВ
+# ==========================================
+# enabled: False — отключает все требования (вывод без ограничений)
+# subscriptions: список каналов, на которые нужно подписаться
+# boosts: список каналов, которые нужно бустнуть/проголосовать
+# referrals: сколько друзей нужно пригласить (0 = не требуется)
+WITHDRAW_REQUIREMENTS = {
+    "enabled": True,
+    "subscriptions": [
+        {
+            "chat_id": "@Space_Donut",
+            "title": "Подписаться на @Space_Donut",
+            "url": "https://t.me/Space_Donut"
+        },
+        # Пример второго канала — раскомментируйте и заполните:
+         {
+             "chat_id": "@DewidNFT",
+             "title": "Подписаться на @DewidNFT",
+             "url": "https://t.me/DewidNFT"
+         },
+    ],
+    "boosts": [
+        # Пример буста — раскомментируйте и заполните:
+        # {
+        #     "chat_id": "@Space_Donut",
+        #     "title": "Буст канала @Space_Donut",
+        #     "url": "https://t.me/boost/Space_Donut"
+        # },
+    ],
+    "referrals": 3,   # Поставьте > 0, чтобы требовать приглашений
+}
+
+# ==========================================
 # ЗАДАНИЯ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ
 # ==========================================
 TASKS = {
@@ -434,6 +467,7 @@ TG_GIFTS = {
     2015: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5866352046986232958/Original.png", "required_value": 50,  "tg_gift_id": "5866352046986232958", "price": 60},
     2016: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5893356958802511476/Original.png", "required_value": 50,  "tg_gift_id": "5893356958802511476", "price": 60},
     2017: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5935895822435615975/Original.png", "required_value": 50,  "tg_gift_id": "5935895822435615975", "price": 60},
+    2018: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5969796561943660080/Original.png", "required_value": 50,  "tg_gift_id": "5969796561943660080", "price": 60},
 }
 
 

@@ -138,7 +138,7 @@ async function buyStars() {
                     } else if (payment_status === 'cancelled') {
                         console.log('Оплата отменена пользователем');
                     } else {
-                        showNotify('Ошибка оплаты', 'error');
+                        showNotify(i18n[currentLang]?.err_payment || 'Ошибка оплаты', 'error');
                     }
                 });
             } else {
@@ -146,7 +146,7 @@ async function buyStars() {
                 tg.openTelegramLink(result.invoice_url);
             }
         } else {
-            showNotify(result.detail || 'Ошибка создания инвойса', 'error');
+            showNotify(result.detail || i18n[currentLang]?.err_invoice || 'Ошибка создания инвойса', 'error');
         }
     } catch (e) {
         showNotify(i18n[currentLang]?.err_conn || 'Ошибка соединения', 'error');
@@ -224,7 +224,8 @@ function showNotify(message, type = 'error', callback = null) {
 
     // Message & title
     msgEl.textContent = message;
-    titleEl.textContent = s.title;
+    const _notifyTitleKeys = { error: 'notify_error', success: 'notify_success', warning: 'notify_warning', info: 'notify_info' };
+    titleEl.textContent = (i18n && currentLang && i18n[currentLang]?.[_notifyTitleKeys[type]]) || s.title;
 
     // Icons — show only the matching one
     ['error','success','warning','info'].forEach(t => {

@@ -54,7 +54,7 @@ async function loadEarnData() {
             refList.innerHTML = '';
             data.referrals.forEach(user => {
                 const avatar = escapeHtml(user.photo_url || 'https://via.placeholder.com/40');
-                refList.innerHTML += `<div class="glass rounded-2xl p-3 flex items-center gap-3"><img src="${avatar}" class="w-10 h-10 rounded-full border border-white/10"><div class="font-bold text-white text-sm">${escapeHtml(user.first_name || 'Без имени')}</div></div>`;
+                refList.innerHTML += `<div class="glass rounded-2xl p-3 flex items-center gap-3"><img src="${avatar}" class="w-10 h-10 rounded-full border border-white/10"><div class="font-bold text-white text-sm">${escapeHtml(user.first_name || i18n[currentLang]?.no_name || 'Без имени')}</div></div>`;
             });
         }
         

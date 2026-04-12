@@ -91,8 +91,155 @@ function calcApproxExchangeStars(giftId) {
     return 0;
 }
 
+// ── Требования для вывода ────────────────────────────────────────────────────
+
+let _pendingWithdrawGiftId = null;
+
+function _renderWithdrawRequirements(items) {
+    const list = document.getElementById('wr-list');
+    if (!list) return;
+
+    list.innerHTML = items.map(req => {
+        const done = req.done;
+
+        // Иконка статуса
+        const icon = done
+            ? `<div class="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center flex-shrink-0 shadow-[0_0_10px_rgba(52,211,153,0.2)]">
+                   <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+               </div>`
+            : `<div class="w-8 h-8 rounded-full bg-red-500/15 border border-red-400/30 flex items-center justify-center flex-shrink-0">
+                   <svg class="w-4 h-4 text-red-400/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+               </div>`;
+
+        // Прогресс для рефералов
+        let subtext = '';
+        if (req.type === 'referrals') {
+            const cur = req.current || 0;
+            const req2 = req.required || 0;
+            const pct = req2 > 0 ? Math.min(100, Math.round(cur / req2 * 100)) : 0;
+            subtext = `
+                <div class="flex items-center gap-2 mt-1.5">
+                    <div class="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                        <div class="h-full rounded-full ${done ? 'bg-emerald-400' : 'bg-blue-400/70'} transition-all duration-500" style="width:${pct}%"></div>
+                    </div>
+                    <span class="text-[11px] text-white/40 font-medium tabular-nums">${cur}/${req2}</span>
+                </div>`;
+        }
+
+        // Кнопка действия
+        let actionBtn = '';
+        if (!done) {
+            if (req.type === 'referrals') {
+                actionBtn = `<button onclick="_wrShareInvite()" class="flex-shrink-0 text-xs bg-blue-500/25 border border-blue-400/40 text-blue-300 px-3 py-1.5 rounded-xl font-bold active:scale-95 transition-transform whitespace-nowrap">${i18n[currentLang].wr_btn_invite || 'Пригласить'}</button>`;
+            } else if (req.url) {
+                actionBtn = `<a href="${req.url}" target="_blank" rel="noopener" class="flex-shrink-0 text-xs bg-blue-500/25 border border-blue-400/40 text-blue-300 px-3 py-1.5 rounded-xl font-bold active:scale-95 transition-transform whitespace-nowrap">${i18n[currentLang].wr_btn_complete || 'Выполнить'}</a>`;
+            }
+        }
+
+        return `
+            <div class="rounded-2xl p-3.5 flex items-start gap-3 border transition-all ${done
+                ? 'bg-emerald-500/5 border-emerald-400/20'
+                : 'bg-white/[0.03] border-white/8'}">
+                <div class="mt-0.5">${icon}</div>
+                <div class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold leading-tight ${done ? 'text-white/50 line-through decoration-white/30' : 'text-white'}">${req.title}</span>
+                    ${subtext}
+                </div>
+                ${actionBtn}
+            </div>`;
+    }).join('');
+}
+
+function _wrShareInvite() {
+    vibrate('medium');
+    const link = (typeof getRefLink === 'function') ? getRefLink() : '';
+    const text = (i18n && i18n[currentLang] && i18n[currentLang].share_text) || 'Присоединяйся!';
+    if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.openTelegramLink(
+            `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`
+        );
+    }
+}
+window._wrShareInvite = _wrShareInvite;
+
+async function recheckWithdrawRequirements() {
+    const btn = document.getElementById('wr-check-btn');
+    const statusEl = document.getElementById('wr-status');
+    if (btn) { btn.disabled = true; btn.innerHTML = `<svg class="animate-spin h-4 w-4 inline mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>${i18n[currentLang].wr_checking || 'Проверяем...'}`; }
+    if (statusEl) statusEl.innerHTML = '';
+
+    try {
+        const res  = await fetch('/api/withdraw/requirements', { headers: getApiHeaders() });
+        const data = await res.json();
+
+        _renderWithdrawRequirements(data.requirements || []);
+
+        if (data.all_done) {
+            if (statusEl) statusEl.innerHTML = `<div class="flex items-center justify-center gap-2 text-emerald-400 text-sm font-semibold"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>${i18n[currentLang].wr_all_done || 'Все условия выполнены!'}</div>`;
+            setTimeout(() => {
+                closeModal('withdraw-requirements-modal');
+                setTimeout(() => {
+                    if (_pendingWithdrawGiftId !== null) {
+                        _openWithdrawModalDirect_impl(_pendingWithdrawGiftId);
+                        _pendingWithdrawGiftId = null;
+                    }
+                }, 320);
+            }, 700);
+        } else {
+            const unmet = (data.requirements || []).filter(r => !r.done).map(r => r.title);
+            if (statusEl) {
+                statusEl.innerHTML = `
+                    <div class="text-left rounded-xl bg-red-500/10 border border-red-400/20 p-3">
+                        <p class="text-red-400 text-xs font-bold mb-1.5">${i18n[currentLang].wr_unmet_label || 'Не выполнено:'}</p>
+                        ${unmet.map(t => `<p class="text-red-300/80 text-xs flex items-start gap-1.5"><span class="text-red-400 mt-0.5">•</span>${t}</p>`).join('')}
+                    </div>`;
+            }
+        }
+    } catch (e) {
+        if (statusEl) statusEl.innerHTML = `<p class="text-red-400 text-xs text-center">${i18n[currentLang]?.err_network || 'Ошибка сети'}</p>`;
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = i18n[currentLang].wr_check_btn || 'Проверить выполнение'; }
+    }
+}
+window.recheckWithdrawRequirements = recheckWithdrawRequirements;
+
+// Вспомогательная функция: при нажатии «Вывести» в модале подарка проверяем требования.
+// Если всё выполнено — идём сразу к confirmWithdrawGift.
+// Если нет — закрываем текущий модал и показываем экран с требованиями.
+async function _checkRequirementsAndWithdraw(giftId) {
+    _pendingWithdrawGiftId = giftId;
+    try {
+        const res  = await fetch('/api/withdraw/requirements', { headers: getApiHeaders() });
+        const data = await res.json();
+
+        if (data.all_done) {
+            _pendingWithdrawGiftId = null;
+            confirmWithdrawGift(giftId, false);
+        } else {
+            closeModal('withdraw-confirm-modal');
+            setTimeout(() => {
+                _renderWithdrawRequirements(data.requirements || []);
+                const statusEl = document.getElementById('wr-status');
+                if (statusEl) statusEl.innerHTML = '';
+                openModal('withdraw-requirements-modal');
+            }, 320);
+        }
+    } catch (e) {
+        // При ошибке сети — продолжаем без проверки
+        _pendingWithdrawGiftId = null;
+        confirmWithdrawGift(giftId, false);
+    }
+}
+
+// openWithdrawModal — открывает модал с действиями напрямую.
+// Проверка требований происходит только при нажатии кнопки «Вывести» внутри модала.
 function openWithdrawModal(giftId) {
     vibrate('medium');
+    _openWithdrawModalDirect_impl(giftId);
+}
+
+// Оригинальная реализация (без проверки требований)
+function _openWithdrawModalDirect_impl(giftId) {
     currentWithdrawGiftId = giftId;
     const giftDef = getGiftDefinitionById(giftId);
     if (!giftDef) return;
@@ -146,7 +293,7 @@ function openWithdrawModal(giftId) {
         feeRow.classList.remove('hidden');
         btnConfirmLabel.innerText = i18n[currentLang].withdraw_confirm_btn || 'Вывести за';
         feeAmount.innerText = withdrawFeeAmount;
-        btnConfirm.onclick  = () => confirmWithdrawGift(giftId, false);
+        btnConfirm.onclick  = () => _checkRequirementsAndWithdraw(giftId);
         if (keepRow) keepRow.classList.remove('hidden');
 
         const wcmStarsBtn = document.getElementById('wcm-btn-exchange-donuts');
@@ -208,7 +355,7 @@ function openWithdrawModal(giftId) {
         feeRow.classList.remove('hidden');
         btnConfirmLabel.innerText = i18n[currentLang].withdraw_confirm_btn || 'Вывести за';
         feeAmount.innerText = withdrawFeeAmount;
-        btnConfirm.onclick  = () => confirmWithdrawGift(giftId, false);
+        btnConfirm.onclick  = () => _checkRequirementsAndWithdraw(giftId);
     }
 
     openModal('withdraw-confirm-modal');
@@ -253,7 +400,7 @@ async function confirmWithdrawGift(giftId, isTgGift = false) {
         closeModal('withdraw-confirm-modal');
 
         if (isTgGift) {
-            showNotify('Подарок отправлен.', 'success');
+            showNotify(i18n[currentLang].tg_withdraw_success || 'Подарок отправлен!', 'success');
         } else {
             setTimeout(() => openModal('success-withdraw-modal'), 300);
         }

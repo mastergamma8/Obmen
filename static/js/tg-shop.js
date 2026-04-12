@@ -4,7 +4,7 @@
 
 // Цена каждого подарка задаётся в config.py → TG_GIFTS[id].price
 // и передаётся фронтенду через объект tgGifts
-const TG_SHOP_GIFT_IDS = [2011, 2012, 2013, 2014, 2015, 2016, 2017];
+const TG_SHOP_GIFT_IDS = [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018];
 
 let tgShopSelectedGiftId = null;
 

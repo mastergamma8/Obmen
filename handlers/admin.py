@@ -456,3 +456,117 @@ def register(dp: Dispatcher, bot: Bot):
                 f"{E_CROSS} Некорректное значение. Введите число, например: <code>0.015</code>",
                 parse_mode="HTML"
             )
+
+    @dp.message(Command("genfakeusers"))
+    async def cmd_gen_fake_users(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        import random
+        import time
+        import aiosqlite
+        from db.db_core import DB_NAME
+
+        FAKE_NAMES = [
+            "Алексей", "Мария", "Дмитрий", "Анна", "Сергей", "Екатерина",
+            "Иван", "Ольга", "Андрей", "Наталья", "Михаил", "Татьяна",
+            "Николай", "Юлия", "Артём", "Елена", "Кирилл", "Ирина",
+            "Владимир", "Светлана", "Павел", "Ксения", "Роман", "Виктория",
+            "Денис", "Людмила", "Евгений", "Дарья", "Антон", "Полина",
+            "Максим", "Валерия", "Тимур", "Алина", "Глеб", "Вероника",
+            "Илья", "Маргарита", "Руслан", "Кристина", "Степан", "Диана",
+            "Константин", "Надежда", "Юрий", "Милана", "Геннадий", "Таисия",
+            "Борис", "Регина",
+        ]
+        AVATARS = [
+            "https://i.pravatar.cc/150?img={}".format(i) for i in range(1, 71)
+        ]
+
+        await message.answer(f"{E_TIME} Генерирую 100 фейковых пользователей...", parse_mode="HTML")
+
+        now = int(time.time())
+        week_ago = now - 6 * 86400  # в пределах последней недели
+
+        fake_tg_id_start = 9_000_000_000  # диапазон, не пересекающийся с реальными
+
+        async with aiosqlite.connect(DB_NAME) as db:
+            for i in range(100):
+                tg_id    = fake_tg_id_start + i
+                name     = random.choice(FAKE_NAMES) + f"_{i+1}"
+                username = f"fake_user_{i+1}"
+                avatar   = random.choice(AVATARS)
+                balance  = random.randint(10, 50_000)
+
+                # Вставка пользователя
+                await db.execute("""
+                    INSERT INTO users (
+                        tg_id, username, first_name, photo_url,
+                        balance, stars, last_free_spin, notified_free_spin,
+                        last_gift_withdraw, notified_gift_withdraw,
+                        last_gift_claim, notified_gift_claim,
+                        last_free_case, notified_free_case
+                    )
+                    VALUES (?, ?, ?, ?, ?, 0, 0, 1, 0, 1, 0, 1, 0, 1)
+                    ON CONFLICT(tg_id) DO UPDATE SET
+                        username=excluded.username,
+                        first_name=excluded.first_name,
+                        photo_url=excluded.photo_url,
+                        balance=excluded.balance
+                """, (tg_id, username, name, avatar, balance))
+
+                # Ракета — случайный множитель для ~70% фейков
+                if random.random() < 0.7:
+                    multiplier = round(random.uniform(1.2, 50.0), 2)
+                    ts = random.randint(week_ago, now)
+                    await db.execute("""
+                        INSERT INTO user_history (user_id, action_type, description, amount, created_at)
+                        VALUES (?, 'rocket_win_fake', ?, ?, ?)
+                    """, (tg_id, f"Ракета: x{multiplier}", int(multiplier * 100), ts))
+
+                # Кейс — случайный коэффициент для ~60% фейков
+                if random.random() < 0.6:
+                    ratio_x100 = random.randint(110, 2000)  # от 1.10x до 20.00x
+                    await db.execute("""
+                        INSERT INTO user_history (user_id, action_type, description, amount, created_at)
+                        VALUES (?, 'case_lucky_ratio', 'Фейк: кейс', ?, ?)
+                    """, (tg_id, ratio_x100, random.randint(week_ago, now)))
+
+            await db.commit()
+
+        await message.answer(
+            f"{E_CHECK} <b>Готово!</b>\n\n"
+            f"Создано <b>100 фейковых пользователей</b> (tg_id {fake_tg_id_start}–{fake_tg_id_start + 99}).\n"
+            f"Данные добавлены во все три таблицы лидеров.\n\n"
+            f"<i>Для удаления фейков используйте /delfakeusers</i>",
+            parse_mode="HTML"
+        )
+
+    @dp.message(Command("delfakeusers"))
+    async def cmd_del_fake_users(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        import aiosqlite
+        from db.db_core import DB_NAME
+
+        fake_tg_id_start = 9_000_000_000
+        fake_tg_id_end   = fake_tg_id_start + 99
+
+        async with aiosqlite.connect(DB_NAME) as db:
+            await db.execute(
+                "DELETE FROM user_history WHERE user_id BETWEEN ? AND ?",
+                (fake_tg_id_start, fake_tg_id_end)
+            )
+            result = await db.execute(
+                "DELETE FROM users WHERE tg_id BETWEEN ? AND ?",
+                (fake_tg_id_start, fake_tg_id_end)
+            )
+            deleted = result.rowcount
+            await db.commit()
+
+        await message.answer(
+            f"{E_CHECK} Удалено <b>{deleted}</b> фейковых пользователей и их история.",
+            parse_mode="HTML"
+        )

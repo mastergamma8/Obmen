@@ -126,6 +126,27 @@ const i18n = {
             hist_tg_win_roulette: 'Выигрыш Telegram-подарка в рулетке',
             hist_tg_win_case: 'Выигрыш Telegram-подарка из кейса',
 
+            // УВЕДОМЛЕНИЯ (notify-modal заголовки)
+            notify_error: 'Ошибка',
+            notify_success: 'Успешно',
+            notify_warning: 'Внимание',
+            notify_info: 'Информация',
+            err_payment: 'Ошибка оплаты',
+            err_invoice: 'Ошибка создания инвойса',
+            no_name: 'Без имени',
+
+            // МОДАЛ ТРЕБОВАНИЙ ДЛЯ ВЫВОДА
+            wr_modal_title: 'Условия вывода',
+            wr_modal_subtitle: 'Выполните все условия, чтобы вывести подарок',
+            wr_check_btn: 'Проверить выполнение',
+            wr_checking: 'Проверяем...',
+            wr_all_done: 'Все условия выполнены!',
+            wr_unmet_label: 'Не выполнено:',
+            wr_btn_invite: 'Пригласить',
+            wr_btn_complete: 'Выполнить',
+            wr_err_network: 'Ошибка сети. Попробуйте позже.',
+            limit_reached: 'Лимит достигнут. Попробуйте позже.',
+
             // TG МАГАЗИН
             tg_shop_title: 'Лимитированные подарки',
             tg_shop_banner_desc: 'Купи подарок за <span class="font-bold text-yellow-300 inline-flex items-center gap-1">{price} <img src="/gifts/stars.png" class="w-4 h-4 inline-block align-middle object-contain"></span> и получи в Telegram!',
@@ -261,6 +282,27 @@ const i18n = {
             hist_tg_exchange: 'Telegram gift exchanged',
             hist_tg_win_roulette: 'Telegram gift won in roulette',
             hist_tg_win_case: 'Telegram gift won from case',
+
+            // NOTIFICATIONS (notify-modal titles)
+            notify_error: 'Error',
+            notify_success: 'Success',
+            notify_warning: 'Warning',
+            notify_info: 'Information',
+            err_payment: 'Payment error',
+            err_invoice: 'Failed to create invoice',
+            no_name: 'No name',
+
+            // WITHDRAW REQUIREMENTS MODAL
+            wr_modal_title: 'Withdrawal Requirements',
+            wr_modal_subtitle: 'Complete all requirements to withdraw your gift',
+            wr_check_btn: 'Check completion',
+            wr_checking: 'Checking...',
+            wr_all_done: 'All requirements met!',
+            wr_unmet_label: 'Not completed:',
+            wr_btn_invite: 'Invite',
+            wr_btn_complete: 'Complete',
+            wr_err_network: 'Network error. Please try again.',
+            limit_reached: 'Limit reached. Please try again later.',
 
             // TG SHOP
             tg_shop_title: 'Limited gifts',
