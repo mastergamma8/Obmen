@@ -24,7 +24,7 @@ function renderMainPage() {
                     </div>
                     <div class="flex justify-between items-center text-xs font-bold">
                         <span class="${statusColor}">${statusText}</span>
-                        <span class="text-gray-300 flex items-center gap-1">${myBalance} <span class="text-blue-400/70 flex items-center gap-1">/ ${req} <img src="/gifts/dount.png" class="w-3 h-3 object-contain"></span></span>
+                        <span class="text-gray-300 flex items-center gap-1">${formatBalance(myBalance)} <span class="text-blue-400/70 flex items-center gap-1">/ ${req} <img src="/gifts/dount.png" class="w-3 h-3 object-contain"></span></span>
                     </div>
                 </div>
             </div>`;
@@ -93,7 +93,7 @@ function showMainGiftDetails(id) {
     document.getElementById('mg-title').innerText = gift.name;
     const req = gift.required_value;
     const unlocked = myBalance >= req;
-    document.getElementById('mg-progress-text').innerHTML = `${myBalance} / ${req} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`;
+    document.getElementById('mg-progress-text').innerHTML = `${formatBalance(myBalance)} / ${req} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`;
     const pBar = document.getElementById('mg-progress-bar');
     pBar.style.width = `${Math.min(100, myBalance/req*100)}%`;
     pBar.style.background = unlocked ? 'linear-gradient(90deg,#34d399,#10b981)' : 'linear-gradient(90deg,#3b82f6,#8b5cf6)';

@@ -59,10 +59,11 @@ async def buy_tg_gift(data: ActionData, current_user: dict = Depends(get_current
         raise HTTPException(status_code=502, detail="Не удалось отправить Telegram-подарок. Попробуйте позже.")
 
     # Логируем
+    gift_name = gift_def.get("name", f"Gift #{data.gift_id}")
     await database.log_action(
         tg_id,
         "tg_shop_buy",
-        f"Покупка лимит. подарка из магазина [gift_id:{data.gift_id}] за {gift_price} ⭐",
+        f"Покупка лимит. подарка '{gift_name}' [gift_id:{data.gift_id}] за {gift_price} ⭐",
         -gift_price,
     )
 

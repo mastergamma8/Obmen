@@ -56,7 +56,7 @@ async def get_all_user_ids() -> list[int]:
 # БАЛАНС И ЗВЁЗДЫ — АТОМАРНЫЕ ОПЕРАЦИИ
 # ==========================================
 
-async def add_points_to_user(user_id: int, points: int):
+async def add_points_to_user(user_id: int, points: float):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
             "UPDATE users SET balance = balance + ? WHERE tg_id = ?", (points, user_id)
@@ -83,7 +83,7 @@ async def deduct_stars(tg_id: int, amount: int) -> bool:
         await db.commit()
         return cur.rowcount == 1
 
-async def deduct_balance(user_id: int, amount: int) -> bool:
+async def deduct_balance(user_id: int, amount: float) -> bool:
     """
     Атомарное списание пончиков: UPDATE ... WHERE balance >= amount.
     Возвращает True только если строка реально обновилась.
@@ -184,7 +184,7 @@ async def mark_user_notified_free_case(user_id: int):
 # ПОКУПКА ПОДАРКОВ — АТОМАРНАЯ ТРАНЗАКЦИЯ
 # ==========================================
 
-async def claim_main_gift(user_id: int, gift_id: int, cost: int) -> bool:
+async def claim_main_gift(user_id: int, gift_id: int, cost: float) -> bool:
     """
     Атомарно списывает balance и добавляет подарок в инвентарь.
     Использует BEGIN IMMEDIATE для защиты от гонок.

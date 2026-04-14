@@ -524,7 +524,7 @@ def update_all_gifts_prices():
     """
     Обновляет цены BASE_GIFTS и MAIN_GIFTS из Portal Market API за один проход.
 
-    BASE_GIFTS : новая цена = floor_price × 0.8  (−20%), без дробей, минимум 1.
+    BASE_GIFTS : новая цена = floor_price × 0.85 (−15%), с дробями до 0.01, минимум 0.01.
     MAIN_GIFTS : новая цена = floor_price × 1.2  (+20%), без дробей, минимум 1.
 
     Сначала делается один батч-запрос (limit=300), затем точечные запросы
@@ -549,11 +549,11 @@ def update_all_gifts_prices():
 
     base_updated = main_updated = 0
 
-    # ── BASE_GIFTS: floor_price × 0.8, без дробей ────────────────────────
+    # ── BASE_GIFTS: floor_price × 0.85, с дробями до 0.01 ───────────────
     for gift_id, gift in BASE_GIFTS.items():
         fp = resolve_price(gift["name"])
         if fp and fp > 0:
-            BASE_GIFTS[gift_id]["value"] = max(1, int(fp * 0.85))
+            BASE_GIFTS[gift_id]["value"] = max(0.01, round(fp * 0.85, 2))
             base_updated += 1
 
     # ── MAIN_GIFTS: floor_price × 1.2, без дробей ────────────────────────

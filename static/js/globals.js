@@ -61,9 +61,17 @@ function hideAppLoader() {
     }, 500);
 }
 
+function formatBalance(val) {
+    const n = parseFloat(val) || 0;
+    if (n % 1 === 0) return n.toString();
+    // Show up to 2 decimal places, strip trailing zeros
+    return parseFloat(n.toFixed(2)).toString();
+}
+window.formatBalance = formatBalance;
+
 function updateUI() {
     const el = document.getElementById('balance-amount');
-    if (el) el.innerText = myBalance;
+    if (el) el.innerText = formatBalance(myBalance);
 
     const stEl = document.getElementById('stars-amount');
     if (stEl) stEl.innerText = myStars;

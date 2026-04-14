@@ -162,7 +162,7 @@ async function loadRichLeaderboard(list, stickyRank) {
         const isMe = (u.tg_id == tgUser.id || (u.username && tgUser.username && u.username === tgUser.username));
         if (isMe) currentUserRankData = { rank: index + 1, total_gifts: u.total_gifts };
 
-        const badge = `${u.total_gifts} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`;
+        const badge = `${formatBalance(u.total_gifts)} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`;
         list.innerHTML += buildCard(u, index, isMe, badge);
     });
 
@@ -179,7 +179,7 @@ async function loadRichLeaderboard(list, stickyRank) {
     if (stickyRank) {
         stickyRank.innerHTML = buildStickyRankHTML(
             rankText, myAvatar, myName,
-            `${totalGifts} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`,
+            `${formatBalance(totalGifts)} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`,
             'text-blue-100'
         );
         stickyRank.classList.remove('hidden');
