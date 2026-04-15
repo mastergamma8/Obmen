@@ -3,7 +3,7 @@ import httpx
 
 import config
 import database
-from handlers.models import TopupData
+from handlers.models import TopupData, PromoRedeemData
 from handlers.security import get_current_user
 
 router = APIRouter(prefix="/api", tags=["users"])
@@ -19,12 +19,14 @@ async def init_user(current_user: dict = Depends(get_current_user)):
     await database.upsert_user(tg_id, username, first_name, photo_url)
     user_data  = await database.get_user_data(tg_id)
     user_gifts = await database.get_user_gifts(tg_id)
+    promo_cases = await database.get_user_promo_cases(tg_id)
 
     return {
         "status": "ok",
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "user_gifts": user_gifts,
+        "promo_case_credits": {str(k): v for k, v in promo_cases.items()},
         "config": {
             "base_gifts":   config.BASE_GIFTS,
             "main_gifts":   config.MAIN_GIFTS,
@@ -40,6 +42,45 @@ async def init_user(current_user: dict = Depends(get_current_user)):
         },
     }
 
+
+
+@router.post("/promo/redeem")
+async def redeem_promo(data: PromoRedeemData, current_user: dict = Depends(get_current_user)):
+    tg_id = current_user["id"]
+    code = (data.code or "").strip().upper()
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Введите промокод")
+
+    success, status_key, promo = await database.redeem_promo_code(tg_id, code)
+    if not success:
+        messages = {
+            "promo_not_found": "Промокод не найден",
+            "promo_already_used": "Этот промокод уже использован вами",
+            "promo_no_uses": "У промокода закончились активации",
+        }
+        raise HTTPException(status_code=400, detail=messages.get(status_key, "Не удалось активировать промокод"))
+
+    user_data = await database.get_user_data(tg_id)
+    promo_cases = await database.get_user_promo_cases(tg_id)
+
+    reward_type = promo["reward_type"]
+    reward_value = promo["reward_value"]
+
+    detail = {
+        "type": reward_type,
+        "value": reward_value,
+        "case_id": promo["case_id"],
+        "code": promo["code"],
+    }
+
+    return {
+        "status": "ok",
+        "detail": detail,
+        "balance": user_data.get("balance", 0),
+        "stars": user_data.get("stars", 0),
+        "promo_case_credits": {str(k): v for k, v in promo_cases.items()},
+    }
 
 @router.post("/topup/stars")
 async def create_topup_invoice(data: TopupData, current_user: dict = Depends(get_current_user)):

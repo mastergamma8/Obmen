@@ -356,7 +356,35 @@
         </button>
         <button onclick="closeTgBuyModal()" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/15 active:scale-95 transition-transform" data-i18n="cancel">Отмена</button>
     </div>
-</div><!-- ===== NOTIFICATION MODAL (errors, success, warning, info) =====
+</div><!-- ==============================================
+     МОДАЛЬНОЕ ОКНО: ПРОМОКОД
+     ============================================== -->
+<div id="promo-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-[250] p-5 transition-opacity">
+    <div class="glass-panel rounded-3xl p-6 w-full max-w-sm border border-emerald-500/20 shadow-[0_0_40px_rgba(16,185,129,0.15)] flex flex-col">
+        <button onclick="closeModal('promo-modal')" class="absolute top-4 right-4 text-white/40 hover:text-white transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+
+        <div class="text-center mb-5 mt-1">
+            <div class="w-16 h-16 mx-auto rounded-full bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                <svg class="w-8 h-8 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3a1 1 0 0 1 .894.553L13.618 7h4.382a1 1 0 0 1 .707 1.707l-3.535 3.535 1.617 4.765a1 1 0 0 1-1.547 1.146L11 14.999l-4.242 2.154a1 1 0 0 1-1.547-1.146l1.617-4.765-3.535-3.535A1 1 0 0 1 4 7h4.382l1.724-3.447A1 1 0 0 1 11 3Z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white glow-text" data-i18n="promo_title">Промокод</h3>
+            <p class="text-xs text-emerald-100/60 mt-1" data-i18n="promo_input_ph">Введите промокод</p>
+        </div>
+
+        <div class="relative mb-5">
+            <input id="promo-code-input" type="text" autocomplete="off" maxlength="48" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 transition-colors placeholder-white/30 text-center font-bold uppercase tracking-widest" placeholder="PROMO123" onkeydown="if(event.key==='Enter'){redeemPromoCode();}">
+        </div>
+
+        <button id="promo-redeem-btn" onclick="redeemPromoCode()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 shadow-[0_0_20px_rgba(16,185,129,0.28)] text-white py-3.5 rounded-xl font-bold text-lg mb-3 active:scale-[0.98] transition-transform flex items-center justify-center gap-2" data-i18n="promo_redeem">
+            Активировать
+        </button>
+        <button onclick="closeModal('promo-modal')" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="cancel">Отмена</button>
+    </div>
+</div>
+
+<!-- ===== NOTIFICATION MODAL (errors, success, warning, info) =====
 
 <!-- ===== КРАСИВЫЕ УВЕДОМЛЕНИЯ ===== -->
 <div id="notify-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center z-[300] p-5" style="transition:opacity .2s;">

@@ -4,6 +4,7 @@
 from db.db_core import DB_NAME, GIFT_WITHDRAW_COOLDOWN, GIFT_CLAIM_COOLDOWN  # noqa: F401
 
 from db.db_init import init_db, init_rocket_games_table  # noqa: F401
+from db.db_promos import init_promo_tables  # noqa: F401
 
 from db.db_users import (  # noqa: F401
     upsert_user,
@@ -76,4 +77,16 @@ from db.db_rocket import (  # noqa: F401
     rocket_start_atomic,
     rocket_get_game,
     rocket_end_game,
+)
+
+from db.db_promos import (  # noqa: F401
+    create_promo_code,
+    delete_promo_code,
+    get_promo_code,
+    has_user_redeemed_promo,
+    get_user_promo_cases,
+    remove_user_promo_case,
+    consume_user_promo_case,
+    redeem_promo_code,
+    get_all_promo_codes,
 )

@@ -37,15 +37,18 @@ async def get_referrals(user_id: int):
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
-async def distribute_referral_bonus(user_id: int, gift_value: int):
+async def distribute_referral_bonus(user_id: int, gift_value: float):
     """Начисляет реферальный бонус пригласившему пользователю.
 
-    Бонус = 10% от стоимости подарка. Если реферера нет — ничего не происходит.
+    Бонус = 10% от стоимости подарка (с дробями, до 4 знаков).
+    Если бонус равен нулю или реферера нет — ничего не происходит.
     """
     referrer_id = await get_referrer(user_id)
     if not referrer_id:
         return
-    bonus = max(1, int(gift_value * 0.10))
+    bonus = round(gift_value * 0.10, 2)
+    if bonus <= 0:
+        return
     await add_points_to_user(referrer_id, bonus)
     await add_history_entry(
         referrer_id,

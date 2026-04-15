@@ -42,3 +42,8 @@ class TopupData(BaseModel):
 class AdminBankTopup(BaseModel):
     amount:     int
     asset_type: str = "stars"   # "stars" | "donuts"
+
+
+
+class PromoRedeemData(BaseModel):
+    code: str

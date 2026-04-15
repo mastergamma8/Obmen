@@ -40,6 +40,74 @@ async function performGiftAction(giftId, action) {
     return { res, data };
 }
 
+async function redeemPromoCode() {
+    const input = document.getElementById('promo-code-input');
+    const code = (input?.value || '').trim();
+
+    if (!code) {
+        showNotify(i18n[currentLang]?.promo_empty || 'Введите промокод', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('promo-redeem-btn');
+    const original = btn ? btn.innerText : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = i18n[currentLang]?.processing || '⏳ Обработка...';
+    }
+
+    try {
+        const res = await fetch('/api/promo/redeem', {
+            method: 'POST',
+            headers: getApiHeaders(),
+            body: JSON.stringify({ code })
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.status !== 'ok') {
+            showNotify(data.detail || i18n[currentLang]?.promo_error || 'Не удалось активировать промокод', 'error');
+            return;
+        }
+
+        if (data.balance !== undefined) myBalance = data.balance;
+        if (data.stars !== undefined) myStars = data.stars;
+        if (data.promo_case_credits) myPromoCases = data.promo_case_credits;
+        updateUI();
+        if (typeof renderCasesGrid === 'function') renderCasesGrid();
+        closeModal('promo-modal');
+
+        const detail = data.detail || {};
+        let msg = i18n[currentLang]?.promo_success || 'Промокод активирован!';
+        if (detail.type === 'case') {
+            const caseName = (casesConfig && casesConfig[detail.case_id]) ? casesConfig[detail.case_id].name : `#${detail.case_id}`;
+            msg = (i18n[currentLang]?.promo_case_success || 'Вы получили бесплатный кейс: {case}.')
+                .replace('{case}', caseName);
+        } else if (detail.type === 'stars') {
+            msg = (i18n[currentLang]?.promo_stars_success || 'Начислено {value} ⭐ по промокоду.')
+                .replace('{value}', detail.value);
+        } else if (detail.type === 'donuts') {
+            msg = (i18n[currentLang]?.promo_donuts_success || 'Начислено {value} 🍩 по промокоду.')
+                .replace('{value}', detail.value);
+        }
+        showNotify(msg, 'success');
+    } catch (e) {
+        showNotify(i18n[currentLang]?.err_conn || 'Ошибка соединения', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = original || (i18n[currentLang]?.promo_redeem || 'Активировать');
+        }
+    }
+}
+
+function openPromoModal() {
+    const input = document.getElementById('promo-code-input');
+    if (input) input.value = '';
+    openModal('promo-modal');
+    setTimeout(() => input?.focus(), 150);
+}
+
+
 // ── State sync after server response ────────────────────────────────────────
 
 function syncGiftStateFromResponse(data) {
@@ -47,6 +115,7 @@ function syncGiftStateFromResponse(data) {
     if (data.balance  !== undefined) myBalance = data.balance;
     if (data.stars    !== undefined) myStars   = data.stars;
     if (data.user_gifts) myGifts = data.user_gifts;
+    if (data.promo_case_credits) myPromoCases = data.promo_case_credits;
     if (typeof updateUI      === 'function') updateUI();
     if (typeof renderProfile === 'function') renderProfile();
 }
@@ -98,3 +167,6 @@ window.getTgGiftExchangeStars  = getTgGiftExchangeStars;
 window.performGiftAction       = performGiftAction;
 window.syncGiftStateFromResponse = syncGiftStateFromResponse;
 window.renderProfile           = renderProfile;
+
+window.openPromoModal = openPromoModal;
+window.redeemPromoCode = redeemPromoCode;

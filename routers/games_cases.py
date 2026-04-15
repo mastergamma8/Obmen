@@ -212,6 +212,104 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
     }
 
 
+@router.post("/open_promo")
+async def open_promo_case(data: ActionData, current_user: dict = Depends(get_current_user)):
+    tg_id = current_user["id"]
+    case_id = data.gift_id
+
+    if case_id not in config.CASES_CONFIG:
+        raise HTTPException(status_code=400, detail="Case not found")
+
+    consumed = await database.consume_user_promo_case(tg_id, case_id)
+    if not consumed:
+        raise HTTPException(status_code=400, detail="У вас нет бесплатного открытия для этого кейса")
+
+    case     = config.CASES_CONFIG[case_id]
+    currency = case.get("currency", "donuts")
+
+    await database.add_history_entry(
+        tg_id,
+        "case_promo_open",
+        f"Promo case opened: '{case['name']}' [case_id:{case_id}]",
+        0,
+    )
+
+    win_item  = await _roll_item_bank_aware(case["items"], currency)
+    win_value = _get_item_value_stars(win_item)
+
+    if win_value > 0:
+        if win_item["type"] == "gift":
+            payout_type   = "gift_value"
+            payout_amount = _get_item_value_stars(win_item)
+        else:
+            payout_type   = win_item["type"]
+            payout_amount = win_item.get("amount", 0)
+
+        paid = await database.bank_payout(payout_amount, asset_type=payout_type)
+        if not paid:
+            bank_max = await database.bank_get_max_payout(asset_type=currency)
+            affordable_items = [i for i in case["items"] if _get_item_value_stars(i) <= bank_max]
+
+            if affordable_items:
+                win_item      = min(affordable_items, key=lambda i: _get_item_value_stars(i))
+                win_value     = _get_item_value_stars(win_item)
+                if win_item["type"] == "gift":
+                    fallback_payout_type   = "gift_value"
+                    fallback_payout_amount = win_value
+                else:
+                    fallback_payout_type   = win_item["type"]
+                    fallback_payout_amount = win_item.get("amount", 0)
+                if win_value > 0:
+                    fallback_paid = await database.bank_payout(fallback_payout_amount, asset_type=fallback_payout_type)
+                    if not fallback_paid:
+                        await database.add_history_entry(
+                            tg_id, "case_bank_empty",
+                            f"Promo case '{case['name']}' — bank exhausted, prize not issued", 0
+                        )
+                        updated_user  = await database.get_user_data(tg_id)
+                        updated_gifts = await database.get_user_gifts(tg_id)
+                        promo_cases = await database.get_user_promo_cases(tg_id)
+                        return {
+                            "status": "bank_empty",
+                            "win_item": None,
+                            "balance": updated_user["balance"],
+                            "stars": updated_user["stars"],
+                            "user_gifts": updated_gifts,
+                            "promo_case_credits": {str(k): v for k, v in promo_cases.items()},
+                        }
+            else:
+                await database.add_history_entry(
+                    tg_id, "case_bank_empty",
+                    f"Promo case '{case['name']}' — bank exhausted, prize not issued", 0
+                )
+                updated_user  = await database.get_user_data(tg_id)
+                updated_gifts = await database.get_user_gifts(tg_id)
+                promo_cases = await database.get_user_promo_cases(tg_id)
+                return {
+                    "status": "bank_empty",
+                    "win_item": None,
+                    "balance": updated_user["balance"],
+                    "stars": updated_user["stars"],
+                    "user_gifts": updated_gifts,
+                    "promo_case_credits": {str(k): v for k, v in promo_cases.items()},
+                }
+
+    await _apply_win(tg_id, win_item, case, 0, case_id=f"promo:{case_id}")
+
+    updated_user  = await database.get_user_data(tg_id)
+    updated_gifts = await database.get_user_gifts(tg_id)
+    promo_cases = await database.get_user_promo_cases(tg_id)
+
+    return {
+        "status": "ok",
+        "win_item": win_item,
+        "balance": updated_user["balance"],
+        "stars": updated_user["stars"],
+        "user_gifts": updated_gifts,
+        "promo_case_credits": {str(k): v for k, v in promo_cases.items()},
+    }
+
+
 # ─── Бесплатный кейс (раз в 24 ч) ────────────────────────────────────────────
 
 @router.get("/free_status")

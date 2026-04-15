@@ -41,6 +41,7 @@ class SendMessage(StatesGroup):
 
 def register(dp: Dispatcher, bot: Bot):
 
+
     @dp.message(Command("addgift"))
     async def cmd_add_gift(message: Message):
         if message.from_user.id != config.ADMIN_ID:
@@ -60,11 +61,15 @@ def register(dp: Dispatcher, bot: Bot):
             gift_id = int(args[2])
             amount = int(args[3])
 
+            if amount <= 0:
+                await message.answer("Количество должно быть больше 0.")
+                return
+
             # Кнопка теперь зеленая и с премиум иконкой глаз
             profile_markup = InlineKeyboardMarkup(inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="Посмотреть в профиле", 
+                        text="Посмотреть в профиле",
                         web_app=WebAppInfo(url=config.WEBAPP_URL),
                         style=ButtonStyle.SUCCESS,
                         icon_custom_emoji_id=ID_EYES
@@ -76,13 +81,15 @@ def register(dp: Dispatcher, bot: Bot):
                 await message.answer(f"{E_TIME} Получаю актуальную цену из API...", parse_mode="HTML")
                 await asyncio.to_thread(config.update_base_gifts_prices)
 
-                fresh_value = config.BASE_GIFTS[gift_id]['value']
-                points_to_add = amount * fresh_value
+                fresh_value = float(config.BASE_GIFTS[gift_id]['value'])
+                points_to_add = round(amount * fresh_value, 4)
                 gift_name = config.BASE_GIFTS[gift_id]['name']
 
                 await database.add_points_to_user(user_id, points_to_add)
                 await database.add_history_entry(
-                    user_id, "gift_added", f"Добавлен подарок: {gift_name} ({amount} шт.) [gift_id:{gift_id}]", points_to_add
+                    user_id, "gift_added",
+                    f"Добавлен подарок: {gift_name} ({amount} шт.) [gift_id:{gift_id}]",
+                    points_to_add
                 )
 
                 await message.answer(
@@ -103,26 +110,25 @@ def register(dp: Dispatcher, bot: Bot):
                 except Exception as e:
                     logging.warning(f"Не удалось отправить уведомление пользователю {user_id}: {e}")
 
-                # Реферальная система 10%
                 referrer_id = await database.get_referrer(user_id)
                 if referrer_id:
-                    ref_bonus = max(1, int(points_to_add * 0.1))
-                    await database.add_points_to_user(referrer_id, ref_bonus)
-                    await database.add_history_entry(
-                        referrer_id, "referral_bonus", "Реферальный бонус от подарка друга", ref_bonus
-                    )
-                    try:
-                        await bot.send_message(
-                            referrer_id,
-                            f"{E_PARTY} Ваш реферал добавил подарок!\nВам начислено <b>{ref_bonus} {E_DONUT}</b> (10% бонус).",
-                            parse_mode="HTML"
-                        )
-                    except Exception:
-                        pass
+                    bonus = round(points_to_add * 0.10, 2)
+                    if bonus > 0:
+                        await database.distribute_referral_bonus(user_id, points_to_add)
+                        try:
+                            await bot.send_message(
+                                referrer_id,
+                                f"{E_PARTY} Ваш реферал добавил подарок!\n"
+                                f"Вам начислено <b>{bonus} {E_DONUT}</b> (10% бонус за {gift_name}).",
+                                parse_mode="HTML"
+                            )
+                        except Exception:
+                            pass
 
             elif gift_id in getattr(config, "TG_GIFTS", {}):
                 await database.add_gift_to_user(user_id, gift_id, amount)
-                gift_name = config.TG_GIFTS[gift_id]['name']
+                gift_name = config.TG_GIFTS[gift_id]['name'] or f"TG gift {gift_id}"
+
                 await database.add_history_entry(
                     user_id, "gift_added", f"Добавлен подарок: {gift_name} ({amount} шт.) [gift_id:{gift_id}]", 0
                 )
@@ -145,6 +151,7 @@ def register(dp: Dispatcher, bot: Bot):
             elif gift_id in config.MAIN_GIFTS:
                 await database.add_gift_to_user(user_id, gift_id, amount)
                 gift_name = config.MAIN_GIFTS[gift_id]['name']
+
                 await database.add_history_entry(
                     user_id, "gift_added", f"Добавлен подарок: {gift_name} ({amount} шт.) [gift_id:{gift_id}]", 0
                 )
@@ -169,7 +176,6 @@ def register(dp: Dispatcher, bot: Bot):
 
         except ValueError:
             await message.answer("Ошибка: ID и Количество должны быть числами.")
-
     @dp.message(Command("addstars"))
     async def cmd_add_stars(message: Message):
         if message.from_user.id != config.ADMIN_ID:
@@ -456,6 +462,140 @@ def register(dp: Dispatcher, bot: Bot):
                 f"{E_CROSS} Некорректное значение. Введите число, например: <code>0.015</code>",
                 parse_mode="HTML"
             )
+
+
+    @dp.message(Command("addpromo"))
+    async def cmd_add_promo(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        args = message.text.split()
+        if len(args) < 5:
+            await message.answer(
+                "<b>Создание промокода</b>\n\n"
+                "Использование:\n"
+                "<code>/addpromo CODE donuts AMOUNT USES</code>\n"
+                "<code>/addpromo CODE stars AMOUNT USES</code>\n"
+                "<code>/addpromo CODE case CASE_ID USES</code>\n\n"
+                "Примеры:\n"
+                "<code>/addpromo DONUTS100 donuts 100 50</code>\n"
+                "<code>/addpromo STAR10 stars 10 100</code>\n"
+                "<code>/addpromo CASE7 case 7 25</code>",
+                parse_mode="HTML"
+            )
+            return
+
+        code = args[1].strip().upper()
+        reward_type = args[2].strip().lower()
+
+        try:
+            if reward_type in ("donuts", "stars"):
+                reward_value = int(args[3])
+                max_uses = int(args[4])
+                case_id = None
+            elif reward_type == "case":
+                case_id = int(args[3])
+                max_uses = int(args[4])
+                reward_value = 0
+            else:
+                await message.answer(f"{E_CROSS} Тип награды должен быть donuts, stars или case.", parse_mode="HTML")
+                return
+        except ValueError:
+            await message.answer(f"{E_CROSS} AMOUNT / USES / CASE_ID должны быть числами.", parse_mode="HTML")
+            return
+
+        if max_uses <= 0:
+            await message.answer(f"{E_CROSS} Количество активаций должно быть больше 0.", parse_mode="HTML")
+            return
+
+        if reward_type in ("donuts", "stars") and reward_value <= 0:
+            await message.answer(f"{E_CROSS} Количество награды должно быть больше 0.", parse_mode="HTML")
+            return
+
+        if reward_type == "case" and case_id not in config.CASES_CONFIG:
+            await message.answer(f"{E_CROSS} Кейса с ID {case_id} нет в конфиге.", parse_mode="HTML")
+            return
+
+        created = await database.create_promo_code(
+            code=code,
+            reward_type=reward_type,
+            reward_value=reward_value,
+            max_uses=max_uses,
+            case_id=case_id,
+            created_by=message.from_user.id,
+        )
+
+        if not created:
+            await message.answer(f"{E_CROSS} Промокод <code>{code}</code> уже существует.", parse_mode="HTML")
+            return
+
+        if reward_type == "case":
+            reward_text = f"бесплатный кейс <b>#{case_id}</b>"
+        elif reward_type == "stars":
+            reward_text = f"<b>{reward_value}</b> {E_STAR}"
+        else:
+            reward_text = f"<b>{reward_value}</b> {E_DONUT}"
+
+        await message.answer(
+            f"{E_CHECK} Промокод <code>{code}</code> создан.\n\n"
+            f"Награда: {reward_text}\n"
+            f"Активаций: <b>{max_uses}</b>",
+            parse_mode="HTML"
+        )
+
+    @dp.message(Command("promos"))
+    async def cmd_list_promos(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        promos = await database.get_all_promo_codes()
+        if not promos:
+            await message.answer("Промокодов пока нет.")
+            return
+
+        lines = ["<b>Активные промокоды</b>\n"]
+        for promo in promos[:30]:
+            if promo["reward_type"] == "case":
+                reward = f"case #{promo['case_id']}"
+            elif promo["reward_type"] == "stars":
+                reward = f"{promo['reward_value']} ⭐"
+            else:
+                reward = f"{promo['reward_value']} 🍩"
+            lines.append(
+                f"<code>{promo['code']}</code> — {reward} | "
+                f"осталось: <b>{promo['uses_left']}</b>/<b>{promo['max_uses']}</b>"
+            )
+
+        await message.answer("\n".join(lines), parse_mode="HTML")
+
+    @dp.message(Command("delpromo"))
+    async def cmd_del_promo(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2 or not args[1].strip():
+            await message.answer(
+                "<b>Удаление промокода</b>\n\n"
+                "Использование:\n"
+                "<code>/delpromo CODE</code>\n\n"
+                "Пример:\n"
+                "<code>/delpromo DONUTS100</code>",
+                parse_mode="HTML"
+            )
+            return
+
+        code = args[1].strip().upper()
+        deleted = await database.delete_promo_code(code)
+
+        if not deleted:
+            await message.answer(f"{E_CROSS} Промокод <code>{code}</code> не найден.", parse_mode="HTML")
+            return
+
+        await message.answer(f"{E_CHECK} Промокод <code>{code}</code> удалён.", parse_mode="HTML")
 
     @dp.message(Command("genfakeusers"))
     async def cmd_gen_fake_users(message: Message):

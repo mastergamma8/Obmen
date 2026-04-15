@@ -13,6 +13,7 @@ let casesConfig = {};
 let myGifts = {};
 let myBalance = 0;
 let myStars = 0; // <-- НОВЫЙ БАЛАНС ЗВЕЗД
+let myPromoCases = {};
 let freeCaseConfig = null;
 let botUsername = '';
 let openTasksState = {};

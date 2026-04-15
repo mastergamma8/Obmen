@@ -85,6 +85,37 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS promo_codes (
+                code TEXT PRIMARY KEY,
+                reward_type TEXT NOT NULL,
+                reward_value INTEGER NOT NULL DEFAULT 0,
+                case_id INTEGER DEFAULT NULL,
+                max_uses INTEGER NOT NULL DEFAULT 1,
+                uses_left INTEGER NOT NULL DEFAULT 1,
+                created_by INTEGER DEFAULT NULL,
+                created_at INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS promo_redemptions (
+                user_id INTEGER NOT NULL,
+                code TEXT NOT NULL,
+                redeemed_at INTEGER NOT NULL,
+                PRIMARY KEY (user_id, code)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_promo_cases (
+                user_id INTEGER NOT NULL,
+                case_id INTEGER NOT NULL,
+                amount INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (user_id, case_id)
+            )
+        """)
+
         await db.commit()
 
 

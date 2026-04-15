@@ -282,6 +282,60 @@ async function buyAndOpenFreeCase() {
     }
 }
 
+
+function getPromoCaseCount(caseId) {
+    const key = String(caseId);
+    return parseInt((myPromoCases && (myPromoCases[key] ?? myPromoCases[caseId])) || 0, 10) || 0;
+}
+
+async function openPromoCase(caseId) {
+    if (isOpeningCase) return;
+    isOpeningCase = true;
+
+    const btn = document.getElementById('btn-open-case');
+    const originalBtnHTML = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.classList.add('btn-disabled');
+        btn.innerHTML = `<span>${(i18n[currentLang] && i18n[currentLang].processing) ? i18n[currentLang].processing : '⏳ Обработка...'}</span>`;
+    }
+
+    try {
+        const res = await fetch('/api/cases/open_promo', {
+            method: 'POST',
+            headers: getApiHeaders(),
+            body: JSON.stringify({ gift_id: caseId })
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.status !== 'ok') {
+            showNotify(data.detail || 'Error', 'error');
+            return;
+        }
+
+        if (data.balance !== undefined) myBalance = data.balance;
+        if (data.stars !== undefined) myStars = data.stars;
+        if (data.user_gifts) myGifts = data.user_gifts;
+        if (data.promo_case_credits) myPromoCases = data.promo_case_credits;
+        if (typeof updateUI === 'function') updateUI();
+
+        if (typeof closeModal === 'function') closeModal('case-details-modal');
+        const c = casesConfig[String(caseId)] || casesConfig[caseId];
+        if (c) playCaseAnimation(c, data.win_item);
+
+        showNotify((i18n[currentLang] && i18n[currentLang].promo_case_opened) ? i18n[currentLang].promo_case_opened : 'Кейс открыт бесплатно!', 'success');
+        if (typeof renderCasesGrid === 'function') renderCasesGrid();
+    } catch (e) {
+        console.error('openPromoCase error:', e);
+        showNotify((i18n[currentLang] && i18n[currentLang].err_conn) ? i18n[currentLang].err_conn : 'Ошибка соединения', 'error');
+    } finally {
+        isOpeningCase = false;
+        if (btn) {
+            btn.classList.remove('btn-disabled');
+            btn.innerHTML = originalBtnHTML;
+        }
+    }
+}
+
 // ── Cases Grid ────────────────────────────────────────────────────────────────
 
 function renderCasesGrid() {
@@ -306,9 +360,11 @@ function renderCasesGrid() {
         card.className = "glass rounded-3xl p-4 flex flex-col items-center justify-between text-center cursor-pointer transition-transform border border-indigo-400/30 shadow-[0_10px_20px_rgba(0,0,0,0.4)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] bg-gradient-to-b from-indigo-500/20 to-black/40 relative overflow-hidden group";
         card.onclick = () => openCaseDetails(id);
 
+        const promoCount = getPromoCaseCount(id);
         card.innerHTML = `
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
             <div class="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 bg-indigo-500/30 blur-[30px] rounded-full pointer-events-none group-hover:bg-indigo-400/40 transition-colors"></div>
+            ${promoCount > 0 ? `<div class="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg z-20">FREE ×${promoCount}</div>` : ''}
 
             <div class="w-24 h-24 mb-3 relative z-10">
                 <img src="${escapeHtml(photoUrl)}" class="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.6)] transition-all duration-300" onerror="this.src='https://via.placeholder.com/96?text=📦'">
@@ -352,7 +408,12 @@ function openCaseDetails(caseId) {
     const currentBal = c.currency === 'stars' ? myStars : myBalance;
 
     const btn = document.getElementById('btn-open-case');
-    if (!isDemoMode && currentBal < c.price) {
+    const promoCount = getPromoCaseCount(caseId);
+    if (promoCount > 0) {
+        btn.classList.remove('opacity-50', 'pointer-events-none');
+        btn.innerHTML = `<span>${(i18n[currentLang] && i18n[currentLang].promo_open_free) ? i18n[currentLang].promo_open_free : 'Открыть бесплатно'}</span> <span class="flex items-center gap-1 text-emerald-300">×${promoCount} <img src="/gifts/stars.png" class="w-5 h-5 object-contain"></span>`;
+        btn.onclick = () => openPromoCase(caseId);
+    } else if (!isDemoMode && currentBal < c.price) {
         btn.classList.add('opacity-50', 'pointer-events-none');
         const notEnoughKey = c.currency === 'stars' ? 'not_enough_stars' : 'not_enough_donuts';
         const txt = (i18n[currentLang] && i18n[currentLang][notEnoughKey]) ? i18n[currentLang][notEnoughKey] : 'Недостаточно средств!';

@@ -39,6 +39,7 @@ const HISTORY_ICONS = {
     case_paid_donuts:     { icon: '📦', color: 'red',    sign: '-' },
     case_paid_stars:      { icon: '📦', color: 'red',    sign: '-' },
     case_free_open:       { icon: '🎁', color: 'green',  sign: null },
+    case_promo_open:      { icon: '📦', color: 'green',  sign: null },
 
     // ── Rocket ───────────────────────────────────────────────────────────────
     rocket_win_donuts:    { icon: '🚀', color: 'green',  sign: '+' },
@@ -97,6 +98,7 @@ const HISTORY_LABELS = {
         case_paid_donuts:     'Открытие кейса',
         case_paid_stars:      'Открытие кейса',
         case_free_open:       'Бесплатный кейс',
+        case_promo_open:      'Промо-кейс',
         rocket_win_donuts:    'Выигрыш в ракете',
         rocket_win_stars:     'Выигрыш в ракете',
         rocket_lose_donuts:   'Проигрыш в ракете',
@@ -131,6 +133,7 @@ const HISTORY_LABELS = {
         case_paid_donuts:     'Case opened',
         case_paid_stars:      'Case opened',
         case_free_open:       'Free case',
+        case_promo_open:      'Promo case',
         rocket_win_donuts:    'Rocket win',
         rocket_win_stars:     'Rocket win',
         rocket_lose_donuts:   'Rocket loss',
@@ -183,6 +186,7 @@ function getHistoryGiftPhoto(entry) {
     const caseAssetTypes = new Set([
         'case_win_donuts', 'case_win_stars',
         'case_paid_donuts', 'case_paid_stars',
+        'case_promo_open',
     ]);
     if (caseAssetTypes.has(entry.action_type) && entry.description) {
         const caseMatch = entry.description.match(/\[case_id:([^\]]+)\]/);
@@ -217,19 +221,21 @@ function getHistoryGiftPhoto(entry) {
 function _buildAmountHtml(entry, meta) {
     const useStars    = STAR_AMOUNT_TYPES.has(entry.action_type);
     const currencyUrl = useStars ? '/gifts/stars.png' : '/gifts/dount.png';
-    const absAmount   = Math.abs(entry.amount);
+    const rawAbs      = Math.abs(entry.amount);
+    // For donut-denominated amounts use formatBalance so fractions render correctly
+    const absAmount   = useStars ? rawAbs : formatBalance(rawAbs);
 
     if (entry.action_type === 'tg_shop_buy') {
         // Always show as negative stars, regardless of stored sign
         return `<span class="text-red-400 font-extrabold text-base flex items-center gap-1">
-                    -${absAmount}
+                    -${rawAbs}
                     <img src="/gifts/stars.png" class="w-4 h-4 object-contain">
                 </span>`;
     }
 
     if (meta.sign === '+' && entry.amount > 0) {
         return `<span class="text-green-400 font-extrabold text-base flex items-center gap-1">
-                    +${entry.amount}
+                    +${absAmount}
                     <img src="${currencyUrl}" class="w-4 h-4 object-contain">
                 </span>`;
     }
@@ -274,6 +280,7 @@ function _buildEntryTitle(entry) {
     const caseActionTypes = new Set([
         'case_win_donuts', 'case_win_stars',
         'case_paid_donuts', 'case_paid_stars', 'case_free_open',
+        'case_promo_open',
     ]);
     if (caseActionTypes.has(entry.action_type) && entry.description) {
         const nameMatch = entry.description.match(/Case '([^']+)'/);
@@ -281,8 +288,11 @@ function _buildEntryTitle(entry) {
             const caseName = nameMatch[1];
             const isWin    = entry.action_type.startsWith('case_win');
             const isFree   = entry.action_type === 'case_free_open';
+            const isPromo  = entry.action_type === 'case_promo_open';
             if (isFree) {
                 title = currentLang === 'ru' ? 'Бесплатный кейс' : 'Free case';
+            } else if (isPromo) {
+                title = currentLang === 'ru' ? `Промо-кейс: ${caseName}` : `Promo case: ${caseName}`;
             } else if (isWin) {
                 title = currentLang === 'ru' ? `Выигрыш: ${caseName}` : `Win: ${caseName}`;
             } else {
