@@ -21,6 +21,9 @@ async def init_user(current_user: dict = Depends(get_current_user)):
     user_gifts = await database.get_user_gifts(tg_id)
     promo_cases = await database.get_user_promo_cases(tg_id)
 
+    feature_flags    = await database.get_feature_flags()
+    maintenance_mode = await database.get_maintenance_mode()
+
     return {
         "status": "ok",
         "balance": user_data.get("balance", 0),
@@ -40,6 +43,8 @@ async def init_user(current_user: dict = Depends(get_current_user)):
             "gift_exchange_stars_rate": getattr(config, "GIFT_EXCHANGE_STARS_RATE", 0.01),
             "free_case":    getattr(config, "FREE_CASE_CONFIG", None),
         },
+        "feature_flags":    feature_flags,
+        "maintenance_mode": maintenance_mode,
     }
 
 
@@ -175,3 +180,14 @@ async def get_lucky_leaderboard(current_user: dict = Depends(get_current_user)):
     if user_rank:
         user_rank["rank"] = _cap_rank(user_rank["rank"])
     return {"leaderboard": board, "user_info": user_rank}
+
+
+
+@router.get("/features")
+async def get_features():
+    """Публичный эндпоинт — возвращает флаги видимости и режим обслуживания.
+    Не требует авторизации, чтобы показывать maintenance-экран до /init."""
+    return {
+        "maintenance_mode": await database.get_maintenance_mode(),
+        "feature_flags":    await database.get_feature_flags(),
+    }

@@ -17,17 +17,46 @@
     </div>
 </div>
 
-<div id="add-gift-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-5 transition-opacity">
-    <div class="glass-panel rounded-3xl p-8 w-full max-w-sm text-center border border-white/10 shadow-2xl">
-        <div class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-5 bg-gradient-to-tr from-blue-500/20 to-purple-500/20 border border-white/10 glow-box">
-            <img src="/gifts/pepe.png" class="w-16 h-16 object-contain drop-shadow-lg" onerror="this.src='https://via.placeholder.com/64?text=🎁'">
+<!-- НОВОЕ МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ПОДАРКА -->
+<div id="add-gift-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center z-[100] p-0 sm:p-5 transition-opacity">
+    <div class="glass-panel w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-6 border-t border-x sm:border-b border-white/10 shadow-2xl animate-slide-up flex flex-col relative overflow-hidden">
+        <!-- Декоративное свечение на фоне -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[200%] h-32 bg-blue-500/10 blur-[50px] rounded-full pointer-events-none"></div>
+
+        <!-- Полоска для свайпа на мобильных -->
+        <div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-4 sm:hidden"></div>
+
+        <!-- КАРТИНКА В КРУГЕ -->
+        <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-tr from-blue-500/20 to-purple-500/20 border border-white/10 glow-box relative z-10 shadow-[0_0_25px_rgba(59,130,246,0.25)]">
+            <img src="/gifts/pepe.png" class="w-14 h-14 object-contain drop-shadow-lg" onerror="this.src='https://via.placeholder.com/64?text=🎁'">
         </div>
-        <h3 class="text-2xl font-bold mb-3 text-white flex items-center justify-center gap-2">
+
+        <h3 class="text-2xl font-black mb-5 text-white text-center flex items-center justify-center gap-2 relative z-10">
             <span data-i18n="how_to_get">Как получить</span>
-            <img src="/gifts/dount.png" class="w-6 h-6 object-contain">?
+            <img src="/gifts/dount.png" class="w-6 h-6 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">?
         </h3>
-        <p class="text-sm text-blue-100/70 mb-8 leading-relaxed" id="how-to-desc"></p>
-        <button onclick="closeModal('add-gift-modal')" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/20 active:scale-95 transition-transform" data-i18n="understood">Понятно</button>
+
+        <div class="space-y-3 mb-6 relative z-10 text-left">
+            <!-- Шаг 1 -->
+            <div class="flex items-center gap-4 bg-black/40 p-4 rounded-2xl border border-white/5 shadow-inner">
+                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0 border border-blue-400/30 text-blue-400 font-extrabold text-lg shadow-[0_0_15px_rgba(59,130,246,0.2)]">1</div>
+                <div class="text-[13px] text-white/80 leading-snug font-medium" data-i18n="how_to_step1">Выберите любой NFT-подарок в Telegram</div>
+            </div>
+
+            <!-- Шаг 2 -->
+            <div class="flex items-center gap-4 bg-black/40 p-4 rounded-2xl border border-white/5 shadow-inner">
+                <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0 border border-purple-400/30 text-purple-400 font-extrabold text-lg shadow-[0_0_15px_rgba(168,85,247,0.2)]">2</div>
+                <div class="text-[13px] text-white/80 leading-snug font-medium" data-i18n="how_to_step2">Отправьте его на аккаунт <span onclick="tg.openTelegramLink('https://t.me/SpaceDonutGifts')" class="text-blue-400 cursor-pointer font-bold underline decoration-blue-400/50 underline-offset-2">@SpaceDonutGifts</span></div>
+            </div>
+
+            <!-- Шаг 3 -->
+            <div class="flex items-center gap-4 bg-gradient-to-r from-amber-500/10 to-orange-500/5 p-4 rounded-2xl border border-amber-500/20 relative overflow-hidden shadow-[0_0_20px_rgba(245,158,11,0.1)]">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 border border-white/20 text-white font-extrabold text-lg shadow-[0_0_15px_rgba(245,158,11,0.4)] relative z-10">3</div>
+                <div class="text-[13px] text-white leading-snug font-bold relative z-10" data-i18n="how_to_step3">Подарки автоматически конвертируются в пончики <img src="/gifts/dount.png" class="w-5 h-5 inline-block align-middle object-contain drop-shadow-md"> для вашего баланса!</div>
+            </div>
+        </div>
+
+        <button onclick="closeModal('add-gift-modal')" class="w-full bg-white/10 hover:bg-white/15 py-4 rounded-xl font-bold text-white border border-white/10 active:scale-95 transition-all relative z-10" data-i18n="understood">Понятно</button>
     </div>
 </div>
 
@@ -241,7 +270,6 @@
 <!-- ==============================================
      НОВОЕ ОКНО: ПОПОЛНЕНИЕ ЗВЕЗДАМИ
      ============================================== -->
-<!-- ИСПРАВЛЕНО: Добавлен скролл на весь контейнер, чтобы кнопки не наезжали при вводе -->
 <div id="topup-stars-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 overflow-y-auto transition-opacity">
     <div class="min-h-full flex items-center justify-center p-4 py-8">
         <div class="glass-panel rounded-3xl p-6 w-full max-w-sm border border-yellow-500/20 shadow-[0_0_40px_rgba(250,204,21,0.15)] flex flex-col" style="min-height: 420px;">
@@ -356,7 +384,9 @@
         </button>
         <button onclick="closeTgBuyModal()" class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/15 active:scale-95 transition-transform" data-i18n="cancel">Отмена</button>
     </div>
-</div><!-- ==============================================
+</div>
+
+<!-- ==============================================
      МОДАЛЬНОЕ ОКНО: ПРОМОКОД
      ============================================== -->
 <div id="promo-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-[250] p-5 transition-opacity">
@@ -367,7 +397,9 @@
 
         <div class="text-center mb-5 mt-1">
             <div class="w-16 h-16 mx-auto rounded-full bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                <svg class="w-8 h-8 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3a1 1 0 0 1 .894.553L13.618 7h4.382a1 1 0 0 1 .707 1.707l-3.535 3.535 1.617 4.765a1 1 0 0 1-1.547 1.146L11 14.999l-4.242 2.154a1 1 0 0 1-1.547-1.146l1.617-4.765-3.535-3.535A1 1 0 0 1 4 7h4.382l1.724-3.447A1 1 0 0 1 11 3Z"/></svg>
+                <svg class="w-8 h-8 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2Z"/>
+</svg>
             </div>
             <h3 class="text-xl font-bold text-white glow-text" data-i18n="promo_title">Промокод</h3>
             <p class="text-xs text-emerald-100/60 mt-1" data-i18n="promo_input_ph">Введите промокод</p>
@@ -384,7 +416,7 @@
     </div>
 </div>
 
-<!-- ===== NOTIFICATION MODAL (errors, success, warning, info) =====
+<!-- ===== NOTIFICATION MODAL (errors, success, warning, info) ===== -->
 
 <!-- ===== КРАСИВЫЕ УВЕДОМЛЕНИЯ ===== -->
 <div id="notify-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center z-[300] p-5" style="transition:opacity .2s;">

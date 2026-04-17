@@ -4,7 +4,7 @@
     
     <div id="games-main-view">
         <!-- Баннер Кейсов -->
-        <div onclick="openGamesCases()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-4 active:scale-95 transition-transform bg-gradient-to-r from-purple-600/20 to-pink-500/10 border border-purple-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(168,85,247,0.1)]">
+        <div id="game-banner-cases" onclick="openGamesCases()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-4 active:scale-95 transition-transform bg-gradient-to-r from-purple-600/20 to-pink-500/10 border border-purple-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(168,85,247,0.1)]">
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
             <div class="flex items-center gap-4 relative z-10">
                 <img src="/gifts/case.png" class="w-[90px] h-[90px] object-contain drop-shadow-[0_0_15px_rgba(168,85,247,0.8)]" onerror="this.src='https://via.placeholder.com/56?text=📦'">
@@ -16,7 +16,7 @@
         </div>
 
         <!-- Баннер: TG Подарки -->
-        <div onclick="openTgShop()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-4 active:scale-95 transition-transform bg-gradient-to-r from-orange-600/20 to-red-500/10 border border-orange-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(249,115,22,0.1)] group">
+        <div id="game-banner-limited" onclick="openTgShop()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-4 active:scale-95 transition-transform bg-gradient-to-r from-orange-600/20 to-red-500/10 border border-orange-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(249,115,22,0.1)] group">
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
             <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-orange-500/10 to-transparent blur-xl pointer-events-none"></div>
             <div class="flex items-center gap-4 relative z-10">
@@ -29,7 +29,7 @@
         </div>
 
         <!-- Баннер: Ракета -->
-        <div onclick="openRocketGame()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-6 active:scale-95 transition-transform bg-gradient-to-r from-blue-600/20 to-indigo-500/10 border border-blue-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(59,130,246,0.1)] group">
+        <div id="game-banner-rocket" onclick="openRocketGame()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-6 active:scale-95 transition-transform bg-gradient-to-r from-blue-600/20 to-indigo-500/10 border border-blue-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(59,130,246,0.1)] group">
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
             <!-- Огонь на фоне -->
             <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-500/20 to-transparent blur-xl pointer-events-none"></div>

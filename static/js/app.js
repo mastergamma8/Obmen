@@ -2,8 +2,90 @@
 // app.js — Точка входа
 // =====================================================
 
+// ── Экран техобслуживания ─────────────────────────────────────────────────────
+
+async function checkMaintenance() {
+    try {
+        const res = await fetch('/api/features');
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (data.maintenance_mode) {
+            showMaintenanceScreen();
+            return true;
+        }
+        return false;
+    } catch (e) {
+        return false;
+    }
+}
+
+function showMaintenanceScreen() {
+    const screen = document.getElementById('maintenance-screen');
+    if (screen) {
+        screen.classList.remove('hidden');
+        screen.style.display = 'flex';
+    }
+    // Скрываем лоадер
+    hideAppLoader();
+}
+
+// ── Применение флагов видимости ────────────────────────────────────────────────
+
+function applyFeatureFlags(flags) {
+    if (!flags) return;
+
+    // Рулетка — скрываем/показываем кнопку на главной странице
+    const rouletteBtn = document.getElementById('main-roulette-btn');
+    if (rouletteBtn) {
+        rouletteBtn.style.display = flags.roulette === false ? 'none' : '';
+    }
+
+    // Ракета — баннер в разделе Игры
+    const rocketBanner = document.getElementById('game-banner-rocket');
+    if (rocketBanner) {
+        rocketBanner.style.display = flags.rocket === false ? 'none' : '';
+    }
+
+    // Кейсы — баннер в разделе Игры
+    const casesBanner = document.getElementById('game-banner-cases');
+    if (casesBanner) {
+        casesBanner.style.display = flags.cases === false ? 'none' : '';
+    }
+
+    // TG Подарки / Лимитированные подарки — баннер в разделе Игры
+    const limitedBanner = document.getElementById('game-banner-limited');
+    if (limitedBanner) {
+        limitedBanner.style.display = flags.limited_gifts === false ? 'none' : '';
+    }
+
+    // Отдельные кейсы — прячем конкретные карточки после рендера
+    // (вызывается снова после renderCasesList)
+    applyCaseFlags(flags);
+}
+
+function applyCaseFlags(flags) {
+    if (!flags) return;
+    // Кейсы рендерятся динамически — выбираем по data-атрибуту
+    document.querySelectorAll('[data-case-id]').forEach(el => {
+        const cid = el.getAttribute('data-case-id');
+        const key = `case_${cid}`;
+        if (flags[key] === false) {
+            el.style.display = 'none';
+        } else {
+            el.style.display = '';
+        }
+    });
+}
+
+// Экспортируем для вызова из games-cases.js после рендера
+window.applyCaseFlags = applyCaseFlags;
+
 async function initApp() {
     const savedLang = localStorage.getItem('appLang') || (tgUser?.language_code === 'en' ? 'en' : 'ru');
+
+    // Проверяем тех. перерыв до любого другого запроса
+    const isMaintenance = await checkMaintenance();
+    if (isMaintenance) return;
     
     try {
         const res = await fetch('/api/init', {
@@ -27,7 +109,19 @@ async function initApp() {
         
         myGifts      = data.user_gifts;
         myBalance    = data.balance;
-        myStars      = data.stars || 0; // <-- Получаем звезды
+        myStars      = data.stars || 0;
+
+        // Ещё раз проверяем тех. перерыв из /init (на случай гонки)
+        if (data.maintenance_mode) {
+            showMaintenanceScreen();
+            return;
+        }
+
+        // Применяем флаги видимости разделов
+        if (data.feature_flags) {
+            window._featureFlags = data.feature_flags;
+            applyFeatureFlags(data.feature_flags);
+        }
         
         // ВАЖНО: Устанавливаем язык только после загрузки DOM и конфигов!
         setLang(savedLang); 

@@ -22,6 +22,7 @@ dp = Dispatcher()
 
 async def main():
     await database.init_db()
+    await database.init_settings_table()   # ← инициализация таблицы настроек
 
     logging.info("Инициализация обновления цен подарков (API Portals)...")
     config.update_base_gifts_prices()

@@ -358,6 +358,7 @@ function renderCasesGrid() {
 
         const card = document.createElement('div');
         card.className = "glass rounded-3xl p-4 flex flex-col items-center justify-between text-center cursor-pointer transition-transform border border-indigo-400/30 shadow-[0_10px_20px_rgba(0,0,0,0.4)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] bg-gradient-to-b from-indigo-500/20 to-black/40 relative overflow-hidden group";
+        card.setAttribute('data-case-id', id);
         card.onclick = () => openCaseDetails(id);
 
         const promoCount = getPromoCaseCount(id);
@@ -379,6 +380,11 @@ function renderCasesGrid() {
         `;
         grid.appendChild(card);
     });
+
+    // Применяем флаги скрытия для конкретных кейсов (если есть)
+    if (window._featureFlags && typeof window.applyCaseFlags === 'function') {
+        window.applyCaseFlags(window._featureFlags);
+    }
 }
 
 function getItemInfoForCase(item) {

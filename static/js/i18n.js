@@ -26,7 +26,9 @@ const i18n = {
             withdraw_success: 'Подарок выведен!',
             withdraw_msg: 'Пожалуйста, напишите любое сообщение <br><span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-green-400 text-lg font-bold cursor-pointer underline decoration-green-400/50 underline-offset-4">@SpaceDonutGifts</span><br> для получения вашего подарка.',
             excellent: 'Отлично', how_to_get: 'Как получить',
-            how_to_desc: 'Отправьте NFT-подарок на аккаунт <span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-blue-400 cursor-pointer underline font-bold decoration-blue-400/50 underline-offset-4">@SpaceDonutGifts</span>. После проверки он появится у вас. Подарки автоматически конвертируются в <img src="/gifts/dount.png" class="w-4 h-4 inline-block align-middle object-contain"> для открытия главных подарков!',
+            how_to_step1: 'Выберите любой NFT-подарок в Telegram',
+            how_to_step2: 'Отправьте его на аккаунт <span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-blue-400 cursor-pointer font-bold underline decoration-blue-400/50 underline-offset-2">@SpaceDonutGifts</span>',
+            how_to_step3: 'Подарки автоматически конвертируются в пончики <img src="/gifts/dount.png" class="w-5 h-5 inline-block align-middle object-contain drop-shadow-md"> для вашего баланса!',
             understood: 'Понятно', you: 'Вы',
             no_gifts_yet: 'У вас пока нет подарков.<br><span class="inline-flex items-center gap-1 mt-1">Копите <img src="/gifts/dount.png" class="w-4 h-4 object-contain"> чтобы получить подарок!</span>',
             click: 'Нажми', win: 'Победа!', take_prize: 'Забрать приз!',
@@ -195,7 +197,9 @@ const i18n = {
             withdraw_success: 'Gift withdrawn!',
             withdraw_msg: 'Please write any message to <br><span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-green-400 text-lg font-bold cursor-pointer underline decoration-green-400/50 underline-offset-4">@SpaceDonutGifts</span><br> to receive your gift.',
             excellent: 'Excellent', how_to_get: 'How to get',
-            how_to_desc: 'Send an NFT gift to the account <span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-blue-400 cursor-pointer underline font-bold decoration-blue-400/50 underline-offset-4">@SpaceDonutGifts</span>. After verification, it will appear here. Gifts are automatically converted to <img src="/gifts/dount.png" class="w-4 h-4 inline-block align-middle object-contain"> to unlock main gifts!',
+            how_to_step1: 'Select any NFT gift in Telegram',
+            how_to_step2: 'Send it to the account <span onclick="tg.openTelegramLink(\'https://t.me/SpaceDonutGifts\')" class="text-blue-400 cursor-pointer font-bold underline decoration-blue-400/50 underline-offset-2">@SpaceDonutGifts</span>',
+            how_to_step3: 'Gifts are automatically converted to donuts <img src="/gifts/dount.png" class="w-5 h-5 inline-block align-middle object-contain drop-shadow-md"> for your balance!',
             understood: 'Understood', you: 'You',
             no_gifts_yet: 'You have no gifts yet.<br><span class="inline-flex items-center gap-1 mt-1">Collect <img src="/gifts/dount.png" class="w-4 h-4 object-contain"> to get a gift!</span>',
             click: 'Click', win: 'Victory!', take_prize: 'Take prize!',
@@ -376,7 +380,6 @@ function setLang(lang) {
     if (el('collect-text'))  el('collect-text').innerHTML  = i18n[lang].collect_desc;
     if (el('ref-desc'))      el('ref-desc').innerHTML      = i18n[lang].ref_desc;
     if (el('tasks-desc'))    el('tasks-desc').innerHTML    = i18n[lang].tasks_desc;
-    if (el('how-to-desc'))   el('how-to-desc').innerHTML   = i18n[lang].how_to_desc;
     if (el('withdraw-msg'))  el('withdraw-msg').innerHTML  = i18n[lang].withdraw_msg;
 
     // Подставляем реальную цену вместо {price} в описаниях TG-магазина

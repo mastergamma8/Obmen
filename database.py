@@ -5,6 +5,13 @@ from db.db_core import DB_NAME, GIFT_WITHDRAW_COOLDOWN, GIFT_CLAIM_COOLDOWN  # n
 
 from db.db_init import init_db, init_rocket_games_table  # noqa: F401
 from db.db_promos import init_promo_tables  # noqa: F401
+from db.db_settings import (  # noqa: F401
+    init_settings_table,
+    get_maintenance_mode,
+    set_maintenance_mode,
+    get_feature_flags,
+    set_feature_flag,
+)
 
 from db.db_users import (  # noqa: F401
     upsert_user,

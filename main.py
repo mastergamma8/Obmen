@@ -108,6 +108,7 @@ async def lifespan(app: FastAPI):
     await database.init_db()
     await database.init_bank()
     await database.init_rocket_games_table()
+    await database.init_settings_table()
     await _init_rate_limit_table()
 
     print("Инициализация обновления цен подарков (API Portals)...")
@@ -143,6 +144,31 @@ async def rate_limit_middleware(request: Request, call_next):
         return JSONResponse(
             status_code=429,
             content={"detail": "Слишком много запросов. Подождите немного."},
+        )
+    return await call_next(request)
+
+
+# ── Maintenance Mode Middleware ───────────────────────────────────────────────
+
+# Эти пути разрешены даже в режиме тех. обслуживания
+_MAINTENANCE_WHITELIST = {"/", "/api/features"}
+
+@app.middleware("http")
+async def maintenance_middleware(request: Request, call_next):
+    path = request.url.path
+    # Разрешаем статические файлы, шаблоны и белый список API
+    if (
+        path.startswith("/static")
+        or path.startswith("/gifts")
+        or path.startswith("/partials")
+        or path in _MAINTENANCE_WHITELIST
+    ):
+        return await call_next(request)
+
+    if await database.get_maintenance_mode():
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "maintenance", "message": "Технический перерыв. Следите за обновлениями в @Space_Donut"},
         )
     return await call_next(request)
 
