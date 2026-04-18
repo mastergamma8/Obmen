@@ -6,7 +6,9 @@
 
 async function checkMaintenance() {
     try {
-        const res = await fetch('/api/features');
+        const res = await fetch('/api/features', {
+            headers: getApiHeaders()   // отправляем x-tg-data
+        });
         if (!res.ok) return false;
         const data = await res.json();
         if (data.maintenance_mode) {

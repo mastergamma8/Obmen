@@ -924,3 +924,127 @@ def register(dp: Dispatcher, bot: Bot):
                 "Приложение снова доступно для всех пользователей.",
                 parse_mode="HTML"
             )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # BETA-ТЕСТЕРЫ (/addtester, /deltester, /testers)
+    # Позволяет добавлять пользователей, которые обходят maintenance mode
+    # и видят все фичи включёнными, даже если они отключены для остальных.
+    # ──────────────────────────────────────────────────────────────────────────
+
+    @dp.message(Command("addtester"))
+    async def cmd_add_tester(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        args = message.text.split()[1:]
+        if not args:
+            await message.answer(
+                "<b>👁 Добавление beta-тестеров</b>\n\n"
+                "Использование:\n"
+                "<code>/addtester &lt;ID&gt; [ID2 ID3 ...]</code>\n\n"
+                "Можно указать один или несколько ID через пробел.\n"
+                "<i>Beta-тестеры видят приложение даже при maintenance mode "
+                "и при отключённых разделах/кейсах.</i>",
+                parse_mode="HTML"
+            )
+            return
+
+        added = []
+        already = []
+        invalid = []
+
+        for raw in args:
+            try:
+                uid = int(raw)
+            except ValueError:
+                invalid.append(raw)
+                continue
+            ok = await database.add_beta_tester(uid)
+            (added if ok else already).append(uid)
+
+        lines = []
+        if added:
+            ids_str = ", ".join(f"<code>{i}</code>" for i in added)
+            lines.append(f"{E_CHECK} Добавлены: {ids_str}")
+        if already:
+            ids_str = ", ".join(f"<code>{i}</code>" for i in already)
+            lines.append(f"ℹ️ Уже в списке: {ids_str}")
+        if invalid:
+            ids_str = ", ".join(f"<code>{i}</code>" for i in invalid)
+            lines.append(f"{E_CROSS} Неверный формат ID: {ids_str}")
+
+        await message.answer("\n".join(lines) or "Нет данных для обработки.", parse_mode="HTML")
+
+
+    @dp.message(Command("deltester"))
+    async def cmd_del_tester(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        args = message.text.split()[1:]
+        if not args:
+            await message.answer(
+                "<b>🗑 Удаление beta-тестера</b>\n\n"
+                "Использование:\n"
+                "<code>/deltester &lt;ID&gt; [ID2 ID3 ...]</code>",
+                parse_mode="HTML"
+            )
+            return
+
+        removed = []
+        not_found = []
+        invalid = []
+
+        for raw in args:
+            try:
+                uid = int(raw)
+            except ValueError:
+                invalid.append(raw)
+                continue
+            ok = await database.remove_beta_tester(uid)
+            (removed if ok else not_found).append(uid)
+
+        lines = []
+        if removed:
+            ids_str = ", ".join(f"<code>{i}</code>" for i in removed)
+            lines.append(f"{E_CHECK} Удалены: {ids_str}")
+        if not_found:
+            ids_str = ", ".join(f"<code>{i}</code>" for i in not_found)
+            lines.append(f"ℹ️ Не найдены: {ids_str}")
+        if invalid:
+            ids_str = ", ".join(f"<code>{i}</code>" for i in invalid)
+            lines.append(f"{E_CROSS} Неверный формат ID: {ids_str}")
+
+        await message.answer("\n".join(lines) or "Нет данных для обработки.", parse_mode="HTML")
+
+
+    @dp.message(Command("testers"))
+    async def cmd_testers(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        testers = await database.get_beta_testers()
+
+        if not testers:
+            await message.answer(
+                "<b>👁 Beta-тестеры</b>\n\nСписок пуст.\n\n"
+                "Добавить: <code>/addtester &lt;ID&gt;</code>",
+                parse_mode="HTML"
+            )
+            return
+
+        lines = ["<b>👁 Beta-тестеры</b>\n"]
+        for i, t in enumerate(testers, 1):
+            lines.append(f"{i}. <code>{t['user_id']}</code>  — добавлен {t['added_at'][:10]}")
+
+        lines.append(
+            f"\n<i>Всего: {len(testers)}</i>\n\n"
+            "Добавить: <code>/addtester &lt;ID&gt;</code>\n"
+            "Удалить:  <code>/deltester &lt;ID&gt;</code>"
+        )
+
+        await message.answer("\n".join(lines), parse_mode="HTML")
+

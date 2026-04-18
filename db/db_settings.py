@@ -12,6 +12,10 @@
 #   feature_flag_rocket   — "1" / "0"
 #   feature_flag_limited_gifts — "1" / "0"
 #   feature_flag_case_<id>     — "1" / "0"  (для конкретного кейса)
+#
+# Таблица beta_testers:
+#   user_id INTEGER PRIMARY KEY  — ID пользователей с полным доступом,
+#   которые видят приложение даже при maintenance mode или отключённых фичах.
 
 import aiosqlite
 from db.db_core import DB_NAME
@@ -102,3 +106,66 @@ async def set_feature_flag(name: str, enabled: bool) -> None:
     name — например 'roulette', 'cases', 'rocket', 'limited_gifts', 'case_3'.
     """
     await _set(f"feature_flag_{name}", "1" if enabled else "0")
+
+
+# ── Beta Testers ──────────────────────────────────────────────────────────────
+
+async def init_beta_testers_table():
+    """Создаёт таблицу beta_testers, если её ещё нет."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS beta_testers (
+                user_id INTEGER PRIMARY KEY,
+                added_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        await db.commit()
+
+
+async def add_beta_tester(user_id: int) -> bool:
+    """
+    Добавляет пользователя в список beta-тестеров.
+    Возвращает True если добавлен, False если уже существует.
+    """
+    async with aiosqlite.connect(DB_NAME) as db:
+        try:
+            await db.execute(
+                "INSERT INTO beta_testers (user_id) VALUES (?)", (user_id,)
+            )
+            await db.commit()
+            return True
+        except aiosqlite.IntegrityError:
+            return False
+
+
+async def remove_beta_tester(user_id: int) -> bool:
+    """
+    Удаляет пользователя из списка beta-тестеров.
+    Возвращает True если удалён, False если не найден.
+    """
+    async with aiosqlite.connect(DB_NAME) as db:
+        cur = await db.execute(
+            "DELETE FROM beta_testers WHERE user_id = ?", (user_id,)
+        )
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def get_beta_testers() -> list[dict]:
+    """Возвращает список всех beta-тестеров с датой добавления."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT user_id, added_at FROM beta_testers ORDER BY added_at"
+        ) as cur:
+            rows = await cur.fetchall()
+    return [{"user_id": r[0], "added_at": r[1]} for r in rows]
+
+
+async def is_beta_tester(user_id: int) -> bool:
+    """Проверяет, входит ли пользователь в список beta-тестеров."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT 1 FROM beta_testers WHERE user_id = ?", (user_id,)
+        ) as cur:
+            row = await cur.fetchone()
+    return row is not None

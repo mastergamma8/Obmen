@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 import httpx
+import json
+from urllib.parse import parse_qsl
 
 import config
 import database
@@ -7,6 +9,22 @@ from handlers.models import TopupData, PromoRedeemData
 from handlers.security import get_current_user
 
 router = APIRouter(prefix="/api", tags=["users"])
+
+
+def _parse_user_id_from_init_data(init_data: str) -> int | None:
+    """
+    Извлекает user_id из строки Telegram InitData БЕЗ проверки HMAC.
+    Используется только для /features и maintenance middleware —
+    чтобы определить beta-тестера до полной авторизации.
+    Полная HMAC-валидация всегда выполняется в get_current_user().
+    """
+    try:
+        parsed = dict(parse_qsl(init_data, keep_blank_values=True))
+        user = json.loads(parsed.get("user", "{}"))
+        uid = user.get("id")
+        return int(uid) if uid else None
+    except Exception:
+        return None
 
 
 @router.post("/init")
@@ -23,6 +41,12 @@ async def init_user(current_user: dict = Depends(get_current_user)):
 
     feature_flags    = await database.get_feature_flags()
     maintenance_mode = await database.get_maintenance_mode()
+
+    # Beta-тестеры всегда видят приложение как будто всё включено
+    if maintenance_mode or any(not v for v in feature_flags.values()):
+        if await database.is_beta_tester(tg_id):
+            maintenance_mode = False
+            feature_flags = {k: True for k in feature_flags}
 
     return {
         "status": "ok",
@@ -184,10 +208,25 @@ async def get_lucky_leaderboard(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/features")
-async def get_features():
+async def get_features(x_tg_data: str | None = Header(None)):
     """Публичный эндпоинт — возвращает флаги видимости и режим обслуживания.
-    Не требует авторизации, чтобы показывать maintenance-экран до /init."""
+    Не требует авторизации, чтобы показывать maintenance-экран до /init.
+    Если передан заголовок X-Tg-Data и пользователь является beta-тестером,
+    возвращает maintenance_mode=false и все флаги включёнными."""
+    maintenance_mode = await database.get_maintenance_mode()
+    feature_flags    = await database.get_feature_flags()
+
+    # Beta-тестер: читаем user_id из InitData без полной HMAC-валидации.
+    # Это безопасно — мы лишь показываем UI, а полная проверка подписи
+    # произойдёт при каждом реальном API-вызове через get_current_user().
+    if maintenance_mode or any(not v for v in feature_flags.values()):
+        if x_tg_data:
+            user_id = _parse_user_id_from_init_data(x_tg_data)
+            if user_id and await database.is_beta_tester(user_id):
+                maintenance_mode = False
+                feature_flags = {k: True for k in feature_flags}
+
     return {
-        "maintenance_mode": await database.get_maintenance_mode(),
-        "feature_flags":    await database.get_feature_flags(),
+        "maintenance_mode": maintenance_mode,
+        "feature_flags":    feature_flags,
     }

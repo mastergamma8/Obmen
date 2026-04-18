@@ -109,6 +109,7 @@ async def lifespan(app: FastAPI):
     await database.init_bank()
     await database.init_rocket_games_table()
     await database.init_settings_table()
+    await database.init_beta_testers_table()
     await _init_rate_limit_table()
 
     print("Инициализация обновления цен подарков (API Portals)...")
@@ -153,6 +154,27 @@ async def rate_limit_middleware(request: Request, call_next):
 # Эти пути разрешены даже в режиме тех. обслуживания
 _MAINTENANCE_WHITELIST = {"/", "/api/features"}
 
+
+def _extract_user_id_unsafe(init_data: str | None) -> int | None:
+    """
+    Пытается извлечь user_id из Telegram InitData без проверки HMAC.
+    Используется ТОЛЬКО в middleware для быстрой проверки beta-тестеров —
+    полная валидация подписи всё равно произойдёт в get_current_user().
+    Возвращает None при любой ошибке.
+    """
+    if not init_data:
+        return None
+    try:
+        import json
+        from urllib.parse import parse_qsl
+        parsed = dict(parse_qsl(init_data, keep_blank_values=True))
+        user = json.loads(parsed.get("user", "{}"))
+        uid = user.get("id")
+        return int(uid) if uid else None
+    except Exception:
+        return None
+
+
 @app.middleware("http")
 async def maintenance_middleware(request: Request, call_next):
     path = request.url.path
@@ -166,6 +188,14 @@ async def maintenance_middleware(request: Request, call_next):
         return await call_next(request)
 
     if await database.get_maintenance_mode():
+        # Проверяем, является ли пользователь beta-тестером.
+        # Полная HMAC-валидация произойдёт в самом роутере — здесь нам
+        # достаточно знать user_id, чтобы пропустить запрос через maintenance.
+        init_data = request.headers.get("x-tg-data")
+        user_id = _extract_user_id_unsafe(init_data)
+        if user_id and await database.is_beta_tester(user_id):
+            return await call_next(request)
+
         return JSONResponse(
             status_code=503,
             content={"detail": "maintenance", "message": "Технический перерыв. Следите за обновлениями в @Space_Donut"},

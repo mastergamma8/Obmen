@@ -11,6 +11,11 @@ from db.db_settings import (  # noqa: F401
     set_maintenance_mode,
     get_feature_flags,
     set_feature_flag,
+    init_beta_testers_table,
+    add_beta_tester,
+    remove_beta_tester,
+    get_beta_testers,
+    is_beta_tester,
 )
 
 from db.db_users import (  # noqa: F401
