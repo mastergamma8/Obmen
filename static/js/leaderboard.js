@@ -150,40 +150,51 @@ function buildStickyRankHTML(rankText, avatar, name, badgeHtml, badgeTextColorCl
 }
 
 
-// ─── 🍩 Богачи ───────────────────────────────────────
+// ─── 💸 Транжиры ───────────────────────────────────────
 async function loadRichLeaderboard(list, stickyRank) {
     const res = await fetch(`/api/leaderboard`, { headers: getApiHeaders() });
     const data = await res.json();
     list.innerHTML = '';
 
+    if (!data.leaderboard || data.leaderboard.length === 0) {
+        list.innerHTML = `<div class="text-center text-white/40 mt-12 text-sm">${i18n[currentLang].lb_empty_spender || 'Пока никто ничего не потратил на этой неделе 💸'}</div>`;
+        if (stickyRank) stickyRank.classList.add('hidden');
+        return;
+    }
+
     let currentUserRankData = null;
 
     data.leaderboard.forEach((u, index) => {
         const isMe = (u.tg_id == tgUser.id || (u.username && tgUser.username && u.username === tgUser.username));
-        if (isMe) currentUserRankData = { rank: index + 1, total_gifts: u.total_gifts };
+        if (isMe) currentUserRankData = { rank: index + 1, donuts_spent: u.donuts_spent, stars_spent: u.stars_spent };
 
-        const badge = `${formatBalance(u.total_gifts)} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`;
+        const badge = buildSpendBadge(u.donuts_spent || 0, u.stars_spent || 0);
         list.innerHTML += buildCard(u, index, isMe, badge);
     });
 
     if (!currentUserRankData && data.user_info) currentUserRankData = data.user_info;
 
-    let myTotalGifts = 0;
-    Object.values(myGifts).forEach(a => { if (typeof a === 'number') myTotalGifts += a; });
-
-    const rankText   = currentUserRankData ? currentUserRankData.rank        : '99+';
-    const totalGifts = currentUserRankData ? currentUserRankData.total_gifts : myTotalGifts;
-    const myAvatar   = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
-    const myName     = escapeHtml(tgUser.first_name || 'Вы');
+    const rankText     = currentUserRankData?.rank ?? '—';
+    const donutsSpent  = currentUserRankData?.donuts_spent ?? 0;
+    const starsSpent   = currentUserRankData?.stars_spent  ?? 0;
+    const myAvatar     = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
+    const myName       = escapeHtml(tgUser.first_name || 'Вы');
 
     if (stickyRank) {
         stickyRank.innerHTML = buildStickyRankHTML(
             rankText, myAvatar, myName,
-            `${formatBalance(totalGifts)} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`,
-            'text-blue-100'
+            buildSpendBadge(donutsSpent, starsSpent),
+            'text-purple-200'
         );
         stickyRank.classList.remove('hidden');
     }
+}
+
+function buildSpendBadge(donutsSpent, starsSpent) {
+    let parts = [];
+    if (donutsSpent > 0) parts.push(`${formatBalance(donutsSpent)} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`);
+    if (starsSpent  > 0) parts.push(`${formatBalance(starsSpent)} <img src="/gifts/stars.png" class="w-4 h-4 object-contain">`);
+    return parts.length > 0 ? parts.join(' <span class="text-white/30">+</span> ') : `0 <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`;
 }
 
 // ─── 🚀 Сорвиголовы ─────────────────────────────────

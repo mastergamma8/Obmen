@@ -4,6 +4,9 @@
 
 const i18n = {
      ru: {
+            maintenance_title: '🔧 Технические работы',
+            maintenance_desc: 'Мы проводим техническое обслуживание.<br>Совсем скоро всё заработает снова!',
+            maintenance_follow: 'Следите за обновлениями',
             nav_main: 'Главная', nav_top: 'Топ', nav_earn: 'Заработок', nav_profile: 'Профиль', nav_games: 'Игры',
             roulette_daily: 'Ежедневная Рулетка', roulette_desc: 'Крути и выигрывай призы!',
             roulette_demo: 'Демо',
@@ -104,9 +107,10 @@ const i18n = {
             auto_cashout_triggered: 'Авто-вывод сработал!',
             topup_title: 'Пополнение', topup_desc: 'Выберите количество или введите свое',
             btn_buy: 'Купить', topup_success: 'Звезды успешно зачислены!', err_invalid_amount: 'Неверная сумма',
-            tab_rich: 'Богачи',
+            tab_rich: 'Транжиры',
             tab_rocket: 'Сорвиголовы',
             tab_lucky: 'Счастливчики',
+            lb_empty_spender: 'Пока никто ничего не потратил на этой неделе 💸',
             lb_empty_rocket: 'Пока нет данных за эту неделю 🚀',
             lb_empty_lucky: 'Пока никто не открывал кейсы 🍀',
             gift_cooldown_claim: 'Вы уже покупали подарок за пончики.',
@@ -175,6 +179,9 @@ const i18n = {
             tg_buy_error: 'Произошла ошибка',
         },
         en: {
+            maintenance_title: '🔧 Under Maintenance',
+            maintenance_desc: 'We are performing scheduled maintenance.<br>Everything will be back up shortly!',
+            maintenance_follow: 'Follow for updates',
             nav_main: 'Main', nav_top: 'Top', nav_earn: 'Earn', nav_profile: 'Profile', nav_games: 'Games',
             roulette_daily: 'Daily Roulette', roulette_desc: 'Spin and win prizes!',
             roulette_demo: 'Demo',
@@ -275,9 +282,10 @@ const i18n = {
             auto_cashout_triggered: 'Auto-cashout triggered!',
             topup_title: 'Top up', topup_desc: 'Select amount or enter custom',
             btn_buy: 'Buy', topup_success: 'Stars successfully credited!', err_invalid_amount: 'Invalid amount',
-            tab_rich: 'Whales',
+            tab_rich: 'Spenders',
             tab_rocket: 'Daredevils',
             tab_lucky: 'Lucky Ones',
+            lb_empty_spender: 'Nobody has spent anything this week yet 💸',
             lb_empty_rocket: 'No data for this week yet 🚀',
             lb_empty_lucky: 'No cases opened yet 🍀',
             gift_cooldown_claim: 'You have already purchased a gift with donuts.',

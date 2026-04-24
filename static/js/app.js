@@ -87,7 +87,10 @@ async function initApp() {
 
     // Проверяем тех. перерыв до любого другого запроса
     const isMaintenance = await checkMaintenance();
-    if (isMaintenance) return;
+    if (isMaintenance) {
+        setLang(savedLang);
+        return;
+    }
     
     try {
         const res = await fetch('/api/init', {

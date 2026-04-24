@@ -60,7 +60,6 @@
     </div>
 </div>
 
-<!-- ИСПРАВЛЕНО: Добавлен скролл на весь контейнер и минимальная высота карточки -->
 <div id="main-gift-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 overflow-y-auto transition-opacity">
     <div class="min-h-full flex items-center justify-center p-4 py-8">
         <div class="glass-panel rounded-3xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col" style="height: 80vh; min-height: 500px; max-height: 800px;">
@@ -164,7 +163,13 @@
 
 <div id="history-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md hidden flex items-end z-[60] transition-opacity">
     <div class="glass-panel w-full rounded-t-3xl border-t border-x border-white/10 shadow-2xl flex flex-col animate-slide-up" style="max-height:85vh;">
-        <div class="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/5 shrink-0">
+        
+        <!-- Полоска для свайпа - перенесена В САМЫЙ ВЕРХ -->
+        <div class="flex justify-center pt-3 pb-1 shrink-0">
+            <div class="w-12 h-1.5 bg-white/20 rounded-full"></div>
+        </div>
+
+        <div class="flex items-center justify-between px-6 pt-2 pb-4 border-b border-white/5 shrink-0">
             <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center">
                     <svg class="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -175,7 +180,6 @@
                 <svg class="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mt-3 mb-1 shrink-0"></div>
         
         <div id="history-list" class="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2 pb-8" style="scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;">
             <div class="text-center text-blue-300/50 py-10 animate-pulse font-bold tracking-widest uppercase text-sm" data-i18n="loading">Загрузка...</div>

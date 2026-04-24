@@ -65,7 +65,6 @@ function hideAppLoader() {
 function formatBalance(val) {
     const n = parseFloat(val) || 0;
     if (n % 1 === 0) return n.toString();
-    // Show up to 2 decimal places, strip trailing zeros
     return parseFloat(n.toFixed(2)).toString();
 }
 window.formatBalance = formatBalance;
@@ -82,14 +81,51 @@ function updateUI() {
     if (typeof updateTgShopBalance === 'function') updateTgShopBalance();
 }
 
+// Открытие модального окна со сбросом инлайн-анимаций (чтобы работали CSS-классы)
 function openModal(id) {
     vibrate('light');
-    document.getElementById(id)?.classList.remove('hidden');
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    
+    // Очищаем инлайн-стили перед показом, чтобы отработала анимация появления
+    const panel = modal.querySelector('.glass-panel') || modal.firstElementChild;
+    if (panel) {
+        modal.style.opacity = '';
+        panel.style.transition = '';
+        panel.style.transform = '';
+    }
+    
+    modal.classList.remove('hidden');
 }
 
+// Умное закрытие окна (с анимацией уезда вниз для нижних шторок)
 function closeModal(id) {
     vibrate('light');
-    document.getElementById(id)?.classList.add('hidden');
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    if (modal.classList.contains('hidden')) return; // уже закрыто — не запускаем дважды
+    
+    const bottomSheets = ['add-gift-modal', 'sort-modal', 'history-modal', 'withdraw-requirements-modal'];
+    const panel = modal.querySelector('.glass-panel') || modal.firstElementChild;
+    
+    if (bottomSheets.includes(id) && panel) {
+        // Если на панели уже висит transform от свайпа — анимируем от текущего положения до конца
+        panel.style.transition = 'transform 0.28s ease-in';
+        panel.style.transform = 'translateY(110%)';
+        modal.style.transition = 'opacity 0.25s ease';
+        modal.style.opacity = '0';
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            // Сбрасываем инлайн-стили — openModal восстановит их при следующем открытии
+            modal.style.opacity = '';
+            modal.style.transition = '';
+            panel.style.transform = '';
+            panel.style.transition = '';
+        }, 280);
+    } else {
+        modal.classList.add('hidden');
+    }
 }
 
 // =====================================================
@@ -136,12 +172,11 @@ async function buyStars() {
         const result = await response.json();
         
         if (result.status === 'ok') {
-            // Открываем платежное окно Telegram
             if (window.Telegram?.WebApp?.openInvoice) {
                 window.Telegram.WebApp.openInvoice(result.invoice_url, (payment_status) => {
                     if (payment_status === 'paid') {
                         closeModal('topup-stars-modal');
-                        myStars += amount; // Локальное зачисление для мгновенного отображения
+                        myStars += amount; 
                         updateUI();
                         showNotify(i18n[currentLang]?.topup_success || 'Звезды успешно зачислены!', 'success');
                     } else if (payment_status === 'cancelled') {
@@ -151,7 +186,6 @@ async function buyStars() {
                     }
                 });
             } else {
-                // Если клиент не поддерживает openInvoice напрямую
                 tg.openTelegramLink(result.invoice_url);
             }
         } else {
@@ -236,7 +270,6 @@ function showNotify(message, type = 'error', callback = null) {
     const _notifyTitleKeys = { error: 'notify_error', success: 'notify_success', warning: 'notify_warning', info: 'notify_info' };
     titleEl.textContent = (i18n && currentLang && i18n[currentLang]?.[_notifyTitleKeys[type]]) || s.title;
 
-    // Icons — show only the matching one
     ['error','success','warning','info'].forEach(t => {
         const ic = document.getElementById(`notify-icon-${t}`);
         if (ic) {
@@ -245,20 +278,16 @@ function showNotify(message, type = 'error', callback = null) {
         }
     });
 
-    // Ring styles
     ring.style.background = s.ringBg;
     ring.style.borderColor = '';
     ring.className = `w-full h-full rounded-full flex items-center justify-center border-2 ${s.ringBorder}`;
     ping.style.background = s.ringPing;
 
-    // Card border & shadow
     card.className = `glass-panel rounded-3xl p-7 w-full max-w-xs text-center border shadow-2xl ${s.border}`;
     card.style.boxShadow = s.shadow;
 
-    // Button gradient
     btn.setAttribute('style', s.btn + 'width:100%;padding:14px;border-radius:12px;font-weight:700;color:#fff;font-size:14px;');
 
-    // Show + animate in
     modal.classList.remove('hidden');
     card.style.transform = 'scale(0.92)';
     card.style.opacity = '0';
@@ -267,7 +296,6 @@ function showNotify(message, type = 'error', callback = null) {
         card.style.opacity = '1';
     }));
 
-    // Auto-close for success & info
     if (type === 'success' || type === 'info') {
         _notifyAutoClose = setTimeout(() => closeNotify(), 2800);
     }
@@ -305,7 +333,6 @@ function toggleDemoMode(sourceId) {
     isDemoMode = !isDemoMode;
     syncDemoToggles();
     if (typeof vibrate === 'function') vibrate('light');
-    // Если рулетка открыта — обновляем кнопку
     if (typeof fetchRouletteInfo === 'function') {
         const roulettePage = document.getElementById('page-roulette');
         if (roulettePage && !roulettePage.classList.contains('hidden-tab')) {
@@ -313,7 +340,7 @@ function toggleDemoMode(sourceId) {
         }
     }
 }
-// Синхронизирует визуальное состояние всех тоглеров с текущим isDemoMode
+
 function syncDemoToggles() {
     ['demo-toggle-roulette', 'demo-toggle-cases', 'demo-toggle-rocket'].forEach(id => {
         const el = document.getElementById(id);
@@ -335,5 +362,119 @@ function syncDemoToggles() {
     if (rocketRibbon) rocketRibbon.classList.toggle('hidden', !isDemoMode);
 }
 window.syncDemoToggles = syncDemoToggles;
-
 window.toggleDemoMode = toggleDemoMode;
+
+// =====================================================
+// ИНИЦИАЛИЗАЦИЯ "ШТОРОК" (ЗАКРЫТИЕ СВАЙПОМ / КЛИК ВНЕ)
+// =====================================================
+function initBottomSheets() {
+    const bottomSheets = ['add-gift-modal', 'sort-modal', 'history-modal', 'withdraw-requirements-modal'];
+
+    // Функция поиска скроллируемого родителя, чтобы не перехватывать скролл контента
+    function getScrollableParent(el, limitNode) {
+        let current = el;
+        while (current && current !== limitNode && current !== document.body) {
+            const style = window.getComputedStyle(current);
+            if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+                return current;
+            }
+            current = current.parentElement;
+        }
+        return null;
+    }
+
+    bottomSheets.forEach(id => {
+        const modal = document.getElementById(id);
+        if (!modal || modal.dataset.swipeInitialized) return;
+        
+        modal.dataset.swipeInitialized = 'true'; // Защита от двойной инициализации
+
+        const panel = modal.querySelector('.glass-panel') || modal.firstElementChild;
+        if (!panel) return;
+
+        // 1. Закрытие по клику на фон (Используем чистый 'click', он работает надежно на мобильных)
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal(id);
+            }
+        });
+
+        // 2. Свайп вниз для закрытия
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+        let isScrollArea = false; 
+
+        panel.addEventListener('touchstart', (e) => {
+            const scrollable = getScrollableParent(e.target, panel);
+            
+            if (scrollable) {
+                // Если скролл-контейнер прокручен вниз, отдаем приоритет нативному скроллу контента
+                if (scrollable.scrollTop > 0) {
+                    return; 
+                }
+                isScrollArea = true;
+            } else {
+                isScrollArea = false;
+            }
+
+            startY = e.touches[0].clientY;
+            currentY = startY;
+            isDragging = true;
+            
+            // Выключаем CSS плавность, чтобы шторка идеально следовала за пальцем
+            panel.style.transition = 'none';
+        }, { passive: true });
+
+        // Обратите внимание на passive: false, это критично для e.preventDefault()
+        panel.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            
+            currentY = e.touches[0].clientY;
+            const deltaY = currentY - startY;
+
+            // Если тянем вверх внутри скролл-области - прекращаем тащить модалку
+            if (isScrollArea && deltaY < 0) {
+                isDragging = false;
+                panel.style.transform = '';
+                return;
+            }
+
+            // Тянем шторку вниз
+            if (deltaY > 0) {
+                // Блокируем стандартный баунс-скролл страницы браузером
+                if (e.cancelable) {
+                    e.preventDefault(); 
+                }
+                panel.style.transform = `translateY(${deltaY}px)`;
+            }
+        }, { passive: false }); 
+
+        panel.addEventListener('touchend', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            const deltaY = currentY - startY;
+            
+            // Если сдвинули вниз больше 80 пикселей - закрываем
+            if (deltaY > 80) {
+                closeModal(id);
+            } else {
+                // Возвращаем наверх
+                panel.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                panel.style.transform = 'translateY(0px)';
+                
+                // Сбрасываем стили, чтобы не сломать появление в следующий раз
+                setTimeout(() => {
+                    if (!modal.classList.contains('hidden')) {
+                        panel.style.transform = '';
+                        panel.style.transition = '';
+                    }
+                }, 300);
+            }
+        });
+    });
+}
+
+// Запуск инициализации ПОСЛЕ того, как partials-loader вставит modals.html в DOM
+document.addEventListener('partialsLoaded', initBottomSheets);

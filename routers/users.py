@@ -166,7 +166,11 @@ async def get_leaderboard(current_user: dict = Depends(get_current_user)):
     user_rank = None
     for i, u in enumerate(board):
         if u["tg_id"] == tg_id:
-            user_rank = {"rank": i + 1, "total_gifts": u["total_gifts"]}
+            user_rank = {
+                "rank": i + 1,
+                "donuts_spent": u.get("donuts_spent", 0),
+                "stars_spent": u.get("stars_spent", 0),
+            }
             break
     # Пользователь не попал в топ-50 — считаем его реальное место
     if user_rank is None:
