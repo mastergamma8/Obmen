@@ -106,6 +106,11 @@ async function initApp() {
         baseGifts    = data.config.base_gifts;
         mainGifts    = data.config.main_gifts;
         tgGifts      = data.config.tg_gifts || {};
+        window.appConfig = {
+    withdraw_fee:              data.config.withdraw_fee,
+    donuts_to_stars_rate:      data.config.donuts_to_stars_rate,
+    gift_exchange_stars_rate:  data.config.gift_exchange_stars_rate,
+};
         botUsername  = data.config.bot_username;
         if (data.config.roulette) rouletteConfig = data.config.roulette;
         if (data.config.cases) casesConfig = data.config.cases;

@@ -29,10 +29,13 @@ ADMIN_ID = 1809630966
 # корректны при смешанной экономике.
 DONUTS_TO_STARS_RATE: int = 100
 
-# ── Курс обмена подарков на звёзды (отдельный от банкового) ──────────────────
-# Сколько звёзд пользователь получает за 1 пончик стоимости подарка при обмене.
-# Изменяется командой /setexchangerate <значение> в боте.
-GIFT_EXCHANGE_STARS_RATE: float = 0.01
+# ── Бонус при обмене подарков на звёзды ──────────────────────────────────────
+# Сколько процентов сверх рыночной цены (Portal Market) получает пользователь.
+# Изменяется командой /setexchangebonus <процент> в боте (сохраняется в БД).
+# Значение здесь используется только как внутренний базовый множитель
+# для MAIN_GIFTS (у которых нет портальной цены).
+GIFT_EXCHANGE_STARS_RATE: float = 1.0   # базовый множитель для MAIN_GIFTS
+EXCHANGE_BONUS_PERCENT: float   = 10.0  # +10% к рыночной цене по умолчанию
 
 # Фоллбэк курса TON→Stars (используется если CoinGecko недоступен).
 # Обновляйте вручную при существенном изменении курса TON.
@@ -283,44 +286,44 @@ CASES_CONFIG = {
         "items": [
             {"type": "gift", "gift_id": 113, "chance": 40},
             {"type": "gift", "gift_id": 114, "chance": 30},
-            {"type": "gift", "gift_id": 110, "chance": 5},
-            {"type": "gift", "gift_id": 94, "chance": 6},
-            {"type": "gift", "gift_id": 67, "chance": 1},
+            {"type": "gift", "gift_id": 110, "chance": 10},
+            {"type": "gift", "gift_id": 94, "chance": 30},
+            {"type": "gift", "gift_id": 67, "chance": 30},
             {"type": "donuts", "amount": 1, "chance": 30},                         
-            {"type": "donuts", "amount": 2, "chance": 20},                         
-            {"type": "donuts", "amount": 3, "chance": 15},
-            {"type": "donuts", "amount": 5, "chance": 5},                         
+            {"type": "donuts", "amount": 2, "chance": 25},                         
+            {"type": "donuts", "amount": 3, "chance": 20},
+            {"type": "donuts", "amount": 5, "chance": 7},                         
             {"type": "donuts", "amount": 10, "chance": 1},                         
             {"type": "donuts", "amount": 15, "chance": 0},
             {"type": "gift", "gift_id": 65, "chance": 20},
             {"type": "gift", "gift_id": 39, "chance": 30},
-            {"type": "gift", "gift_id": 35, "chance": 30},
-            {"type": "gift", "gift_id": 29, "chance": 10},
-            {"type": "gift", "gift_id": 111, "chance": 10},
+            {"type": "gift", "gift_id": 35, "chance": 25},
+            {"type": "gift", "gift_id": 29, "chance": 30},
+            {"type": "gift", "gift_id": 111, "chance": 20},
             {"type": "gift", "gift_id": 100, "chance": 0},
             {"type": "gift", "gift_id": 101, "chance": 0},
             {"type": "gift", "gift_id": 105, "chance": 0},
-            {"type": "gift", "gift_id": 1, "chance": 0},
-            {"type": "gift", "gift_id": 5, "chance": 0},
-            {"type": "gift", "gift_id": 7, "chance": 0},
-            {"type": "gift", "gift_id": 2, "chance": 0},
+            {"type": "gift", "gift_id": 1, "chance": 30},
+            {"type": "gift", "gift_id": 5, "chance": 40},
+            {"type": "gift", "gift_id": 7, "chance": 15},
+            {"type": "gift", "gift_id": 2, "chance": 20},
             # --- НОВЫЕ ПОДАРКИ ---
             {"type": "gift", "gift_id": 106, "chance": 0},
             {"type": "gift", "gift_id": 107, "chance": 0},
             {"type": "gift", "gift_id": 108, "chance": 0},
             {"type": "gift", "gift_id": 102, "chance": 0},
             {"type": "gift", "gift_id": 103, "chance": 0},
-            {"type": "gift", "gift_id": 95, "chance": 0},
-            {"type": "gift", "gift_id": 91, "chance": 0},
-            {"type": "gift", "gift_id": 83, "chance": 0},
+            {"type": "gift", "gift_id": 95, "chance": 20},
+            {"type": "gift", "gift_id": 91, "chance": 30},
+            {"type": "gift", "gift_id": 83, "chance": 1},
             {"type": "gift", "gift_id": 84, "chance": 0},
-            {"type": "gift", "gift_id": 55, "chance": 0},
+            {"type": "gift", "gift_id": 55, "chance": 1},
             {"type": "gift", "gift_id": 50, "chance": 0},
             {"type": "gift", "gift_id": 51, "chance": 0},
             {"type": "gift", "gift_id": 79, "chance": 0},
-            {"type": "gift", "gift_id": 78, "chance": 0},
+            {"type": "gift", "gift_id": 78, "chance": 1},
             {"type": "gift", "gift_id": 54, "chance": 0},
-            {"type": "gift", "gift_id": 44, "chance": 0}
+            {"type": "gift", "gift_id": 44, "chance": 1}
         ]
     }
 }

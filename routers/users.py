@@ -48,6 +48,9 @@ async def init_user(current_user: dict = Depends(get_current_user)):
             maintenance_mode = False
             feature_flags = {k: True for k in feature_flags}
 
+    from db.db_settings import get_exchange_bonus_percent
+    exchange_bonus_percent = await get_exchange_bonus_percent()
+
     return {
         "status": "ok",
         "balance": user_data.get("balance", 0),
@@ -64,7 +67,7 @@ async def init_user(current_user: dict = Depends(get_current_user)):
             "rocket":       config.ROCKET_CONFIG,
             "withdraw_fee": getattr(config, "WITHDRAW_FEE_STARS", 25),
             "donuts_to_stars_rate": getattr(config, "DONUTS_TO_STARS_RATE", 115),
-            "gift_exchange_stars_rate": getattr(config, "GIFT_EXCHANGE_STARS_RATE", 0.01),
+            "exchange_bonus_percent": exchange_bonus_percent,
             "free_case":    getattr(config, "FREE_CASE_CONFIG", None),
         },
         "feature_flags":    feature_flags,
