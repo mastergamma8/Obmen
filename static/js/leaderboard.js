@@ -13,6 +13,43 @@ function escapeHtml(str) {
 
 let currentLeaderboardTab = 'rich'; // 'rich' | 'rocket' | 'lucky'
 
+// ─── Таймер до сброса ────────────────────────────────
+let _resetCountdownInterval = null;
+
+function startResetCountdown(resetTs) {
+    const el = document.getElementById('lb-reset-countdown');
+    const wrapper = document.getElementById('lb-reset-timer');
+    if (!el || !wrapper) return;
+
+    if (_resetCountdownInterval) clearInterval(_resetCountdownInterval);
+
+    function update() {
+        const now = Math.floor(Date.now() / 1000);
+        const diff = resetTs - now;
+        const lang = i18n[currentLang] || i18n['ru']; // Защита от undefined
+
+        if (diff <= 0) {
+            el.textContent = `0${lang.time_d} 0${lang.time_h} 0${lang.time_m}`;
+            clearInterval(_resetCountdownInterval);
+            return;
+        }
+        
+        const d = Math.floor(diff / 86400);
+        const h = Math.floor((diff % 86400) / 3600);
+        const m = Math.floor((diff % 3600) / 60);
+
+        // Форматируем без секунд, опираясь на языковые переменные
+        el.textContent = d > 0
+            ? `${d}${lang.time_d} ${h}${lang.time_h} ${m}${lang.time_m}`
+            : `${h}${lang.time_h} ${m}${lang.time_m}`;
+    }
+
+    wrapper.classList.remove('hidden');
+    update();
+    // Обновляем таймер каждую секунду, чтобы минуты переключались вовремя
+    _resetCountdownInterval = setInterval(update, 1000);
+}
+
 // ─── Переключение вкладок ────────────────────────────
 function switchLeaderboardTab(tab) {
     currentLeaderboardTab = tab;
@@ -156,6 +193,8 @@ async function loadRichLeaderboard(list, stickyRank) {
     const data = await res.json();
     list.innerHTML = '';
 
+    if (data.reset_ts) startResetCountdown(data.reset_ts);
+
     if (!data.leaderboard || data.leaderboard.length === 0) {
         list.innerHTML = `<div class="text-center text-white/40 mt-12 text-sm">${i18n[currentLang].lb_empty_spender || 'Пока никто ничего не потратил на этой неделе 💸'}</div>`;
         if (stickyRank) stickyRank.classList.add('hidden');
@@ -203,6 +242,8 @@ async function loadRocketLeaderboard(list, stickyRank) {
     const data = await res.json();
     list.innerHTML = '';
 
+    if (data.reset_ts) startResetCountdown(data.reset_ts);
+
     if (!data.leaderboard || data.leaderboard.length === 0) {
         list.innerHTML = `<div class="text-center text-white/40 mt-12 text-sm">${i18n[currentLang].lb_empty_rocket || 'Пока нет данных за эту неделю 🚀'}</div>`;
         if (stickyRank) stickyRank.classList.add('hidden');
@@ -243,6 +284,8 @@ async function loadLuckyLeaderboard(list, stickyRank) {
     const res = await fetch(`/api/leaderboard/lucky`, { headers: getApiHeaders() });
     const data = await res.json();
     list.innerHTML = '';
+
+    if (data.reset_ts) startResetCountdown(data.reset_ts);
 
     if (!data.leaderboard || data.leaderboard.length === 0) {
         list.innerHTML = `<div class="text-center text-white/40 mt-12 text-sm">${i18n[currentLang].lb_empty_lucky || 'Пока никто не открывал кейсы 🍀'}</div>`;

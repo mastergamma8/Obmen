@@ -381,10 +381,29 @@ async def _apply_exchange_bonus(base_stars: int) -> int:
 
 
 async def _main_gift_stars(gift_def: dict) -> int:
-    """MAIN_GIFT: required_value × GIFT_EXCHANGE_STARS_RATE + бонус-процент."""
-    base = int(gift_def.get("required_value") or gift_def.get("value") or 0)
-    rate = float(getattr(config, "GIFT_EXCHANGE_STARS_RATE", 1.0))
-    base_stars = max(1, int(base * rate))
+    """
+    MAIN_GIFT → Stars: использует ту же логику, что и BASE_GIFTS.
+
+    Алгоритм:
+      1. Запрашивает floor_price с Portal Market API по названию подарка.
+      2. Конвертирует TON → Stars по живому курсу CoinGecko.
+      3. Применяет бонус-процент.
+
+    Фоллбэк (если Portal API недоступен):
+      required_value × GIFT_EXCHANGE_STARS_RATE × (1 + bonus%).
+    """
+    gift_name = gift_def.get("name", "")
+    ton_price = await _fetch_portal_floor_price_async(gift_name) if gift_name else None
+
+    if ton_price and ton_price > 0:
+        ton_to_stars = await _fetch_ton_to_stars_rate()
+        base_stars = max(1, int(ton_price * ton_to_stars))
+    else:
+        # Фоллбэк: старая формула на случай недоступности Portal API
+        base = int(gift_def.get("required_value") or gift_def.get("value") or 0)
+        rate = float(getattr(config, "GIFT_EXCHANGE_STARS_RATE", 1.0))
+        base_stars = max(1, int(base * rate))
+
     return await _apply_exchange_bonus(base_stars)
 
 
@@ -404,8 +423,12 @@ async def exchange_preview(gift_id: int, current_user: dict = Depends(get_curren
     Возвращает точное количество звёзд, которое получит пользователь при обмене
     подарка — без списания, только расчёт.
 
-    - BASE_GIFTS: Portal floor_price + живой курс TON→Stars.
-    - MAIN_GIFTS: required_value × config.GIFT_EXCHANGE_STARS_RATE (звёзд за 1 🍩).
+    BASE_GIFTS и MAIN_GIFTS используют единую логику:
+      Portal Market floor_price → живой курс TON→Stars → бонус-процент.
+
+    Фоллбэк при недоступности Portal API:
+      BASE_GIFTS  → stored value / 0.80
+      MAIN_GIFTS  → required_value / 1.20
     """
     gift_def = config.BASE_GIFTS.get(gift_id)
     gift_type = "base"
@@ -419,27 +442,19 @@ async def exchange_preview(gift_id: int, current_user: dict = Depends(get_curren
     if _is_real_tg(gift_id):
         raise HTTPException(status_code=400, detail="TG gifts use /api/exchange")
 
-    # ── MAIN_GIFTS: курс задаётся config.GIFT_EXCHANGE_STARS_RATE ────────────
     from db.db_settings import get_exchange_bonus_percent
     bonus = await get_exchange_bonus_percent()
 
-    if gift_type == "main":
-        stars_reward = await _main_gift_stars(gift_def)
-        return {
-            "gift_id":      gift_id,
-            "ton_price":    None,
-            "ton_to_stars": None,
-            "stars_reward": stars_reward,
-            "bonus_percent": bonus,
-        }
+    # ── Единая логика: Portal Market API + TON→Stars + бонус ─────────────────
+    gift_name = gift_def.get("name", "")
+    ton_price = await _fetch_portal_floor_price_async(gift_name) if gift_name else None
 
-    # ── BASE_GIFTS: Portal Market API + TON→Stars + бонус ────────────────────
-    gift_name = gift_def["name"]
-
-    ton_price = await _fetch_portal_floor_price_async(gift_name)
     if ton_price is None or ton_price <= 0:
         stored = gift_def.get("value") or gift_def.get("required_value") or 0
-        ton_price = stored / 0.8 if stored > 0 else 0
+        if gift_type == "main":
+            ton_price = stored / 1.2 if stored > 0 else 0
+        else:
+            ton_price = stored / 0.8 if stored > 0 else 0
 
     if ton_price <= 0:
         raise HTTPException(status_code=503, detail="Не удалось получить цену подарка")
@@ -461,9 +476,12 @@ async def exchange_for_stars(data: ActionData, current_user: dict = Depends(get_
     """
     Обменять BASE_GIFT или MAIN_GIFT подарок на звёзды.
 
-    - BASE_GIFTS: цена берётся с Portal Market API, конвертируется по курсу TON→Stars.
-    - MAIN_GIFTS: звёзды = required_value × config.GIFT_EXCHANGE_STARS_RATE.
-      Курс задаётся командой /setexchangerate в боте и применяется немедленно.
+    BASE_GIFTS и MAIN_GIFTS используют единую логику:
+      Portal Market floor_price → живой курс TON→Stars → бонус-процент.
+
+    Фоллбэк при недоступности Portal API:
+      BASE_GIFTS  → stored value / 0.80
+      MAIN_GIFTS  → required_value / 1.20
 
     TG-подарки (gift_id 2000+) не принимаются — используйте /api/exchange.
     """
@@ -494,48 +512,35 @@ async def exchange_for_stars(data: ActionData, current_user: dict = Depends(get_
     from db.db_settings import get_exchange_bonus_percent
     bonus = await get_exchange_bonus_percent()
 
-    if gift_type == "main":
-        # ── MAIN_GIFTS: required_value × base_rate × (1 + bonus%) ────────────
-        stars_reward = await _main_gift_stars(gift_def)
-
-        removed = await database.remove_gift_from_user(tg_id, data.gift_id)
-        if not removed:
-            raise HTTPException(status_code=400, detail="Подарок не найден")
-
-        await database.add_stars_to_user(tg_id, stars_reward)
-        await database.log_action(
-            tg_id,
-            "exchange_gift_stars",
-            f"Обмен подарка на звёзды: {gift_name} [gift_id:{data.gift_id}] "
-            f"+{bonus}% бонус = {stars_reward} ⭐",
-            stars_reward,
-        )
-
-    else:
-        # ── BASE_GIFTS: Portal Market API + TON→Stars + бонус ────────────────
-        ton_price = await _fetch_portal_floor_price_async(gift_name)
-        if ton_price is None or ton_price <= 0:
-            stored = gift_def.get("value") or gift_def.get("required_value") or 0
+    # ── Единая логика: Portal Market API + TON→Stars + бонус ─────────────────
+    ton_price = await _fetch_portal_floor_price_async(gift_name)
+    if ton_price is None or ton_price <= 0:
+        stored = gift_def.get("value") or gift_def.get("required_value") or 0
+        if gift_type == "main":
+            if stored <= 0:
+                raise HTTPException(status_code=503, detail="Не удалось получить актуальную цену подарка")
+            ton_price = stored / 1.2
+        else:
             if stored <= 0:
                 raise HTTPException(status_code=503, detail="Не удалось получить актуальную цену подарка")
             ton_price = stored / 0.8
 
-        ton_to_stars = await _fetch_ton_to_stars_rate()
-        base_stars   = max(1, int(ton_price * ton_to_stars))
-        stars_reward = await _apply_exchange_bonus(base_stars)
+    ton_to_stars = await _fetch_ton_to_stars_rate()
+    base_stars   = max(1, int(ton_price * ton_to_stars))
+    stars_reward = await _apply_exchange_bonus(base_stars)
 
-        removed = await database.remove_gift_from_user(tg_id, data.gift_id)
-        if not removed:
-            raise HTTPException(status_code=400, detail="Подарок не найден")
+    removed = await database.remove_gift_from_user(tg_id, data.gift_id)
+    if not removed:
+        raise HTTPException(status_code=400, detail="Подарок не найден")
 
-        await database.add_stars_to_user(tg_id, stars_reward)
-        await database.log_action(
-            tg_id,
-            "exchange_gift_stars",
-            f"Обмен подарка на звёзды: {gift_name} [gift_id:{data.gift_id}] "
-            f"({ton_price:.4f} TON × {ton_to_stars:.1f} × +{bonus}% = {stars_reward} ⭐)",
-            stars_reward,
-        )
+    await database.add_stars_to_user(tg_id, stars_reward)
+    await database.log_action(
+        tg_id,
+        "exchange_gift_stars",
+        f"Обмен подарка на звёзды: {gift_name} [gift_id:{data.gift_id}] "
+        f"({ton_price:.4f} TON × {ton_to_stars:.1f} × +{bonus}% = {stars_reward} ⭐)",
+        stars_reward,
+    )
 
     updated_user  = await database.get_user_data(tg_id)
     updated_gifts = await database.get_user_gifts(tg_id)

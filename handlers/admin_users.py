@@ -81,6 +81,17 @@ def register(dp: Dispatcher, bot: Bot):
     AVATARS = [f"https://i.pravatar.cc/150?img={i}" for i in range(1, 71)]
     _FAKE_TG_ID_START = 9_000_000_000
 
+    # Типы трат, которые видны в лидерборде «Транжиры»
+    _FAKE_SPEND_TYPES = [
+        "case_paid_stars",
+        "roulette_paid_stars",
+        "rocket_lose_stars",
+        "case_paid_donuts",
+        "roulette_paid_donuts",
+        "rocket_lose_donuts",
+        "claim_gift",
+    ]
+
     @dp.message(Command("genfakeusers"))
     async def cmd_gen_fake_users(message: Message):
         if message.from_user.id != config.ADMIN_ID:
@@ -121,6 +132,23 @@ def register(dp: Dispatcher, bot: Bot):
                     (tg_id, username, name, avatar, balance),
                 )
 
+                # ── Траты для лидерборда «Транжиры» ──────────────────────────
+                # Каждый фейк делает от 1 до 5 транзакций трат за текущую неделю
+                num_spends = random.randint(1, 5)
+                for _ in range(num_spends):
+                    spend_type = random.choice(_FAKE_SPEND_TYPES)
+                    amount     = -random.randint(5, 500)  # отрицательное = трата
+                    ts         = random.randint(week_ago, now)
+                    await db.execute(
+                        """
+                        INSERT INTO user_history
+                            (user_id, action_type, description, amount, created_at)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (tg_id, spend_type, f"Фейк: {spend_type}", amount, ts),
+                    )
+
+                # ── Ракета для лидерборда «Сорвиголовы» ─────────────────────
                 if random.random() < 0.7:
                     multiplier = round(random.uniform(1.2, 50.0), 2)
                     ts = random.randint(week_ago, now)
@@ -133,6 +161,7 @@ def register(dp: Dispatcher, bot: Bot):
                         (tg_id, f"Ракета: x{multiplier}", int(multiplier * 100), ts),
                     )
 
+                # ── Кейс для лидерборда «Счастливчики» ──────────────────────
                 if random.random() < 0.6:
                     ratio_x100 = random.randint(110, 2000)
                     await db.execute(

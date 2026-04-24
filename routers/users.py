@@ -164,6 +164,7 @@ def _cap_rank(rank) -> str | int:
 
 @router.get("/leaderboard")
 async def get_leaderboard(current_user: dict = Depends(get_current_user)):
+    from db.db_leaderboard import get_week_reset_ts
     tg_id = current_user["id"]
     board = await database.get_leaderboard()
     user_rank = None
@@ -180,11 +181,12 @@ async def get_leaderboard(current_user: dict = Depends(get_current_user)):
         user_rank = await database.get_user_rich_rank(tg_id)
     if user_rank:
         user_rank["rank"] = _cap_rank(user_rank["rank"])
-    return {"leaderboard": board, "user_info": user_rank}
+    return {"leaderboard": board, "user_info": user_rank, "reset_ts": get_week_reset_ts()}
 
 
 @router.get("/leaderboard/rocket")
 async def get_rocket_leaderboard(current_user: dict = Depends(get_current_user)):
+    from db.db_leaderboard import get_week_reset_ts
     tg_id = current_user["id"]
     full_board = await database.get_rocket_leaderboard_full()
     user_rank = {"rank": "—", "max_multiplier": None}
@@ -193,11 +195,12 @@ async def get_rocket_leaderboard(current_user: dict = Depends(get_current_user))
             user_rank = {"rank": i + 1, "max_multiplier": u["max_multiplier"]}
             break
     user_rank["rank"] = _cap_rank(user_rank["rank"])
-    return {"leaderboard": full_board[:50], "user_info": user_rank}
+    return {"leaderboard": full_board[:50], "user_info": user_rank, "reset_ts": get_week_reset_ts()}
 
 
 @router.get("/leaderboard/lucky")
 async def get_lucky_leaderboard(current_user: dict = Depends(get_current_user)):
+    from db.db_leaderboard import get_week_reset_ts
     tg_id = current_user["id"]
     board = await database.get_lucky_leaderboard()
     user_rank = None
@@ -210,7 +213,7 @@ async def get_lucky_leaderboard(current_user: dict = Depends(get_current_user)):
         user_rank = await database.get_user_lucky_rank(tg_id)
     if user_rank:
         user_rank["rank"] = _cap_rank(user_rank["rank"])
-    return {"leaderboard": board, "user_info": user_rank}
+    return {"leaderboard": board, "user_info": user_rank, "reset_ts": get_week_reset_ts()}
 
 
 

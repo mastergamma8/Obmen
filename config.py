@@ -291,7 +291,7 @@ CASES_CONFIG = {
             {"type": "gift", "gift_id": 67, "chance": 30},
             {"type": "donuts", "amount": 1, "chance": 30},                         
             {"type": "donuts", "amount": 2, "chance": 25},                         
-            {"type": "donuts", "amount": 3, "chance": 20},
+            {"type": "donuts", "amount": 3, "chance": 10},
             {"type": "donuts", "amount": 5, "chance": 7},                         
             {"type": "donuts", "amount": 10, "chance": 1},                         
             {"type": "donuts", "amount": 15, "chance": 0},
@@ -306,7 +306,7 @@ CASES_CONFIG = {
             {"type": "gift", "gift_id": 1, "chance": 30},
             {"type": "gift", "gift_id": 5, "chance": 40},
             {"type": "gift", "gift_id": 7, "chance": 15},
-            {"type": "gift", "gift_id": 2, "chance": 20},
+            {"type": "gift", "gift_id": 2, "chance": 10},
             # --- НОВЫЕ ПОДАРКИ ---
             {"type": "gift", "gift_id": 106, "chance": 0},
             {"type": "gift", "gift_id": 107, "chance": 0},
