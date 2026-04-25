@@ -546,6 +546,25 @@ function configureCaseGiftActionsIfNeeded(giftId, source = 'case', isDemo = fals
             if (isDemo) { _closeGameModal(source); return; }
             _setBtnLoading(withdrawBtn, true);
             try {
+                // ── Проверка требований вывода (как в инвентаре профиля) ──────
+                const reqRes  = await fetch('/api/withdraw/requirements', { headers: getApiHeaders() });
+                const reqData = await reqRes.json();
+
+                if (!reqData.all_done) {
+                    // Условия не выполнены — закрываем игровое окно,
+                    // запоминаем подарок и открываем модалку заданий
+                    _pendingWithdrawGiftId = giftId;
+                    _closeGameModal(source);
+                    setTimeout(() => {
+                        _renderWithdrawRequirements(reqData.requirements || []);
+                        const statusEl = document.getElementById('wr-status');
+                        if (statusEl) statusEl.innerHTML = '';
+                        openModal('withdraw-requirements-modal');
+                    }, 320);
+                    return;
+                }
+
+                // Все условия выполнены — выводим подарок
                 const { res, data } = await performGiftAction(giftId, 'withdraw');
                 if (_handleWithdrawErrorInGame(res, data, source)) return;
                 syncGiftStateFromResponse(data);

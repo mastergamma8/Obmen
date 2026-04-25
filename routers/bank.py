@@ -24,17 +24,15 @@ def _safe_rtp(paid_out: int, deposited: int) -> float:
 
 @router.get("/status")
 async def bank_status():
-    bank = await database.get_bank()
-    rate = config.DONUTS_TO_STARS_RATE
+    bank     = await database.get_bank()
+    day      = await database.get_bank_day_stats()
+    earnings = await database.get_bank_earnings_summary()
+    rate     = config.DONUTS_TO_STARS_RATE
 
     stars_bal  = bank.get("stars_balance", 0)
     donuts_bal = bank.get("donuts_balance", 0)
     gift_bal   = bank.get("gift_value_balance", 0)
-    total_liq  = stars_bal + donuts_bal * rate + gift_bal  # FIX: с курсом
-
-    total_dep   = bank.get("total_deposited_value", 0)
-    total_paid  = bank.get("total_paid_out_value", 0)
-    total_edge  = bank.get("total_house_edge_value", 0)
+    total_liq  = stars_bal + donuts_bal * rate + gift_bal
 
     stars_dep   = bank.get("stars_deposited", 0)
     stars_paid  = bank.get("stars_paid_out", 0)
@@ -54,11 +52,24 @@ async def bank_status():
             "gift_value":      gift_bal,
             "total_in_stars":  total_liq,
         },
+        "today": {
+            "date":             day["day_date"],
+            "games_count":      day["games_count"],
+            "deposited_value":  day["deposited_value"],
+            "paid_out_value":   day["paid_out_value"],
+            "house_edge_value": day["house_edge_value"],
+            "rtp_percent":      _safe_rtp(day["paid_out_value"], day["deposited_value"]),
+            "stars_deposited":  day["stars_deposited"],
+            "stars_paid_out":   day["stars_paid_out"],
+            "donuts_deposited": day["donuts_deposited"],
+            "donuts_paid_out":  day["donuts_paid_out"],
+        },
         "total": {
-            "deposited":   total_dep,
-            "paid_out":    total_paid,
-            "house_edge":  total_edge,
-            "rtp_percent": _safe_rtp(total_paid, total_dep),
+            "games_count": earnings["games_count"],
+            "deposited":   earnings["gross_deposited"],
+            "paid_out":    earnings["total_paid_out"],
+            "house_edge":  earnings["house_edge"],
+            "rtp_percent": earnings["rtp_percent"],
         },
         "stars": {
             "deposited":   stars_dep,
@@ -76,6 +87,49 @@ async def bank_status():
     }
 
 
+# ── Статистика за конкретный день ─────────────────────────────────────────────
+
+@router.get("/day")
+async def bank_day_stats(day: str = None):
+    """
+    Статистика банка за один день.
+    Параметр day: YYYY-MM-DD. По умолчанию — сегодня (UTC).
+    """
+    from datetime import datetime
+    if day is not None:
+        try:
+            datetime.strptime(day, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Формат даты: YYYY-MM-DD")
+
+    stats = await database.get_bank_day_stats(day)
+    stats["rtp_percent"] = _safe_rtp(stats["paid_out_value"], stats["deposited_value"])
+    return stats
+
+
+# ── История за последние N дней ───────────────────────────────────────────────
+
+@router.get("/history")
+async def bank_day_history(days: int = 7):
+    """Возвращает статистику за последние N дней (max 90)."""
+    if days < 1 or days > 90:
+        raise HTTPException(status_code=400, detail="days должен быть от 1 до 90")
+    rows = await database.get_bank_day_history(days)
+    for r in rows:
+        r["rtp_percent"] = _safe_rtp(r["paid_out_value"], r["deposited_value"])
+    return rows
+
+
+# ── Топ активных игроков сегодня ──────────────────────────────────────────────
+
+@router.get("/top-active")
+async def bank_top_active(limit: int = 3):
+    """Топ самых активных игроков за сегодня (по количеству игр)."""
+    if limit < 1 or limit > 20:
+        raise HTTPException(status_code=400, detail="limit должен быть от 1 до 20")
+    return await database.get_top_active_today(limit)
+
+
 # ── Администраторский топап ───────────────────────────────────────────────────
 
 @router.post("/topup")
@@ -90,7 +144,7 @@ async def bank_topup(data: AdminBankTopup, current_user: dict = Depends(get_curr
     if data.amount <= 0:
         raise HTTPException(status_code=400, detail="Сумма должна быть > 0")
     if data.asset_type not in ("stars", "donuts"):
-        raise HTTPException(status_code=400, detail="asset_type должен быть 'stars' или 'donuts'")
+        raise HTTPException(status_code=400, detail="asset_type: 'stars' или 'donuts'")
 
     if data.asset_type == "donuts":
         await database.bank_add_donuts(data.amount)

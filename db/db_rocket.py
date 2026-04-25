@@ -1,8 +1,10 @@
 # db_rocket.py
 # Хранение активных ракетных игр в БД вместо памяти.
 
+import math
 import time
 import aiosqlite
+from datetime import datetime, timezone
 from db.db_core import DB_NAME
 
 
@@ -73,24 +75,28 @@ async def rocket_start_atomic(
     """
     import config as _cfg
 
-    house_edge_amount = int(bet * house_edge)
+    # ФИХ: math.ceil — мелкие ставки больше не дают нулевую комиссию
+    house_edge_amount = math.ceil(bet * house_edge) if house_edge > 0 else 0
     pool_amount       = bet - house_edge_amount
     rate              = _cfg.DONUTS_TO_STARS_RATE
 
     if currency == "donuts":
         balance_col   = "donuts_balance"
         deposited_col = "donuts_deposited"
+        day_dep_col   = "donuts_deposited"
         user_col      = "balance"
-        bet_value     = bet         * rate
+        bet_value     = bet               * rate
         edge_value    = house_edge_amount * rate
     else:  # stars
         balance_col   = "stars_balance"
         deposited_col = "stars_deposited"
+        day_dep_col   = "stars_deposited"
         user_col      = "stars"
         bet_value     = bet
         edge_value    = house_edge_amount
 
-    now = int(time.time())
+    now      = int(time.time())
+    today    = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("BEGIN IMMEDIATE")
@@ -106,15 +112,30 @@ async def rocket_start_atomic(
             return {"ok": False, "reason": "insufficient_balance"}
 
         # Шаг 2: пополнение банка
+        # ФИХ: добавлены games_count и bank_day_stats — раньше ракета была
+        # невидима для банковской статистики и дневного топа активных игроков.
         await db.execute(f"""
             UPDATE system_bank SET
                 {balance_col}          = {balance_col} + ?,
                 {deposited_col}        = {deposited_col} + ?,
                 total_deposited_value  = total_deposited_value + ?,
                 total_house_edge_value = total_house_edge_value + ?,
+                games_count            = games_count + 1,
                 updated_at             = ?
             WHERE id = 1
         """, (pool_amount, bet, bet_value, edge_value, now))
+
+        # ФИХ: ежедневная статистика — раньше этой записи не было вовсе
+        await db.execute(f"""
+            INSERT INTO bank_day_stats
+                (day_date, deposited_value, house_edge_value, games_count, {day_dep_col})
+            VALUES (?, ?, ?, 1, ?)
+            ON CONFLICT(day_date) DO UPDATE SET
+                deposited_value  = deposited_value  + excluded.deposited_value,
+                house_edge_value = house_edge_value + excluded.house_edge_value,
+                games_count      = games_count + 1,
+                {day_dep_col}    = {day_dep_col} + excluded.{day_dep_col}
+        """, (today, bet_value, edge_value, bet))
 
         # Шаг 3: создание записи активной игры
         try:

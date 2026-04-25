@@ -82,6 +82,11 @@ from db.db_bank import (  # noqa: F401
     bank_get_max_payout,
     bank_add_stars,
     bank_add_donuts,
+    # Статистика (новое)
+    get_bank_day_stats,
+    get_bank_day_history,
+    get_top_active_today,
+    get_bank_earnings_summary,
 )
 
 from db.db_rocket import (  # noqa: F401
