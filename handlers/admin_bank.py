@@ -136,7 +136,11 @@ def register(dp: Dispatcher, bot: Bot):
         stars_paid  = bank.get("stars_paid_out", 0)
         donuts_dep  = bank.get("donuts_deposited", 0)
         donuts_paid = bank.get("donuts_paid_out", 0)
+        gift_dep    = bank.get("gift_value_balance", 0)  # нет отдельного gift_deposited в system_bank
         gift_paid   = bank.get("gift_value_paid_out", 0)
+        # Из дневной статистики — подарки теперь пишутся отдельно
+        day_gift_dep  = day.get("gift_value_deposited", 0)
+        day_gift_paid = day.get("gift_value_paid_out", 0)
 
         # ── Топ-3 активных сегодня ────────────────────────────────────────────
         top_lines = []
@@ -199,8 +203,15 @@ def register(dp: Dispatcher, bot: Bot):
             f"Выплачено: <b>{_fmt(donuts_paid)}</b>  ·  "
             f"RTP: <b>{_rtp(donuts_paid, donuts_dep)}</b>\n"
             f"\n"
-            f"<b>{E_GIFT} Подарки (value-эквивалент)</b>\n"
-            f"  Выплачено: <b>{_fmt(gift_paid)}</b>"
+            f"<b>{E_GIFT} Подарки (1 gift_value = 1 {E_STAR})</b>\n"
+            f"  Принято: <b>{_fmt(gift_dep)}</b>  ·  "
+            f"Выплачено: <b>{_fmt(gift_paid)}</b>  ·  "
+            f"RTP: <b>{_rtp(gift_paid, gift_dep)}</b>\n"
+            f"\n"
+            f"<b>{_E_CALENDAR} Подарки сегодня</b>\n"
+            f"  Принято: <b>{_fmt(day_gift_dep)}</b>  ·  "
+            f"Выплачено: <b>{_fmt(day_gift_paid)}</b>  ·  "
+            f"RTP: <b>{_rtp(day_gift_paid, day_gift_dep)}</b>"
         )
 
         await message.answer(text, parse_mode="HTML")
@@ -266,7 +277,12 @@ def register(dp: Dispatcher, bot: Bot):
             f"  Ставок: <b>{_fmt(s_dep)}</b>  ·  Выплат: <b>{_fmt(s_paid)}</b>  ·  RTP: <b>{_rtp(s_paid, s_dep)}</b>\n"
             f"\n"
             f"<b>{E_DONUT} Пончики</b>\n"
-            f"  Ставок: <b>{_fmt(don_dep)}</b>  ·  Выплат: <b>{_fmt(don_paid)}</b>  ·  RTP: <b>{_rtp(don_paid, don_dep)}</b>",
+            f"  Ставок: <b>{_fmt(don_dep)}</b>  ·  Выплат: <b>{_fmt(don_paid)}</b>  ·  RTP: <b>{_rtp(don_paid, don_dep)}</b>\n"
+            f"\n"
+            f"<b>{E_GIFT} Подарки</b>\n"
+            f"  Ставок: <b>{_fmt(day.get('gift_value_deposited', 0))}</b>  ·  "
+            f"Выплат: <b>{_fmt(day.get('gift_value_paid_out', 0))}</b>  ·  "
+            f"RTP: <b>{_rtp(day.get('gift_value_paid_out', 0), day.get('gift_value_deposited', 0))}</b>",
             parse_mode="HTML",
         )
 

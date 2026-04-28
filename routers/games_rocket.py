@@ -1,215 +1,392 @@
-from fastapi import APIRouter, Depends, HTTPException
+# routers/games_rocket.py
+# =====================================================
+# РАКЕТА (CRASH) — ОБЩИЙ РАУНД ДЛЯ ВСЕХ ИГРОКОВ
+# =====================================================
+
+import asyncio
+import math
 import random
 import time
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 import config
 import database
-from handlers.models import RocketBetData, RocketCashoutData
 from handlers.security import get_current_user
 
 router = APIRouter(prefix="/rocket", tags=["rocket"])
 
-HOUSE_EDGE = config.ROCKET_CONFIG.get("house_edge", 0.15)
+# ─────────────────────────────────────────────────────────────
+# ПАРАМЕТРЫ
+# ─────────────────────────────────────────────────────────────
+
+WAITING_DURATION   = 12.0
+COUNTDOWN_DURATION =  3.0
+CRASH_SHOW_DURATION =  4.0
+
+HOUSE_EDGE   = config.ROCKET_CONFIG.get("house_edge", 0.05)
+GROWTH_SPEED = config.ROCKET_CONFIG.get("growth_speed", 1.00006)
+MAX_MULT     = config.ROCKET_CONFIG.get("max_multiplier", 1000.0)
+CURRENCY     = config.ROCKET_CONFIG.get("currency", "stars")
+
+# ─────────────────────────────────────────────────────────────
+# ГЛОБАЛЬНОЕ СОСТОЯНИЕ
+# ─────────────────────────────────────────────────────────────
+
+_lock = asyncio.Lock()
+
+rocket_round: Dict[str, Any] = {
+    "id":          0,
+    "state":       "waiting",
+    "crash_point": 0.0,
+    "start_time":  0.0,
+    "phase_end":   0.0,
+    "bets":        {},
+    "_processing": set(),
+}
 
 
-async def generate_crash_point(bet: int) -> float:
+# ─────────────────────────────────────────────────────────────
+# ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+# ─────────────────────────────────────────────────────────────
+
+def _calc_mult() -> float:
+    if rocket_round["state"] != "flying":
+        return 1.0
+    elapsed_ms = max(0.0, (time.time() - rocket_round["start_time"]) * 1000)
+    return round(pow(GROWTH_SPEED, elapsed_ms), 4)
+
+
+async def _generate_crash_point(total_bet: int = 0) -> float:
     """
-    Генерация краш-поинта с учётом Глобального Банка.
-    Crash-point хранится только на сервере и никогда не передаётся клиенту.
+    Генерирует краш-поинт с учётом ликвидности банка.
+    Если банк не может покрыть потенциальную выплату — краш-поинт
+    ограничивается значением bank_balance / total_bet (как в оригинале).
     """
     r = random.uniform(0, 1)
     if r < HOUSE_EDGE:
-        raw_crash = 1.00
+        raw_crash = 1.0
     else:
         raw_crash = round(0.95 / (1.0 - r), 2)
-        max_mult  = config.ROCKET_CONFIG.get("max_multiplier", 1000.0)
-        raw_crash = min(raw_crash, max_mult)
+        raw_crash = min(raw_crash, MAX_MULT)
 
-    bank_balance = await database.bank_get_max_payout()
-    if bank_balance <= 0 or bet <= 0:
-        return 1.00
+    # Проверяем ликвидность банка (как в оригинальном generate_crash_point)
+    if total_bet > 0:
+        bank_balance = await database.bank_get_max_payout(asset_type=CURRENCY)
+        if bank_balance <= 0:
+            return 1.0
+        max_allowed = round(bank_balance / total_bet, 2)
+        if max_allowed < 1.0:
+            return 1.0
+        raw_crash = min(raw_crash, max_allowed)
 
-    max_allowed = bank_balance / bet
-    if max_allowed < 1.00:
-        return 1.00
-
-    return min(raw_crash, round(max_allowed, 2))
+    return raw_crash
 
 
-@router.post("/start")
-async def start_rocket(data: RocketBetData, current_user: dict = Depends(get_current_user)):
-    tg_id    = current_user["id"]
-    bet      = data.bet
-    currency = config.ROCKET_CONFIG.get("currency", "donuts")
+async def _deduct_and_deposit(user_id: int, bet: int, currency: str) -> bool:
+    """
+    Атомарно списывает ставку с баланса игрока и зачисляет в банк.
+    Использует database.bank_deposit() — точно как оригинальный rocket_start_atomic,
+    чтобы bank_day_stats, games_count и house_edge учитывались корректно.
+    """
+    import aiosqlite
+    from db.db_core import DB_NAME
 
-    if bet < config.ROCKET_CONFIG["min_bet"] or bet > config.ROCKET_CONFIG["max_bet"]:
-        raise HTTPException(status_code=400, detail="Неверная сумма ставки")
+    user_col = "stars" if currency == "stars" else "balance"
 
-    existing = await database.rocket_get_game(tg_id)
-    if existing:
-        raise HTTPException(status_code=400, detail="У вас уже есть активная игра")
+    # Шаг 1: атомарное списание у пользователя
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("BEGIN IMMEDIATE")
+        cur = await db.execute(
+            f"UPDATE users SET {user_col} = {user_col} - ? "
+            f"WHERE tg_id = ? AND {user_col} >= ?",
+            (bet, user_id, bet),
+        )
+        if cur.rowcount != 1:
+            await db.rollback()
+            return False
+        await db.commit()
 
-    crash_point = await generate_crash_point(bet)
+    # Шаг 2: зачисление в банк через официальную функцию
+    # (обновляет bank_day_stats, games_count, house_edge — идентично оригиналу)
+    await database.bank_deposit(gross_bet=bet, house_edge=HOUSE_EDGE, asset_type=currency)
+    return True
 
-    result = await database.rocket_start_atomic(
-        user_id=tg_id,
-        bet=bet,
-        currency=currency,
-        crash_point=crash_point,
-        house_edge=HOUSE_EDGE,
-    )
 
-    if not result["ok"]:
-        reason = result.get("reason", "")
-        if reason == "insufficient_balance":
-            raise HTTPException(
-                status_code=400,
-                detail=f"Недостаточно {'звезд' if currency == 'stars' else 'пончиков'}",
-            )
-        raise HTTPException(status_code=400, detail="Не удалось создать игру")
+async def _do_cashout(user_id: int, bet_data: dict, mult: float):
+    bet         = bet_data["bet"]
+    currency    = bet_data["currency"]
+    crash_point = rocket_round.get("crash_point", mult)
+    actual_mult = round(min(mult, crash_point), 4)
+    win_amount  = int(bet * actual_mult)
+    profit      = win_amount - bet
 
-    updated_user = await database.get_user_data(tg_id)
+    try:
+        if profit > 0:
+            paid = await database.bank_payout(profit, asset_type=currency)
+            if not paid:
+                async with _lock:
+                    if user_id in rocket_round["bets"]:
+                        rocket_round["bets"][user_id]["status"] = "crashed"
+                    rocket_round["_processing"].discard(user_id)
+                return
+
+        if currency == "stars":
+            await database.add_stars_to_user(user_id, win_amount)
+        else:
+            await database.add_points_to_user(user_id, win_amount)
+
+        await database.add_history_entry(
+            user_id, f"rocket_win_{currency}",
+            f"Ракета (x{actual_mult:.2f})", profit,
+        )
+
+        async with _lock:
+            if user_id in rocket_round["bets"]:
+                rocket_round["bets"][user_id]["status"]       = "cashed_out"
+                rocket_round["bets"][user_id]["cashout_mult"] = actual_mult
+            rocket_round["_processing"].discard(user_id)
+
+    except Exception:
+        async with _lock:
+            rocket_round["_processing"].discard(user_id)
+
+
+async def _process_auto_cashouts(current_mult: float):
+    to_process = []
+    async with _lock:
+        for uid, bet in rocket_round["bets"].items():
+            if (
+                bet["status"] == "active"
+                and bet["auto_cashout"] > 1.0
+                and current_mult >= bet["auto_cashout"]
+                and uid not in rocket_round["_processing"]
+            ):
+                rocket_round["_processing"].add(uid)
+                to_process.append((uid, bet.copy(), bet["auto_cashout"]))
+
+    for uid, bet_data, mult in to_process:
+        asyncio.create_task(_do_cashout(uid, bet_data, mult))
+
+
+# ─────────────────────────────────────────────────────────────
+# ФОНОВАЯ ЗАДАЧА — МЕНЕДЖЕР РАУНДОВ
+# ─────────────────────────────────────────────────────────────
+
+async def round_manager():
+    global rocket_round
+    while True:
+        try:
+            # ЖДЁМ СТАВКИ
+            async with _lock:
+                rocket_round["id"]          += 1
+                rocket_round["state"]        = "waiting"
+                rocket_round["crash_point"]  = 0.0
+                rocket_round["start_time"]   = 0.0
+                rocket_round["phase_end"]    = time.time() + WAITING_DURATION
+                rocket_round["bets"]         = {}
+                rocket_round["_processing"]  = set()
+
+            await asyncio.sleep(WAITING_DURATION)
+
+            # ОБРАТНЫЙ ОТСЧЁТ
+            async with _lock:
+                total_bet = sum(b["bet"] for b in rocket_round["bets"].values())
+
+            crash_point = await _generate_crash_point(total_bet)
+            async with _lock:
+                rocket_round["state"]       = "countdown"
+                rocket_round["crash_point"] = crash_point
+                rocket_round["phase_end"]   = time.time() + COUNTDOWN_DURATION
+
+            await asyncio.sleep(COUNTDOWN_DURATION)
+
+            # ПОЛЁТ
+            async with _lock:
+                rocket_round["state"]      = "flying"
+                rocket_round["start_time"] = time.time()
+                rocket_round["phase_end"]  = 0.0
+
+            crash_time = (math.log(crash_point) / math.log(GROWTH_SPEED)) / 1000.0
+            elapsed    = 0.0
+            interval   = 0.1
+
+            while elapsed < crash_time:
+                await asyncio.sleep(interval)
+                elapsed += interval
+                await _process_auto_cashouts(_calc_mult())
+
+            # КРАШ
+            async with _lock:
+                rocket_round["state"]     = "crashed"
+                rocket_round["phase_end"] = time.time() + CRASH_SHOW_DURATION
+                crashed_users = []
+                for uid, bet in rocket_round["bets"].items():
+                    if bet["status"] == "active":
+                        bet["status"] = "crashed"
+                        crashed_users.append((uid, bet.copy()))
+
+            for uid, bet in crashed_users:
+                try:
+                    await database.add_history_entry(
+                        uid, f"rocket_lose_{bet['currency']}",
+                        f"Ракета улетела на x{crash_point:.2f} (ставка: {bet['bet']})",
+                        -bet["bet"],
+                    )
+                except Exception:
+                    pass
+
+            await asyncio.sleep(CRASH_SHOW_DURATION)
+
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            await asyncio.sleep(2.0)
+
+
+# ─────────────────────────────────────────────────────────────
+# ЭНДПОИНТЫ API
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/state")
+async def get_state(current_user: dict = Depends(get_current_user)):
+    tg_id = current_user["id"]
+
+    async with _lock:
+        state       = rocket_round["state"]
+        round_id    = rocket_round["id"]
+        phase_end   = rocket_round["phase_end"]
+        crash_point = rocket_round["crash_point"]
+
+        mult      = _calc_mult() if state == "flying" else 1.0
+        time_left = round(max(0.0, phase_end - time.time()), 2) if phase_end > 0 else 0.0
+
+        my_raw = rocket_round["bets"].get(tg_id)
+        my_bet = {
+            "bet":          my_raw["bet"],
+            "currency":     my_raw["currency"],
+            "status":       my_raw["status"],
+            "cashout_mult": my_raw.get("cashout_mult"),
+            "auto_cashout": my_raw.get("auto_cashout", 0),
+        } if my_raw else None
+
+        bets_list = []
+        for uid, b in rocket_round["bets"].items():
+            if b["status"] == "active" and state == "flying":
+                cw = int(b["bet"] * mult)
+            elif b["status"] == "cashed_out" and b.get("cashout_mult"):
+                cw = int(b["bet"] * b["cashout_mult"])
+            else:
+                cw = b["bet"]
+
+            bets_list.append({
+                "user_id":      uid,
+                "name":         b["name"],
+                "avatar":       b["avatar"],
+                "bet":          b["bet"],
+                "currency":     b["currency"],
+                "status":       b["status"],
+                "cashout_mult": b.get("cashout_mult"),
+                "current_win":  cw,
+            })
+
     return {
-        "status":  "ok",
-        "balance": updated_user["balance"],
-        "stars":   updated_user["stars"],
-        # crash_point намеренно отсутствует в ответе
+        "round_id":       round_id,
+        "state":          state,
+        "time_left":      time_left,
+        "current_mult":   round(mult, 4) if state == "flying" else None,
+        "revealed_crash": round(crash_point, 2) if state == "crashed" else None,
+        "my_bet":         my_bet,
+        "bets":           bets_list,
     }
+
+
+class BetRequest(BaseModel):
+    bet: int
+    auto_cashout: float = 0.0
+
+
+@router.post("/bet")
+async def place_bet(data: BetRequest, current_user: dict = Depends(get_current_user)):
+    tg_id = current_user["id"]
+    bet   = data.bet
+
+    min_bet = config.ROCKET_CONFIG["min_bet"]
+    max_bet = config.ROCKET_CONFIG["max_bet"]
+    if bet < min_bet or bet > max_bet:
+        raise HTTPException(400, f"Ставка от {min_bet} до {max_bet}")
+
+    async with _lock:
+        if rocket_round["state"] != "waiting":
+            raise HTTPException(400, "Ставки принимаются только перед раундом")
+        if tg_id in rocket_round["bets"]:
+            raise HTTPException(400, "Вы уже сделали ставку в этом раунде")
+
+    ok = await _deduct_and_deposit(tg_id, bet, CURRENCY)
+    if not ok:
+        raise HTTPException(400, "Недостаточно средств")
+
+    async with _lock:
+        if rocket_round["state"] != "waiting" or tg_id in rocket_round["bets"]:
+            # Вернуть деньги если раунд уже начался
+            if CURRENCY == "stars":
+                await database.add_stars_to_user(tg_id, bet)
+            else:
+                await database.add_points_to_user(tg_id, bet)
+            raise HTTPException(400, "Раунд уже начался, ставка возвращена")
+
+        auto_co = max(0.0, float(data.auto_cashout)) if data.auto_cashout else 0.0
+        rocket_round["bets"][tg_id] = {
+            "user_id":      tg_id,
+            "name":         current_user.get("first_name") or current_user.get("username") or f"Игрок",
+            "avatar":       current_user.get("photo_url", ""),
+            "bet":          bet,
+            "currency":     CURRENCY,
+            "auto_cashout": auto_co,
+            "status":       "active",
+            "cashout_mult": None,
+        }
+
+    updated = await database.get_user_data(tg_id)
+    return {"status": "ok", "balance": updated["balance"], "stars": updated["stars"]}
 
 
 @router.post("/cashout")
-async def cashout_rocket(data: RocketCashoutData, current_user: dict = Depends(get_current_user)):
-    """
-    Кешаут по команде игрока.
-
-    Клиент передаёт multiplier — тот множитель, на котором сработал авто-вывод
-    или игрок нажал «Забрать». Сервер независимо рассчитывает серверный множитель
-    по прошедшему времени и берёт минимум из двух значений.
-
-    Это решает проблему с историей: при авто-выводе на 1.50 сетевая задержка
-    (50–200 мс) раньше приводила к тому, что сервер записывал 1.74 или 1.79,
-    потому что считал время уже после получения запроса. Теперь клиентское
-    значение используется как верхняя граница, а сервер не может занизить его
-    ниже 1.0 или дать больше, чем успело нарасти реально.
-    """
+async def do_cashout(current_user: dict = Depends(get_current_user)):
     tg_id = current_user["id"]
 
-    game = await database.rocket_end_game(tg_id)
-    if not game:
-        raise HTTPException(status_code=400, detail="Активная игра не найдена или уже завершена")
+    async with _lock:
+        if rocket_round["state"] != "flying":
+            raise HTTPException(400, "Ракета не летит")
+        bet_data = rocket_round["bets"].get(tg_id)
+        if not bet_data:
+            raise HTTPException(400, "Вы не участвуете в этом раунде")
+        if bet_data["status"] != "active":
+            raise HTTPException(400, "Ставка уже завершена")
+        if tg_id in rocket_round["_processing"]:
+            raise HTTPException(400, "Вывод обрабатывается")
 
-    currency    = game.get("currency", "donuts")
-    bet         = game["bet"]
-    crash_point = game["crash_point"]
-    created_at  = game.get("created_at", int(time.time()))
+        mult = _calc_mult()
+        if mult >= rocket_round["crash_point"]:
+            raise HTTPException(400, "Ракета уже улетела!")
 
-    # Серверный расчёт множителя по прошедшему времени (идентично клиенту)
-    growth_speed = config.ROCKET_CONFIG.get("growth_speed", 1.00006)
-    elapsed_ms   = max(0, (time.time() - created_at) * 1000)
-    server_mult  = round(pow(growth_speed, elapsed_ms), 2)
+        rocket_round["_processing"].add(tg_id)
+        snapshot = bet_data.copy()
 
-    # Проверяем краш по серверному времени — это нельзя обойти со стороны клиента
-    crashed = server_mult >= crash_point
+    await _do_cashout(tg_id, snapshot, mult)
 
-    if crashed:
-        await database.add_history_entry(
-            tg_id, f"rocket_lose_{currency}",
-            "Ракета проигрыш", -bet
-        )
-        updated_user = await database.get_user_data(tg_id)
-        return {
-            "status":  "error",
-            "detail":  "Ракета уже улетела!",
-            "balance": updated_user["balance"],
-            "stars":   updated_user["stars"],
-        }
+    updated = await database.get_user_data(tg_id)
+    async with _lock:
+        r = rocket_round["bets"].get(tg_id, {})
+        cashout_mult = r.get("cashout_mult", mult)
+        win_amount   = int(snapshot["bet"] * cashout_mult)
 
-    # Берём минимум из клиентского и серверного значений:
-    # — клиент не может передать больше, чем реально выросло на сервере
-    # — клиент не может передать меньше 1.0
-    # Это гарантирует честную запись в историю без влияния сетевой задержки.
-    client_mult = max(1.0, round(float(data.multiplier), 2))
-    actual_mult = min(client_mult, server_mult, crash_point)
-
-    win_amount = int(bet * actual_mult)
-    profit     = win_amount - bet
-
-    # Прибыль сверх ставки идёт из банка
-    if profit > 0:
-        paid = await database.bank_payout(profit, asset_type=currency)
-        if not paid:
-            await database.add_history_entry(
-                tg_id, f"rocket_lose_{currency}",
-                "Ракета: банк исчерпан при кешауте", -bet
-            )
-            updated_user = await database.get_user_data(tg_id)
-            return {
-                "status": "error",
-                "detail": "Банк исчерпан. Ракета упала!",
-                "balance": updated_user["balance"],
-                "stars":   updated_user["stars"],
-            }
-
-    if currency == "stars":
-        await database.add_stars_to_user(tg_id, win_amount)
-    else:
-        await database.add_points_to_user(tg_id, win_amount)
-
-    await database.add_history_entry(
-        tg_id, f"rocket_win_{currency}",
-        f"Ракета (x{actual_mult:.2f})", profit
-    )
-
-    updated_user = await database.get_user_data(tg_id)
     return {
         "status":     "ok",
         "win_amount": win_amount,
-        "multiplier": actual_mult,
-        "balance":    updated_user["balance"],
-        "stars":      updated_user["stars"],
-    }
-
-
-@router.post("/crash")
-async def crash_rocket(current_user: dict = Depends(get_current_user)):
-    """Вызывается фронтендом, когда ракета улетела и игрок не успел кешаутиться."""
-    tg_id = current_user["id"]
-    game  = await database.rocket_end_game(tg_id)
-    if not game:
-        return {"status": "ok", "already_closed": True}
-
-    currency = game.get("currency", "donuts")
-    await database.add_history_entry(
-        tg_id, f"rocket_lose_{currency}",
-        f"Ракета улетела на x{game['crash_point']:.2f} (ставка: {game['bet']})", -game["bet"]
-    )
-
-    updated_user = await database.get_user_data(tg_id)
-    return {
-        "status":  "ok",
-        "balance": updated_user["balance"],
-        "stars":   updated_user["stars"],
-    }
-
-
-@router.get("/status")
-async def rocket_status(current_user: dict = Depends(get_current_user)):
-    """Возвращает состояние активной игры без раскрытия crash_point."""
-    tg_id = current_user["id"]
-    game  = await database.rocket_get_game(tg_id)
-
-    if not game:
-        return {"status": "no_game"}
-
-    growth_speed = config.ROCKET_CONFIG.get("growth_speed", 1.00006)
-    elapsed_ms   = max(0, (time.time() - game.get("created_at", time.time())) * 1000)
-    current_mult = round(pow(growth_speed, elapsed_ms), 2)
-    crashed      = current_mult >= game["crash_point"]
-
-    return {
-        "status":       "active",
-        "bet":          game["bet"],
-        "currency":     game["currency"],
-        "current_mult": current_mult,
-        "crashed":      crashed,
+        "multiplier": cashout_mult,
+        "balance":    updated["balance"],
+        "stars":      updated["stars"],
     }

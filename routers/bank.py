@@ -61,8 +61,10 @@ async def bank_status():
             "rtp_percent":      _safe_rtp(day["paid_out_value"], day["deposited_value"]),
             "stars_deposited":  day["stars_deposited"],
             "stars_paid_out":   day["stars_paid_out"],
-            "donuts_deposited": day["donuts_deposited"],
-            "donuts_paid_out":  day["donuts_paid_out"],
+            "donuts_deposited":      day["donuts_deposited"],
+            "donuts_paid_out":       day["donuts_paid_out"],
+            "gift_value_deposited":  day.get("gift_value_deposited", 0),
+            "gift_value_paid_out":   day.get("gift_value_paid_out", 0),
         },
         "total": {
             "games_count": earnings["games_count"],

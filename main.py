@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 import uvicorn
@@ -32,8 +33,8 @@ RATE_LIMITS: list[tuple[str, int, int]] = [
     ("/api/init",           30, 60),
     ("/api/topup/stars",    10, 60),
     ("/roulette/spin",      20, 60),
-    ("/rocket/start",       20, 60),
-    ("/rocket/cashout",     20, 60),
+    ("/api/rocket/bet",     20, 60),
+    ("/api/rocket/cashout", 20, 60),
     ("/api/gifts/claim",    10, 60),
     ("/api/gifts/withdraw",  5, 60),
     ("/api/withdraw",        5, 60),
@@ -115,7 +116,18 @@ async def lifespan(app: FastAPI):
     print("Инициализация обновления цен подарков (API Portals)...")
     config.update_base_gifts_prices()
 
+    # Запускаем менеджер общих раундов ракеты
+    from routers.games_rocket import round_manager
+    rocket_task = asyncio.create_task(round_manager())
+    print("✅ Менеджер раундов ракеты запущен")
+
     yield
+
+    rocket_task.cancel()
+    try:
+        await rocket_task
+    except asyncio.CancelledError:
+        pass
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
@@ -225,7 +237,6 @@ app.include_router(games.router)
 app.include_router(tasks.router)
 app.include_router(bank.router)
 app.include_router(games_roulette.router)
-app.include_router(games_rocket.router)
 app.include_router(games_cases.router)
 app.include_router(tg_shop.router)
 

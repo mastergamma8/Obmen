@@ -106,10 +106,24 @@ async def init_bank():
                 games_count      INTEGER DEFAULT 0,
                 stars_deposited  INTEGER DEFAULT 0,
                 stars_paid_out   INTEGER DEFAULT 0,
-                donuts_deposited INTEGER DEFAULT 0,
-                donuts_paid_out  INTEGER DEFAULT 0
+                donuts_deposited      INTEGER DEFAULT 0,
+                donuts_paid_out       INTEGER DEFAULT 0,
+                gift_value_deposited  INTEGER DEFAULT 0,
+                gift_value_paid_out   INTEGER DEFAULT 0
             )
         """)
+
+        # Безопасная миграция: добавляем gift_value-колонки для существующих БД
+        for _col, _def in [
+            ("gift_value_deposited", "INTEGER DEFAULT 0"),
+            ("gift_value_paid_out",  "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                await db.execute(
+                    f"ALTER TABLE bank_day_stats ADD COLUMN {_col} {_def}"
+                )
+            except Exception:
+                pass
 
         # ── Индексы для производительности (leaderboard / history) ───────────
         for ddl in [
@@ -182,6 +196,7 @@ async def get_bank_day_stats(day: str = None) -> dict:
                 "house_edge_value": 0, "games_count": 0,
                 "stars_deposited": 0, "stars_paid_out": 0,
                 "donuts_deposited": 0, "donuts_paid_out": 0,
+                "gift_value_deposited": 0, "gift_value_paid_out": 0,
             }
 
 
@@ -349,13 +364,15 @@ async def bank_deposit(gross_bet: int, house_edge: float,
 
             await db.execute("""
                 INSERT INTO bank_day_stats
-                    (day_date, deposited_value, house_edge_value, games_count)
-                VALUES (?, ?, ?, 1)
+                    (day_date, deposited_value, house_edge_value, games_count,
+                     gift_value_deposited)
+                VALUES (?, ?, ?, 1, ?)
                 ON CONFLICT(day_date) DO UPDATE SET
-                    deposited_value  = deposited_value  + excluded.deposited_value,
-                    house_edge_value = house_edge_value + excluded.house_edge_value,
-                    games_count      = games_count + 1
-            """, (today, gross_bet_v, edge_v))
+                    deposited_value      = deposited_value      + excluded.deposited_value,
+                    house_edge_value     = house_edge_value     + excluded.house_edge_value,
+                    games_count          = games_count + 1,
+                    gift_value_deposited = gift_value_deposited + excluded.gift_value_deposited
+            """, (today, gross_bet_v, edge_v, gross_bet))
 
         async with db.execute(
             "SELECT stars_balance, donuts_balance, gift_value_balance FROM system_bank WHERE id = 1"
@@ -500,19 +517,19 @@ async def bank_payout(amount: int, asset_type: str = "stars") -> bool:
             WHERE id = 1
         """, (primary_deduct, primary_deduct, amount_v, int(time.time())))
 
-        # Обновляем дневные выплаты
+        # Обновляем дневные выплаты (включая gift_value — раньше они пропускались)
         day_paid_col = (
-            "stars_paid_out"  if asset_type == "stars"  else
-            "donuts_paid_out" if asset_type == "donuts" else None
+            "stars_paid_out"       if asset_type == "stars"       else
+            "donuts_paid_out"      if asset_type == "donuts"      else
+            "gift_value_paid_out"  # gift_value
         )
-        if day_paid_col:
-            await db.execute(f"""
-                INSERT INTO bank_day_stats (day_date, paid_out_value, {day_paid_col})
-                VALUES (?, ?, ?)
-                ON CONFLICT(day_date) DO UPDATE SET
-                    paid_out_value = paid_out_value + excluded.paid_out_value,
-                    {day_paid_col} = {day_paid_col} + excluded.{day_paid_col}
-            """, (today, amount_v, primary_deduct))
+        await db.execute(f"""
+            INSERT INTO bank_day_stats (day_date, paid_out_value, {day_paid_col})
+            VALUES (?, ?, ?)
+            ON CONFLICT(day_date) DO UPDATE SET
+                paid_out_value = paid_out_value + excluded.paid_out_value,
+                {day_paid_col} = {day_paid_col} + excluded.{day_paid_col}
+        """, (today, amount_v, primary_deduct))
 
         await db.commit()
 
