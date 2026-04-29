@@ -5,7 +5,8 @@ function renderMainPage() {
     const grid = document.getElementById('main-gifts-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    for (const [id, gift] of Object.entries(mainGifts)) {
+    const sortedEntries = Object.entries(mainGifts).sort((a, b) => a[1].required_value - b[1].required_value);
+    for (const [id, gift] of sortedEntries) {
         const req = gift.required_value;
         const unlocked = myBalance >= req;
         const pct = Math.min(100, Math.round(myBalance / req * 100));

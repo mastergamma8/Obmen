@@ -128,33 +128,34 @@ function buildCard(u, index, isMe, valueBadge) {
     const avatarBorder = isMe && index > 2 ? 'border-blue-400' : s.avatarBorder;
     const activeGlowColor = isMe && index > 2 ? 'bg-blue-500' : s.glowColor;
 
-    // Отображение числа
+    // Отображение числа с shrink-0
     let rankDisplay;
     if (index < 3) {
-        rankDisplay = `<div class="w-10 text-center text-3xl font-black italic tracking-tighter ${s.text} pr-2">${s.rankNum}</div>`;
+        rankDisplay = `<div class="w-8 sm:w-10 shrink-0 text-center text-2xl sm:text-3xl font-black italic tracking-tighter ${s.text} pr-1 sm:pr-2">${s.rankNum}</div>`;
     } else {
-        rankDisplay = `<div class="w-10 text-center text-lg ${s.text} pr-2">${s.rankNum}</div>`;
+        rankDisplay = `<div class="w-8 sm:w-10 shrink-0 text-center text-base sm:text-lg ${s.text} pr-1 sm:pr-2">${s.rankNum}</div>`;
     }
 
     const badgeClass = isMe ? 'bg-blue-500/30 border-blue-400/50 text-blue-100' : 'bg-black/30 border-white/5 text-blue-300';
 
+    // Внедрены: flex-1 min-w-0, shrink-0 на аватарку и truncate на имя
     return `
-        <div class="glass rounded-2xl p-3 flex items-center justify-between relative overflow-hidden border ${cardClass} transition-all duration-300 hover:scale-[1.02]">
+        <div class="glass rounded-2xl p-2.5 sm:p-3 flex items-center justify-between relative overflow-hidden border ${cardClass} transition-all duration-300 hover:scale-[1.02] gap-2">
             ${accentLine}
-            <div class="flex items-center gap-2 pl-2">
+            <div class="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 flex-1 min-w-0">
                 ${rankDisplay}
-                <div class="relative">
-                    <img src="${avatar}" class="w-12 h-12 rounded-full object-cover border-2 ${avatarBorder} shadow-lg relative z-10 bg-black/50">
+                <div class="relative shrink-0">
+                    <img src="${avatar}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 ${avatarBorder} shadow-lg relative z-10 bg-black/50 shrink-0">
                     ${activeGlowColor ? `<div class="absolute inset-0 rounded-full blur-md ${activeGlowColor} opacity-50 z-0 scale-110"></div>` : ''}
                 </div>
-                <div class="font-bold text-white text-[15px] ml-2 flex flex-col justify-center">
-                    <div class="flex items-center gap-1.5">
-                        ${escapeHtml(u.first_name || 'Без имени')}
-                        ${isMe ? `<span class="text-[10px] leading-none text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider">${i18n[currentLang].you || 'Вы'}</span>` : ''}
+                <div class="font-bold text-white text-[14px] sm:text-[15px] ml-1.5 sm:ml-2 flex flex-col justify-center flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                        <span class="truncate">${escapeHtml(u.first_name || 'Без имени')}</span>
+                        ${isMe ? `<span class="shrink-0 text-[10px] leading-none text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider">${i18n[currentLang].you || 'Вы'}</span>` : ''}
                     </div>
                 </div>
             </div>
-            <div class="${badgeClass} border font-bold px-3 py-1.5 rounded-xl shadow-inner flex items-center gap-1.5 text-sm backdrop-blur-md">
+            <div class="${badgeClass} border font-bold px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-inner flex flex-wrap justify-end items-center gap-x-1 gap-y-0.5 text-xs sm:text-sm backdrop-blur-md shrink-0 max-w-[45%] sm:max-w-none text-right">
                 ${valueBadge}
             </div>
         </div>`;
@@ -165,22 +166,22 @@ function buildStickyRankHTML(rankText, avatar, name, badgeHtml, badgeTextColorCl
     const safeAvatar = escapeHtml(avatar || 'https://via.placeholder.com/40');
     const safeName   = escapeHtml(name   || 'Вы');
     return `
-        <div class="glass rounded-2xl p-3 flex items-center justify-between relative overflow-hidden border-blue-400/60 bg-gradient-to-r from-blue-600/30 via-blue-500/10 to-black/40 shadow-[0_0_25px_rgba(59,130,246,0.4)] backdrop-blur-3xl">
+        <div class="glass rounded-2xl p-2.5 sm:p-3 flex items-center justify-between relative overflow-hidden border-blue-400/60 bg-gradient-to-r from-blue-600/30 via-blue-500/10 to-black/40 shadow-[0_0_25px_rgba(59,130,246,0.4)] backdrop-blur-3xl gap-2">
             <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-300 to-blue-600 shadow-[0_0_15px_rgba(96,165,250,1)]"></div>
-            <div class="flex items-center gap-2 pl-2">
-                <div class="w-10 text-center text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-blue-100 to-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)] pr-2">${rankText}</div>
-                <div class="relative">
-                    <img src="${safeAvatar}" class="w-12 h-12 rounded-full object-cover border-2 border-blue-400 shadow-lg relative z-10 bg-black/50">
+            <div class="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 flex-1 min-w-0">
+                <div class="w-8 sm:w-10 shrink-0 text-center text-lg sm:text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-blue-100 to-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)] pr-1 sm:pr-2">${rankText}</div>
+                <div class="relative shrink-0">
+                    <img src="${safeAvatar}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-blue-400 shadow-lg relative z-10 bg-black/50 shrink-0">
                     <div class="absolute inset-0 rounded-full blur-md bg-blue-500 opacity-60 z-0 scale-110"></div>
                 </div>
-                <div class="font-bold text-white text-[15px] ml-2 flex flex-col justify-center">
-                    <div class="flex items-center gap-1.5">
-                        ${safeName}
-                        <span class="text-[10px] leading-none text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider">${i18n[currentLang].you || 'Вы'}</span>
+                <div class="font-bold text-white text-[14px] sm:text-[15px] ml-1.5 sm:ml-2 flex flex-col justify-center flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                        <span class="truncate">${safeName}</span>
+                        <span class="shrink-0 text-[10px] leading-none text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider">${i18n[currentLang].you || 'Вы'}</span>
                     </div>
                 </div>
             </div>
-            <div class="bg-black/40 border border-blue-400/50 ${badgeTextColorClass} font-bold px-3 py-1.5 rounded-xl shadow-inner flex items-center gap-1.5 backdrop-blur-md">
+            <div class="bg-black/40 border border-blue-400/50 ${badgeTextColorClass} font-bold px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-inner flex flex-wrap justify-end items-center gap-x-1 gap-y-0.5 text-xs sm:text-sm backdrop-blur-md shrink-0 max-w-[45%] sm:max-w-none text-right">
                 ${badgeHtml}
             </div>
         </div>`;
@@ -231,9 +232,9 @@ async function loadRichLeaderboard(list, stickyRank) {
 
 function buildSpendBadge(donutsSpent, starsSpent) {
     let parts = [];
-    if (donutsSpent > 0) parts.push(`${formatBalance(donutsSpent)} <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`);
-    if (starsSpent  > 0) parts.push(`${formatBalance(starsSpent)} <img src="/gifts/stars.png" class="w-4 h-4 object-contain">`);
-    return parts.length > 0 ? parts.join(' <span class="text-white/30">+</span> ') : `0 <img src="/gifts/dount.png" class="w-4 h-4 object-contain">`;
+    if (donutsSpent > 0) parts.push(`<div class="flex items-center gap-1 whitespace-nowrap">${formatBalance(donutsSpent)} <img src="/gifts/dount.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`);
+    if (starsSpent  > 0) parts.push(`<div class="flex items-center gap-1 whitespace-nowrap">${formatBalance(starsSpent)} <img src="/gifts/stars.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`);
+    return parts.length > 0 ? parts.join('<span class="text-white/30 px-0.5 shrink-0">+</span>') : `<div class="flex items-center gap-1 whitespace-nowrap">0 <img src="/gifts/dount.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
 }
 
 // ─── 🚀 Сорвиголовы ─────────────────────────────────
@@ -256,7 +257,7 @@ async function loadRocketLeaderboard(list, stickyRank) {
         const isMe = (u.tg_id == tgUser.id || (u.username && tgUser.username && u.username === tgUser.username));
         if (isMe) currentUserRankData = { rank: index + 1, max_multiplier: u.max_multiplier };
 
-        const badge = `<span class="text-green-300 font-extrabold">x${parseFloat(u.max_multiplier ?? 0).toFixed(2)}</span> <img src="/gifts/raketa.png" class="w-4 h-4 object-contain">`;
+        const badge = `<div class="flex items-center gap-1 whitespace-nowrap"><span class="text-green-300 font-extrabold">x${parseFloat(u.max_multiplier ?? 0).toFixed(2)}</span> <img src="/gifts/raketa.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
         list.innerHTML += buildCard(u, index, isMe, badge);
     });
 
@@ -272,7 +273,7 @@ async function loadRocketLeaderboard(list, stickyRank) {
     if (stickyRank) {
         stickyRank.innerHTML = buildStickyRankHTML(
             rankText, myAvatar, myName,
-            `${multText} <img src="/gifts/raketa.png" class="w-4 h-4 object-contain">`,
+            `<div class="flex items-center gap-1 whitespace-nowrap">${multText} <img src="/gifts/raketa.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`,
             'text-green-300'
         );
         stickyRank.classList.remove('hidden');
@@ -299,7 +300,7 @@ async function loadLuckyLeaderboard(list, stickyRank) {
         const isMe = (u.tg_id == tgUser.id || (u.username && tgUser.username && u.username === tgUser.username));
         if (isMe) currentUserRankData = { rank: index + 1, ratio: u.ratio };
 
-        const badge = `<span class="text-emerald-300 font-extrabold">${u.ratio.toFixed(2)}x</span> <img src="/gifts/case.png" class="w-4 h-4 object-contain">`;
+        const badge = `<div class="flex items-center gap-1 whitespace-nowrap"><span class="text-emerald-300 font-extrabold">${u.ratio.toFixed(2)}x</span> <img src="/gifts/case.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
         list.innerHTML += buildCard(u, index, isMe, badge);
     });
 
@@ -315,7 +316,7 @@ async function loadLuckyLeaderboard(list, stickyRank) {
     if (stickyRank) {
         stickyRank.innerHTML = buildStickyRankHTML(
             rankText, myAvatar, myName,
-            `${ratioText} <img src="/gifts/case.png" class="w-4 h-4 object-contain">`,
+            `<div class="flex items-center gap-1 whitespace-nowrap">${ratioText} <img src="/gifts/case.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`,
             'text-emerald-300'
         );
         stickyRank.classList.remove('hidden');

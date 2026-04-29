@@ -64,8 +64,11 @@ async function loadEarnData() {
             taskList.innerHTML = `<div class="text-center text-sm text-gray-500 py-4 glass rounded-2xl border border-white/5 border-dashed">${i18n[currentLang].no_tasks}</div>`;
         } else {
             data.tasks.forEach(task => {
+                // Выбираем заголовок задания по текущему языку интерфейса
+                const taskTitle = (currentLang === 'en' && task.title_en) ? task.title_en : task.title;
+
                 if (task.completed) {
-                    taskList.innerHTML += `<div class="glass rounded-2xl p-4 flex items-center justify-between opacity-50"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-xl">✅</div><div><div class="font-bold text-white text-sm line-through">${task.title}</div><div class="text-xs text-green-400">${i18n[currentLang].completed}</div></div></div></div>`;
+                    taskList.innerHTML += `<div class="glass rounded-2xl p-4 flex items-center justify-between opacity-50"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-xl">✅</div><div><div class="font-bold text-white text-sm line-through">${taskTitle}</div><div class="text-xs text-green-400">${i18n[currentLang].completed}</div></div></div></div>`;
                 } else {
                     const isChecking = openTasksState[task.id];
                     const btn = isChecking
@@ -80,7 +83,7 @@ async function loadEarnData() {
                         rewardHtml = `<div class="text-xs text-blue-300 flex items-center gap-1">+${task.reward} <img src="/gifts/dount.png" class="w-3 h-3 inline object-contain"></div>`;
                     }
 
-                    taskList.innerHTML += `<div class="glass rounded-2xl p-4 flex items-center justify-between border border-blue-500/20 bg-blue-500/5"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-xl border border-blue-400/30">📢</div><div><div class="font-bold text-white text-sm">${task.title}</div>${rewardHtml}</div></div>${btn}</div>`;
+                    taskList.innerHTML += `<div class="glass rounded-2xl p-4 flex items-center justify-between border border-blue-500/20 bg-blue-500/5"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-xl border border-blue-400/30">📢</div><div><div class="font-bold text-white text-sm">${taskTitle}</div>${rewardHtml}</div></div>${btn}</div>`;
                 }
             });
         }

@@ -116,6 +116,7 @@ function applyServerState(data) {
             // Только при первом переходе запускаем анимацию и вибрацию
             _startAnimation();
             if (typeof vibrate === 'function') vibrate('medium');
+            else if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
         }
     }
 
@@ -129,7 +130,9 @@ function applyServerState(data) {
         }
         // Вибрация ОДИН РАЗ — только при первом переходе в crashed
         if (prevState !== 'crashed') {
-            if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+            if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            else if (window.tg?.HapticFeedback) window.tg.HapticFeedback.notificationOccurred('error');
+            else if (typeof vibrate === 'function') vibrate('heavy');
         }
     }
 
@@ -183,6 +186,7 @@ function _currencyIcon() {
 function renderRocketUI() {
     const state      = rocketState.state;
     const myBet      = rocketState.my_bet;
+    const multWrapper= document.getElementById('rocket-multiplier-wrapper');
     const multEl     = document.getElementById('rocket-multiplier');
     const rocketImg  = document.getElementById('rocket-img');
     const starsBg    = document.getElementById('rocket-stars-bg');
@@ -199,17 +203,21 @@ function renderRocketUI() {
 
     if (state === 'waiting') {
         if (countdownEl) countdownEl.classList.add('hidden');
-        if (rocketImg)   rocketImg.className = 'w-20 h-20 object-contain rocket-idle';
+        if (rocketImg)   rocketImg.className = 'object-contain rocket-idle drop-shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-transform duration-300';
         if (starsBg)     starsBg.classList.remove('bg-stars-fast');
+        
+        // Возвращаем враппер на исходное место слева
+        if (multWrapper) multWrapper.className = 'absolute left-6 top-[58%] -translate-y-1/2 z-10 transition-all duration-500 ease-in-out';
         if (multEl)      {
             multEl.innerText  = '1.00x';
-            multEl.className  = 'text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 drop-shadow-lg transition-all';
+            multEl.className  = 'text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 drop-shadow-[0_4px_15px_rgba(0,0,0,0.8)] transition-all';
         }
+        
         if (statusEl) {
             const tl = Math.ceil(rocketState.time_left || 0);
             const tmpl = i18n[currentLang]?.rocket_accepting_bets || '🎯 Принимаем ставки — {tl}с';
             statusEl.innerText  = tmpl.replace('{tl}', tl);
-            statusEl.className  = 'text-sm font-bold bg-blue-500/20 px-3 py-1 rounded-full text-blue-300 tracking-widest uppercase border border-blue-500/30';
+            statusEl.className  = 'text-sm font-bold bg-blue-500/20 px-3 py-1 rounded-full text-blue-300 tracking-widest uppercase border border-blue-500/30 shadow-lg';
         }
         if (inputEl)  inputEl.disabled = false;
         if (acoRow)   { acoRow.style.opacity = '1'; acoRow.style.pointerEvents = 'auto'; }
@@ -218,9 +226,13 @@ function renderRocketUI() {
         if (betPanel) betPanel.style.opacity = '1';
 
     } else if (state === 'countdown') {
-        if (rocketImg)  rocketImg.className = 'w-20 h-20 object-contain rocket-idle';
+        if (rocketImg)  rocketImg.className = 'object-contain rocket-idle drop-shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-transform duration-300';
         if (starsBg)    starsBg.classList.remove('bg-stars-fast');
+        
+        // Враппер все еще слева
+        if (multWrapper) multWrapper.className = 'absolute left-6 top-[58%] -translate-y-1/2 z-10 transition-all duration-500 ease-in-out';
         if (multEl)     multEl.innerText = '';
+        
         if (statusEl)   statusEl.innerText = '';
         if (inputEl)    inputEl.disabled = true;
         if (acoRow)     { acoRow.style.opacity = '0.4'; acoRow.style.pointerEvents = 'none'; }
@@ -236,16 +248,31 @@ function renderRocketUI() {
                 numEl.dataset.num = String(num);
                 numEl.innerText   = num;
                 numEl.classList.remove('countdown-pop');
-                void numEl.offsetWidth;
+                void numEl.offsetWidth; // trigger reflow
                 numEl.classList.add('countdown-pop');
+                
+                // Добавляем виброотклик (Haptic Feedback) на каждую секунду отсчета
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                } else if (window.tg?.HapticFeedback) {
+                    window.tg.HapticFeedback.impactOccurred('light');
+                } else if (typeof vibrate === 'function') {
+                    vibrate('light');
+                }
             }
         }
 
     } else if (state === 'flying') {
         if (countdownEl) countdownEl.classList.add('hidden');
-        if (rocketImg)   rocketImg.className = 'w-20 h-20 object-contain rocket-flying';
+        if (rocketImg)   rocketImg.className = 'object-contain rocket-flying drop-shadow-[0_0_30px_rgba(249,115,22,0.8)] transition-transform duration-300';
         if (starsBg)     starsBg.classList.add('bg-stars-fast');
-        if (multEl)      multEl.className = 'text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-orange-300 to-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.8)] transition-all';
+        
+        // Враппер остается слева
+        if (multWrapper) multWrapper.className = 'absolute left-6 top-[58%] -translate-y-1/2 z-10 transition-all duration-500 ease-in-out';
+        
+        // Текст чуть меньше (text-[3.5rem]), чтобы ракета его не закрывала при больших значениях
+        if (multEl)      multEl.className = 'text-[3.5rem] leading-none font-black text-transparent bg-clip-text bg-gradient-to-b from-orange-300 to-orange-500 drop-shadow-[0_0_25px_rgba(249,115,22,0.8)] transition-all origin-left';
+        
         if (statusEl)    statusEl.innerText = '';
         if (inputEl)     inputEl.disabled = true;
         if (acoRow)      { acoRow.style.opacity = '0.4'; acoRow.style.pointerEvents = 'none'; }
@@ -261,18 +288,23 @@ function renderRocketUI() {
 
     } else if (state === 'crashed') {
         if (countdownEl) countdownEl.classList.add('hidden');
-        if (rocketImg)   rocketImg.className = 'w-20 h-20 object-contain rocket-crashed';
+        if (rocketImg)   rocketImg.className = 'object-contain rocket-crashed drop-shadow-[0_0_10px_rgba(239,68,68,0.5)] transition-transform duration-300';
         if (starsBg)     starsBg.classList.remove('bg-stars-fast');
+        
+        // Перемещаем враппер множителя в центр при взрыве
+        if (multWrapper) multWrapper.className = 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 transition-all duration-500 ease-in-out';
+        
         if (multEl) {
-            // Показываем точный серверный краш-мульт, а не анимированный
+            // Показываем точный серверный краш-мульт
             multEl.innerText = (rocketState.revealed_crash || 0).toFixed(2) + 'x';
-            multEl.className = 'text-5xl font-black text-red-400 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)] transition-all';
+            multEl.className = 'text-6xl font-black text-red-500 drop-shadow-[0_0_30px_rgba(239,68,68,1)] transition-all scale-110';
         }
+        
         if (statusEl) {
             const crashVal = (rocketState.revealed_crash || 0).toFixed(2);
             const tmpl = i18n[currentLang]?.rocket_crashed_at || '💥 Улетела на {x}x';
             statusEl.innerText = tmpl.replace('{x}', crashVal);
-            statusEl.className = 'text-sm font-bold bg-red-500/20 px-3 py-1 rounded-full text-red-400 tracking-widest uppercase border border-red-500/30';
+            statusEl.className = 'text-sm font-bold bg-red-500/20 px-3 py-1 rounded-full text-red-400 tracking-widest uppercase border border-red-500/30 shadow-lg';
         }
         if (inputEl)  inputEl.disabled = false;
         if (acoRow)   { acoRow.style.opacity = '1'; acoRow.style.pointerEvents = 'auto'; }

@@ -105,47 +105,53 @@ WITHDRAW_REQUIREMENTS = {
 # ==========================================
 TASKS = {
     1: {
-        "title": "Подписаться на наш канал",
+        "title":    "Подписаться на наш канал",
+        "title_en": "Subscribe to our channel",
         "url": "https://t.me/Space_Donut",
         "chat_id": "@Space_Donut",
         "reward": 3,
-        "reward_type": "stars", 
+        "reward_type": "stars",
         "type": "subscription"
     },
     2: {
-        "title": "Подписаться на Dewid NFT",
+        "title":    "Подписаться на Dewid NFT",
+        "title_en": "Subscribe to Dewid NFT",
         "url": "https://t.me/DewidNFT",
         "chat_id": "@DewidNFT",
         "reward": 3,
-        "reward_type": "stars", 
+        "reward_type": "stars",
         "type": "subscription"
     },
     3: {
-        "title": "Проголосовать за канал",
+        "title":    "Проголосовать за канал",
+        "title_en": "Boost our channel",
         "url": "https://t.me/boost/Space_Donut",
         "chat_id": "@Space_Donut",
         "reward": 3,
-        "reward_type": "stars", 
+        "reward_type": "stars",
         "type": "boost"
     },
     4: {
-        "title": "Пригласить 1 друга",
-        "url": "", 
-        "reward": 5, 
-        "reward_type": "stars", 
+        "title":    "Пригласить 1 друга",
+        "title_en": "Invite 1 friend",
+        "url": "",
+        "reward": 5,
+        "reward_type": "stars",
         "type": "referral",
         "required_referrals": 1
     },
     5: {
-        "title": "Пригласить 5 друзей",
+        "title":    "Пригласить 5 друзей",
+        "title_en": "Invite 5 friends",
         "url": "",
         "reward": 0.5,
-        "reward_type": "donuts", 
+        "reward_type": "donuts",
         "type": "referral",
         "required_referrals": 5
     },
     6: {
-        "title": "Пригласить 10 друзей",
+        "title":    "Пригласить 10 друзей",
+        "title_en": "Invite 10 friends",
         "url": "",
         "reward": 1,
         "reward_type": "donuts", 
@@ -474,7 +480,9 @@ MAIN_GIFTS = {
     1001: {"name": "Artisan Brick", "photo": "https://cdn.changes.tg/gifts/models/Artisan Brick/png/Original.png", "required_value": 100},
     1002: {"name": "Perfume Bottle", "photo": "https://cdn.changes.tg/gifts/models/Perfume Bottle/png/Original.png", "required_value": 100},
     1003: {"name": "Ion Gem", "photo": "https://cdn.changes.tg/gifts/models/Ion Gem/png/Original.png", "required_value": 100},
-    1004: {"name": "Durov's Cap", "photo": "https://cdn.changes.tg/gifts/models/Durov's Cap/png/Original.png", "required_value": 700}
+    1004: {"name": "Durov's Cap", "photo": "https://cdn.changes.tg/gifts/models/Durov's Cap/png/Original.png", "required_value": 700},
+    1005: {"name": "Toy Bear", "photo": "https://cdn.changes.tg/gifts/models/Toy Bear/png/Original.png", "required_value": 50},
+    1006: {"name": "Vintage Cigar", "photo": "https://cdn.changes.tg/gifts/models/Vintage Cigar/png/Original.png", "required_value": 30}
 }
 
 

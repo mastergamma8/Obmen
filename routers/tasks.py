@@ -20,6 +20,7 @@ async def get_earn_data(current_user: dict = Depends(get_current_user)):
         tasks_list.append({
             "id":          t_id,
             "title":       t_data["title"],
+            "title_en":    t_data.get("title_en", t_data["title"]),
             "url":         t_data.get("url", ""),
             "reward":      t_data["reward"],
             "reward_type": t_data.get("reward_type", "balance"),
