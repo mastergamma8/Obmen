@@ -79,10 +79,10 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                     </svg>
                 </button>
-                <h3 class="text-xl font-bold text-white">🚀 Ракета</h3>
+                <h3 class="text-xl font-bold text-white">🚀 <span data-i18n="rocket_title">Ракета</span></h3>
             </div>
             <!-- Индикатор раунда -->
-            <span id="rocket-round-badge" class="text-xs font-bold text-white/40 bg-white/5 px-3 py-1 rounded-full border border-white/10">Раунд #0</span>
+            <span id="rocket-round-badge" class="text-xs font-bold text-white/40 bg-white/5 px-3 py-1 rounded-full border border-white/10">Round #0</span>
         </div>
 
         <!-- Игровое поле -->
@@ -101,7 +101,7 @@
 
             <!-- OVERLAY: обратный отсчёт 3 2 1 -->
             <div id="rocket-countdown-overlay" class="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm hidden">
-                <div class="text-white/60 text-sm font-bold tracking-widest uppercase mb-2">Взлёт через</div>
+                <div class="text-white/60 text-sm font-bold tracking-widest uppercase mb-2" data-i18n="rocket_countdown_label">Взлёт через</div>
                 <div id="rocket-countdown-number" class="text-8xl font-black text-white drop-shadow-[0_0_30px_rgba(255,165,0,0.8)]">3</div>
             </div>
 
@@ -117,12 +117,12 @@
         <div id="rocket-bet-panel" class="glass rounded-3xl p-4 border border-white/10 mb-4 transition-opacity duration-300">
             <!-- Авто-вывод -->
             <div class="mb-3" id="rocket-auto-cashout-row">
-                <label class="text-white/60 text-xs font-bold mb-2 block uppercase tracking-wider">Авто-вывод (множитель):</label>
+                <label class="text-white/60 text-xs font-bold mb-2 block uppercase tracking-wider" data-i18n="auto_cashout_label">Авто-вывод (множитель):</label>
                 <div class="flex items-center gap-2">
                     <div class="relative flex-1">
                         <input type="number" id="rocket-auto-cashout-input" step="0.1" min="1.1"
                             class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-base font-bold text-white focus:outline-none focus:border-orange-500/50 transition-colors"
-                            placeholder="Нет" oninput="setAutoCashout(this.value)">
+                            data-i18n-placeholder="rocket_auto_cashout_ph" placeholder="Нет" oninput="setAutoCashout(this.value)">
                         <span class="absolute right-3 top-2.5 text-white/40 font-bold text-sm">x</span>
                     </div>
                     <button class="btn-auto-cashout bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-white/80 active:scale-95 transition-all" data-val="1.5" onclick="setAutoCashout(1.5)">1.5x</button>
@@ -132,7 +132,7 @@
             </div>
 
             <!-- Сумма ставки -->
-            <label class="block text-xs font-bold text-white/60 mb-2 uppercase tracking-wider">Сумма ставки:</label>
+            <label class="block text-xs font-bold text-white/60 mb-2 uppercase tracking-wider" data-i18n="bet_amount">Сумма ставки:</label>
             <div class="flex items-center gap-2 mb-4">
                 <div class="relative flex-1">
                     <input type="number" id="rocket-bet-input" value="50"
@@ -149,18 +149,18 @@
             <!-- Кнопка действия -->
             <button id="btn-rocket-action" onclick="handleRocketAction()"
                 class="w-full py-4 rounded-xl font-black text-xl text-white active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg bg-gradient-to-r from-orange-500 to-red-600 shadow-orange-500/40">
-                <span id="rocket-action-text">Сделать ставку</span>
+                <span id="rocket-action-text" data-i18n="rocket_place_bet_btn">Сделать ставку</span>
             </button>
         </div>
 
         <!-- Список ставок игроков -->
         <div class="glass rounded-3xl border border-white/10 overflow-hidden">
             <div class="flex items-center justify-between px-4 py-3 border-b border-white/5">
-                <span class="text-sm font-bold text-white/60 uppercase tracking-wider">Участники раунда</span>
+                <span class="text-sm font-bold text-white/60 uppercase tracking-wider" data-i18n="rocket_participants_label">Участники раунда</span>
                 <span id="rocket-bets-count" class="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded-full">0</span>
             </div>
             <div id="rocket-bets-list" class="flex flex-col gap-1 p-3 max-h-72 overflow-y-auto">
-                <p class="text-center text-white/30 text-sm py-4">Пока нет ставок</p>
+                <p class="text-center text-white/30 text-sm py-4" data-i18n="rocket_no_bets">Пока нет ставок</p>
             </div>
         </div>
     </div>

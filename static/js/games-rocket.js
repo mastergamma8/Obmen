@@ -49,7 +49,7 @@ function openRocketGame() {
 
 function closeRocketGame() {
     if (rocketState.state === 'flying' && rocketState.my_bet?.status === 'active') {
-        if (typeof showNotify === 'function') showNotify('Заберите ставку перед выходом!', 'warning');
+        if (typeof showNotify === 'function') showNotify(i18n[currentLang]?.rocket_take_bet_before_exit || 'Заберите ставку перед выходом!', 'warning');
         return;
     }
     stopRocketPolling();
@@ -207,7 +207,8 @@ function renderRocketUI() {
         }
         if (statusEl) {
             const tl = Math.ceil(rocketState.time_left || 0);
-            statusEl.innerText  = `🎯 Принимаем ставки — ${tl}с`;
+            const tmpl = i18n[currentLang]?.rocket_accepting_bets || '🎯 Принимаем ставки — {tl}с';
+            statusEl.innerText  = tmpl.replace('{tl}', tl);
             statusEl.className  = 'text-sm font-bold bg-blue-500/20 px-3 py-1 rounded-full text-blue-300 tracking-widest uppercase border border-blue-500/30';
         }
         if (inputEl)  inputEl.disabled = false;
@@ -268,7 +269,9 @@ function renderRocketUI() {
             multEl.className = 'text-5xl font-black text-red-400 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)] transition-all';
         }
         if (statusEl) {
-            statusEl.innerText = `💥 Улетела на ${(rocketState.revealed_crash || 0).toFixed(2)}x`;
+            const crashVal = (rocketState.revealed_crash || 0).toFixed(2);
+            const tmpl = i18n[currentLang]?.rocket_crashed_at || '💥 Улетела на {x}x';
+            statusEl.innerText = tmpl.replace('{x}', crashVal);
             statusEl.className = 'text-sm font-bold bg-red-500/20 px-3 py-1 rounded-full text-red-400 tracking-widest uppercase border border-red-500/30';
         }
         if (inputEl)  inputEl.disabled = false;
@@ -283,8 +286,20 @@ function renderRocketUI() {
 // ОБНОВЛЕНИЕ КНОПКИ КЭШАУТА ВО ВРЕМЯ ПОЛЁТА
 // ─────────────────────────────────────────────────────
 
+// Рендерит текст + иконку в одну строку через inline-flex
+function _setBtnText(txtAction, text, iconSrc) {
+    if (iconSrc) {
+        txtAction.innerHTML =
+            `<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">` +
+            `${text}<img src="${iconSrc}" style="width:1.15em;height:1.15em;object-fit:contain;vertical-align:middle;flex-shrink:0;">` +
+            `</span>`;
+    } else {
+        txtAction.textContent = text;
+    }
+}
+
 function _updateCashoutButtonMult(mult) {
-    const myBet     = rocketState.my_bet;
+    const myBet = rocketState.my_bet;
     if (rocketState.state !== 'flying') return;
     if (myBet?.status !== 'active')     return;
 
@@ -292,12 +307,9 @@ function _updateCashoutButtonMult(mult) {
     const txtAction = document.getElementById('rocket-action-text');
     if (!btnAction || !txtAction) return;
 
-    const win = Math.floor(myBet.bet * mult);
-    txtAction.textContent = `Забрать ${win} `;
-    const ic = document.createElement('img');
-    ic.src       = _currencyIcon();
-    ic.className = 'w-5 h-5 object-contain mb-0.5';
-    txtAction.appendChild(ic);
+    const win  = Math.floor(myBet.bet * mult);
+    const tmpl = i18n[currentLang]?.rocket_cashout_btn || 'Забрать {win}';
+    _setBtnText(txtAction, tmpl.replace('{win}', win), _currencyIcon());
 }
 
 // ─────────────────────────────────────────────────────
@@ -313,54 +325,48 @@ function updateActionButton() {
 
     const icon = _currencyIcon();
 
-    const _appendIcon = () => {
-        const ic = document.createElement('img');
-        ic.src       = icon;
-        ic.className = 'w-5 h-5 object-contain mb-0.5';
-        txtAction.appendChild(ic);
-    };
-
     if (state === 'waiting') {
         if (!myBet) {
             btnAction.className = 'w-full py-4 rounded-xl font-black text-xl text-white active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg bg-gradient-to-r from-orange-500 to-red-600 shadow-orange-500/40';
-            txtAction.innerText = 'Сделать ставку';
-            btnAction.onclick   = handlePlaceBet;
+            _setBtnText(txtAction, i18n[currentLang]?.rocket_place_bet_btn || 'Сделать ставку');
+            btnAction.onclick = handlePlaceBet;
         } else {
             btnAction.className = 'w-full py-4 rounded-xl font-black text-xl text-white transition-all flex items-center justify-center gap-2 shadow-lg bg-blue-600/40 border border-blue-500/50 pointer-events-none';
-            txtAction.textContent = `Ставка ${myBet.bet} `;
-            _appendIcon();
+            const betTmpl = i18n[currentLang]?.rocket_bet_placed_label || 'Ставка {bet}';
+            _setBtnText(txtAction, betTmpl.replace('{bet}', myBet.bet), icon);
         }
     } else if (state === 'countdown') {
         btnAction.className = 'w-full py-4 rounded-xl font-black text-xl text-white transition-all flex items-center justify-center gap-2 shadow-lg bg-gray-700/50 pointer-events-none';
-        txtAction.innerText = 'Взлёт...';
+        _setBtnText(txtAction, i18n[currentLang]?.rocket_launching || 'Взлёт...');
     } else if (state === 'flying') {
         if (!myBet) {
             btnAction.className = 'w-full py-4 rounded-xl font-black text-xl text-white/40 transition-all flex items-center justify-center gap-2 shadow-lg bg-gray-700/30 pointer-events-none';
-            txtAction.innerText = 'Ставки закрыты';
+            _setBtnText(txtAction, i18n[currentLang]?.rocket_bets_closed || 'Ставки закрыты');
         } else if (myBet.status === 'active') {
             btnAction.className = 'w-full py-4 rounded-xl font-black text-xl text-white active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg bg-gradient-to-r from-emerald-500 to-green-600 shadow-green-500/40';
             btnAction.onclick   = handleCashout;
             const win = Math.floor(myBet.bet * (rocketState.current_mult || 1));
-            txtAction.textContent = `Забрать ${win} `;
-            _appendIcon();
+            const cashoutTmpl = i18n[currentLang]?.rocket_cashout_btn || 'Забрать {win}';
+            _setBtnText(txtAction, cashoutTmpl.replace('{win}', win), icon);
         } else if (myBet.status === 'cashed_out') {
             const win = Math.floor(myBet.bet * (myBet.cashout_mult || 1));
             btnAction.className = 'w-full py-4 rounded-xl font-black text-xl text-emerald-300 transition-all flex items-center justify-center gap-2 shadow-lg bg-emerald-500/20 border border-emerald-500/40 pointer-events-none';
-            txtAction.textContent = `✅ Забрали ${win} `;
-            _appendIcon();
+            const cashedTmpl = i18n[currentLang]?.rocket_cashed_out_btn || '✅ Забрали {win}';
+            _setBtnText(txtAction, cashedTmpl.replace('{win}', win), icon);
         }
     } else if (state === 'crashed') {
         if (myBet?.status === 'cashed_out') {
             const win = Math.floor(myBet.bet * (myBet.cashout_mult || 1));
             btnAction.className = 'w-full py-4 rounded-xl font-black text-xl text-emerald-300 transition-all flex items-center justify-center gap-2 bg-emerald-500/20 border border-emerald-500/40 pointer-events-none rounded-xl shadow-lg';
-            txtAction.textContent = `✅ Забрали ${win} `;
-            _appendIcon();
+            const cashedTmpl2 = i18n[currentLang]?.rocket_cashed_out_btn || '✅ Забрали {win}';
+            _setBtnText(txtAction, cashedTmpl2.replace('{win}', win), icon);
         } else if (myBet?.status === 'crashed') {
             btnAction.className = 'w-full py-4 rounded-xl font-black text-xl text-red-400 transition-all flex items-center justify-center gap-2 bg-red-500/10 border border-red-500/30 pointer-events-none shadow-lg';
-            txtAction.innerText = `❌ Улетела (${myBet.bet})`;
+            const lostTmpl = i18n[currentLang]?.rocket_lost_label || '❌ Улетела ({bet})';
+            _setBtnText(txtAction, lostTmpl.replace('{bet}', myBet.bet), icon);
         } else {
             btnAction.className = 'w-full py-4 rounded-xl font-black text-xl text-white/40 transition-all flex items-center justify-center gap-2 shadow-lg bg-gray-700/30 pointer-events-none';
-            txtAction.innerText = 'Следующий раунд...';
+            _setBtnText(txtAction, i18n[currentLang]?.rocket_next_round || 'Следующий раунд...');
         }
     }
 }
@@ -375,12 +381,15 @@ function renderBetsList(bets) {
 
     // Обновляем бейдж
     const badge = document.getElementById('rocket-round-badge');
-    if (badge) badge.innerText = `Раунд #${rocketState.round_id || 0}`;
+    if (badge) {
+        const roundTmpl = i18n[currentLang]?.rocket_round_label || 'Раунд #{id}';
+        badge.innerText = roundTmpl.replace('{id}', rocketState.round_id || 0);
+    }
     const cnt = document.getElementById('rocket-bets-count');
     if (cnt) cnt.innerText = (bets || []).length;
 
     if (!bets || bets.length === 0) {
-        container.innerHTML = '<p class="text-center text-white/30 text-sm py-4">Пока нет ставок</p>';
+        container.innerHTML = `<p class="text-center text-white/30 text-sm py-4">${i18n[currentLang]?.rocket_no_bets || 'Пока нет ставок'}</p>`;
         return;
     }
 
@@ -415,7 +424,7 @@ function renderBetsList(bets) {
             <div class="bet-row flex items-center gap-3 px-3 py-2.5 rounded-2xl border ${statusClass}" data-uid="${b.user_id}" ${b.status !== "active" ? "data-done=1" : ""}>
                 ${avatarHtml}
                 <div class="flex-1 min-w-0">
-                    <div class="text-sm font-bold text-white truncate">${b.name || 'Игрок'}</div>
+                    <div class="text-sm font-bold text-white truncate">${b.name || i18n[currentLang]?.rocket_default_player || 'Игрок'}</div>
                     <div class="flex items-center gap-1">
                         <span class="text-xs text-white/40">${b.bet}</span>
                         <img src="${icon}" class="w-3 h-3 object-contain opacity-60">
@@ -463,15 +472,16 @@ async function handlePlaceBet() {
     const bal   = (rocketConfigLocal?.currency === 'stars') ? (myStars || 0) : (myBalance || 0);
 
     if (bet < min || bet > max) {
-        if (typeof showNotify === 'function') showNotify(`Ставка от ${min} до ${max}`, 'error');
+        const limitsTmpl = i18n[currentLang]?.rocket_bet_limits || 'Ставка от {min} до {max}';
+        if (typeof showNotify === 'function') showNotify(limitsTmpl.replace('{min}', min).replace('{max}', max), 'error');
         return;
     }
     if (bet > bal) {
-        if (typeof showNotify === 'function') showNotify('Недостаточно средств', 'error');
+        if (typeof showNotify === 'function') showNotify(i18n[currentLang]?.rocket_not_enough_funds || 'Недостаточно средств', 'error');
         return;
     }
     if (rocketState.state !== 'waiting') {
-        if (typeof showNotify === 'function') showNotify('Ставки закрыты', 'warning');
+        if (typeof showNotify === 'function') showNotify(i18n[currentLang]?.rocket_bets_closed || 'Ставки закрыты', 'warning');
         return;
     }
 
@@ -490,7 +500,7 @@ async function handlePlaceBet() {
             if (data.balance !== undefined) myBalance = data.balance;
             if (data.stars   !== undefined) myStars   = data.stars;
             if (typeof updateUI === 'function') updateUI();
-            if (typeof showNotify === 'function') showNotify('Ставка принята! 🚀', 'success');
+            if (typeof showNotify === 'function') showNotify(i18n[currentLang]?.rocket_bet_accepted || 'Ставка принята! 🚀', 'success');
             await pollRocketState();
         } else {
             if (typeof showNotify === 'function') showNotify(data.detail || 'Ошибка', 'error');
