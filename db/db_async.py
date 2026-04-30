@@ -81,6 +81,9 @@ def _translate_sql(sql: str) -> str:
         sql = re.sub(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b", "INSERT INTO", sql, flags=re.I)
         if "ON CONFLICT" not in sql.upper():
             sql = sql.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
+    # Экранируем литеральный % (например, в LIKE 'prefix_%') → %%
+    # ОБЯЗАТЕЛЬНО до замены ? → %s, иначе наши же плейсхолдеры станут %%s.
+    sql = sql.replace("%", "%%")
     sql = sql.replace("?", "%s")
     return sql
 
