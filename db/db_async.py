@@ -1,9 +1,15 @@
-"""db_async.py — Async PostgreSQL adapter (psycopg3).
+"""db_async.py — Async PostgreSQL adapter (psycopg3) с пулом соединений.
 
-SQLite поддержка удалена намеренно: в проде используется только PostgreSQL,
-двойная ветка усложняла отладку и скрывала ошибки конфигурации.
+Пул (psycopg_pool.AsyncConnectionPool) заменяет создание нового соединения
+на каждый запрос. Соединение берётся из пула перед выполнением SQL и
+возвращается обратно сразу после завершения контекстного менеджера.
 
-Требует:  psycopg[binary] или psycopg (psycopg3).
+Инициализация:
+    Вызовите `await db_async.init_pool(dsn)` один раз при старте приложения
+    (например, в FastAPI lifespan).
+    Вызовите `await db_async.close_pool()` при остановке.
+
+Требует:  psycopg[binary] + psycopg-pool
 """
 
 from __future__ import annotations
@@ -16,10 +22,56 @@ try:
     import psycopg  # type: ignore
 except ImportError as exc:
     raise ImportError(
-        "psycopg не установлен. Для работы с PostgreSQL необходим psycopg3.\n"
-        "Установите его: pip install 'psycopg[binary]'"
+        "psycopg не установлен. Установите: pip install 'psycopg[binary]'"
     ) from exc
 
+try:
+    from psycopg_pool import AsyncConnectionPool  # type: ignore
+except ImportError as exc:
+    raise ImportError(
+        "psycopg_pool не установлен. Установите: pip install psycopg-pool"
+    ) from exc
+
+
+# ── Глобальный пул соединений ─────────────────────────────────────────────────
+
+_pool: AsyncConnectionPool | None = None
+
+
+async def init_pool(dsn: str, min_size: int = 5, max_size: int = 20) -> None:
+    """Создаёт пул соединений. Вызывать один раз при старте приложения."""
+    global _pool
+    _pool = AsyncConnectionPool(
+        dsn,
+        min_size=min_size,
+        max_size=max_size,
+        # Ждём до 10 секунд, если все соединения заняты, прежде чем бросить ошибку
+        timeout=10.0,
+        # Соединение, простаивающее > 5 минут, закрывается и пересоздаётся
+        max_idle=300.0,
+        open=False,  # открываем явно ниже, чтобы поймать ошибки подключения
+    )
+    await _pool.open(wait=True)
+
+
+async def close_pool() -> None:
+    """Закрывает пул соединений. Вызывать при остановке приложения."""
+    global _pool
+    if _pool is not None:
+        await _pool.close()
+        _pool = None
+
+
+def _get_pool() -> AsyncConnectionPool:
+    if _pool is None:
+        raise RuntimeError(
+            "Пул соединений не инициализирован. "
+            "Вызовите await db_async.init_pool(dsn) при старте приложения."
+        )
+    return _pool
+
+
+# ── Вспомогательные типы ──────────────────────────────────────────────────────
 
 class IntegrityError(Exception):
     """Ошибка нарушения ограничений целостности PostgreSQL."""
@@ -59,6 +111,8 @@ def Row(cursor, row):  # noqa: N802 — API-совместимость с aiosql
     return _RowProxy(columns, row)
 
 
+# ── SQL-транслятор (SQLite → PostgreSQL) ─────────────────────────────────────
+
 def _translate_sql(sql: str) -> str:
     """Приводит SQL с SQLite-синтаксисом к PostgreSQL.
 
@@ -87,6 +141,8 @@ def _translate_sql(sql: str) -> str:
     sql = sql.replace("?", "%s")
     return sql
 
+
+# ── Курсор ────────────────────────────────────────────────────────────────────
 
 class _PgCursor:
     def __init__(
@@ -127,8 +183,6 @@ class _PgCursor:
         row = await self._cursor.fetchone()
         if row is None:
             return None
-        if self._connection.row_factory is None:
-            return tuple(row)
         cols = [
             col[0] if isinstance(col, tuple) else getattr(col, "name", None)
             for col in (self._cursor.description or [])
@@ -138,8 +192,6 @@ class _PgCursor:
     async def fetchall(self):
         await self._execute()
         rows = await self._cursor.fetchall()
-        if self._connection.row_factory is None:
-            return [tuple(r) for r in rows]
         cols = [
             col[0] if isinstance(col, tuple) else getattr(col, "name", None)
             for col in (self._cursor.description or [])
@@ -152,16 +204,31 @@ class _PgCursor:
             self._cursor = None
 
 
+# ── Соединение (берётся из пула, не создаётся заново) ─────────────────────────
+
 class _PgConnection:
+    """Обёртка над одним соединением из пула.
+
+    При входе в `async with connect(...) as db` берёт соединение из пула.
+    При выходе — коммитит (или откатывает при ошибке) и возвращает соединение
+    обратно в пул. Это критически важно: `conn.close()` здесь означает
+    возврат в пул, а не физическое закрытие TCP-соединения.
+    """
+
     def __init__(self, dsn: str):
+        # dsn хранится для обратной совместимости с сигнатурой connect(database),
+        # но фактически используется пул, инициализированный через init_pool().
         self._dsn = dsn
-        self._conn = None
+        self._conn = None          # физическое psycopg.AsyncConnection
+        self._pool_conn = None     # контекстный менеджер пула
         self.row_factory = Row
 
     async def _ensure_connection(self):
         if self._conn is not None:
             return self._conn
-        self._conn = await psycopg.AsyncConnection.connect(self._dsn)
+        # Берём соединение из пула
+        self._pool_conn = _get_pool().connection()
+        self._conn = await self._pool_conn.__aenter__()
         return self._conn
 
     def execute(self, sql: str, params: Sequence[Any] | None = None) -> _PgCursor:
@@ -174,16 +241,21 @@ class _PgConnection:
         return last_cursor
 
     async def commit(self):
-        conn = await self._ensure_connection()
-        await conn.commit()
+        if self._conn is not None:
+            await self._conn.commit()
 
     async def rollback(self):
         if self._conn is not None:
             await self._conn.rollback()
 
     async def close(self):
-        if self._conn is not None:
-            await self._conn.close()
+        """Возвращает соединение в пул (не закрывает физически)."""
+        if self._pool_conn is not None:
+            # Передаём None, None, None → нет исключения → соединение вернётся
+            # в пул в «чистом» состоянии (psycopg_pool сам сделает rollback
+            # если транзакция не была закрыта явно).
+            await self._pool_conn.__aexit__(None, None, None)
+            self._pool_conn = None
             self._conn = None
 
     async def __aenter__(self):
@@ -191,14 +263,17 @@ class _PgConnection:
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        if exc_type:
+        if exc_type is not None:
             await self.rollback()
+        # Возвращаем соединение в пул в любом случае
         await self.close()
 
 
+# ── Публичный API (совместим с aiosqlite) ────────────────────────────────────
+
 def connect(database: str, *args, **kwargs) -> _PgConnection:
-    """Открывает асинхронное подключение к PostgreSQL по DSN."""
+    """Возвращает объект соединения, берущий коннект из пула при первом запросе."""
     return _PgConnection(database)
 
 
-__all__ = ["connect", "Row", "IntegrityError"]
+__all__ = ["connect", "Row", "IntegrityError", "init_pool", "close_pool"]
