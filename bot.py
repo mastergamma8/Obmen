@@ -5,6 +5,8 @@ from aiogram import Bot, Dispatcher
 
 import config
 import database
+from db.db_async import init_pool, close_pool
+from db.db_core import DB_NAME
 from handlers import start, admin
 from handlers.workers import (
     roulette_reminder_worker,
@@ -21,6 +23,9 @@ dp = Dispatcher()
 
 
 async def main():
+    # Пул соединений должен быть инициализирован до любых обращений к базе.
+    await init_pool(DB_NAME, min_size=2, max_size=10)
+
     await database.init_db()
     await database.init_settings_table()   # ← инициализация таблицы настроек
 
@@ -41,7 +46,10 @@ async def main():
     asyncio.create_task(price_update_worker())
 
     logging.info("Бот запущен!")
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":
