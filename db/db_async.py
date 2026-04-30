@@ -70,7 +70,7 @@ def _translate_sql(sql: str) -> str:
       - ? → %s (параметры psycopg)
     """
     sql = re.sub(r"\bBEGIN\s+IMMEDIATE\b", "BEGIN", sql, flags=re.I)
-    sql = re.sub(r"\bdatetime\('now'\)\b", "CURRENT_TIMESTAMP", sql, flags=re.I)
+    sql = re.sub(r"\bdatetime\('now'\)", "CURRENT_TIMESTAMP", sql, flags=re.I)
     sql = re.sub(
         r"\bINTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT\b",
         "BIGSERIAL PRIMARY KEY",
