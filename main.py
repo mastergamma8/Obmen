@@ -147,7 +147,7 @@ app = FastAPI(lifespan=lifespan)
 origins = [
     config.WEBAPP_URL.rstrip("/"),
     "http://localhost",
-    "http://127.0.0.1:5000",
+    "http://127.0.0.1:8080",
 ]
 
 app.add_middleware(
@@ -261,4 +261,4 @@ async def read_root(request: Request):
 
 if __name__ == "__main__":
     # reload=False для продакшена — иначе воркеры не шарят состояние и памяти
-    uvicorn.run("main:app", host="0.0.0.0", port=5000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8080)
