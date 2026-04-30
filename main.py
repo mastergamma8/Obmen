@@ -14,7 +14,6 @@ import aiosqlite
 import config
 import database
 from routers import users, gifts, games, tasks, bank
-from routers import games_roulette, games_rocket, games_cases
 from routers import tg_shop
 from db.db_core import DB_NAME
 
@@ -27,19 +26,30 @@ from db.db_core import DB_NAME
 #
 # Схема: (ip TEXT, path_prefix TEXT, ts INTEGER)
 # Индекс по (ip, path_prefix, ts) делает очистку устаревших записей быстрой.
+#
+# ВАЖНО: все игровые роуты доступны исключительно через /api/... (games.router).
+# Прямые дубли /roulette/... и /cases/... удалены — лимиты охватывают
+# единственный канонический путь для каждого эндпоинта.
 
 # (путь_prefix, max_requests, window_seconds)
 RATE_LIMITS: list[tuple[str, int, int]] = [
-    ("/api/init",           30, 60),
-    ("/api/topup/stars",    10, 60),
-    ("/roulette/spin",      20, 60),
-    ("/api/rocket/bet",     20, 60),
-    ("/api/rocket/cashout", 20, 60),
-    ("/api/gifts/claim",    10, 60),
-    ("/api/gifts/withdraw",  5, 60),
-    ("/api/withdraw",        5, 60),
-    ("/api/claim",          10, 60),
-    ("/api/tg_shop/buy",     5, 60),
+    ("/api/init",              30, 60),
+    ("/api/topup/stars",       10, 60),
+    # ── Рулетка ──────────────────────────────────────────────────────────────
+    ("/api/roulette/spin",     20, 60),
+    # ── Ракета ───────────────────────────────────────────────────────────────
+    ("/api/rocket/bet",        20, 60),
+    ("/api/rocket/cashout",    20, 60),
+    # ── Кейсы ────────────────────────────────────────────────────────────────
+    ("/api/cases/open",        15, 60),   # платный кейс
+    ("/api/cases/open_promo",  10, 60),   # промо-кейс
+    ("/api/cases/open_free",    5, 60),   # бесплатный (доп. защита, cooldown в логике)
+    # ── Подарки / вывод ──────────────────────────────────────────────────────
+    ("/api/gifts/claim",       10, 60),
+    ("/api/gifts/withdraw",     5, 60),
+    ("/api/withdraw",           5, 60),
+    ("/api/claim",             10, 60),
+    ("/api/tg_shop/buy",        5, 60),
 ]
 
 
@@ -233,11 +243,12 @@ templates = Jinja2Templates(directory="templates")
 
 app.include_router(users.router)
 app.include_router(gifts.router)
+# games.router монтирует все игры под /api: /api/roulette, /api/rocket, /api/cases
+# Прямые дубли games_roulette.router и games_cases.router намеренно убраны —
+# иначе те же эндпоинты появятся на /roulette/* и /cases/* без rate limiting.
 app.include_router(games.router)
 app.include_router(tasks.router)
 app.include_router(bank.router)
-app.include_router(games_roulette.router)
-app.include_router(games_cases.router)
 app.include_router(tg_shop.router)
 
 

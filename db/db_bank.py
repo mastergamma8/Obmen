@@ -555,6 +555,91 @@ async def bank_get_max_payout(asset_type: str = "stars") -> int:
 # Ручное пополнение банка (администратор)
 # ─────────────────────────────────────────────────────────────────────────────
 
+async def deduct_and_deposit_atomic(
+    user_id: int,
+    gross_bet: int,
+    house_edge: float,
+    asset_type: str = "stars",
+) -> dict | None:
+    """
+    Атомарно (в одной транзакции BEGIN IMMEDIATE) выполняет три шага:
+      1. Списывает gross_bet у пользователя (users.balance или users.stars).
+      2. Зачисляет pool_amount в банк (system_bank).
+      3. Обновляет дневную статистику (bank_day_stats).
+
+    Если средств недостаточно или произошёл сбой — откатывает всю транзакцию
+    и возвращает None, гарантируя отсутствие рассинхронизации.
+
+    При успехе возвращает dict:
+      {"house_edge_amount": int, "pool_amount": int}
+    """
+    import config as _cfg
+
+    user_col          = "stars" if asset_type == "stars" else "balance"
+    house_edge_amount = math.ceil(gross_bet * house_edge) if house_edge > 0 else 0
+    pool_amount       = gross_bet - house_edge_amount
+
+    if asset_type == "donuts":
+        balance_col   = "donuts_balance"
+        deposited_col = "donuts_deposited"
+        day_dep_col   = "donuts_deposited"
+    else:  # stars (default)
+        balance_col   = "stars_balance"
+        deposited_col = "stars_deposited"
+        day_dep_col   = "stars_deposited"
+
+    rate        = _cfg.DONUTS_TO_STARS_RATE if asset_type == "donuts" else 1
+    gross_bet_v = gross_bet         * rate
+    edge_v      = house_edge_amount * rate
+    today       = _today_utc()
+    now         = int(time.time())
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("BEGIN IMMEDIATE")
+
+        # Шаг 1: Атомарное списание у пользователя
+        cur = await db.execute(
+            f"UPDATE users SET {user_col} = {user_col} - ? "
+            f"WHERE tg_id = ? AND {user_col} >= ?",
+            (gross_bet, user_id, gross_bet),
+        )
+        if cur.rowcount != 1:
+            await db.rollback()
+            return None
+
+        # Шаг 2: Зачисление в банк (в той же транзакции)
+        await db.execute(f"""
+            UPDATE system_bank SET
+                {balance_col}          = {balance_col} + ?,
+                {deposited_col}        = {deposited_col} + ?,
+                total_deposited_value  = total_deposited_value + ?,
+                total_house_edge_value = total_house_edge_value + ?,
+                games_count            = games_count + 1,
+                updated_at             = ?
+            WHERE id = 1
+        """, (pool_amount, gross_bet, gross_bet_v, edge_v, now))
+
+        # Шаг 3: Дневная статистика (в той же транзакции)
+        await db.execute(f"""
+            INSERT INTO bank_day_stats
+                (day_date, deposited_value, house_edge_value, games_count, {day_dep_col})
+            VALUES (?, ?, ?, 1, ?)
+            ON CONFLICT(day_date) DO UPDATE SET
+                deposited_value  = deposited_value  + excluded.deposited_value,
+                house_edge_value = house_edge_value + excluded.house_edge_value,
+                games_count      = games_count + 1,
+                {day_dep_col}    = {day_dep_col} + excluded.{day_dep_col}
+        """, (today, gross_bet_v, edge_v, gross_bet))
+
+        await db.commit()
+
+    return {"house_edge_amount": house_edge_amount, "pool_amount": pool_amount}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ручное пополнение банка (администратор)
+# ─────────────────────────────────────────────────────────────────────────────
+
 async def bank_add_stars(amount: int):
     """Пополнение банка звёздами (администратором). Не учитывается как игровой доход."""
     async with aiosqlite.connect(DB_NAME) as db:

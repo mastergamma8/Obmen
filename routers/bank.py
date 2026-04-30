@@ -1,8 +1,8 @@
 """
 routers/bank.py — Административный роутер для управления Глобальным Банком.
 
-Топап доступен только администратору (ADMIN_ID из config).
-tg_id администратора извлекается из TG InitData через get_current_user.
+Все эндпоинты требуют авторизации через Telegram InitData.
+Эндпоинты с финансовой статистикой и топап доступны только администратору.
 """
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -20,10 +20,16 @@ def _safe_rtp(paid_out: int, deposited: int) -> float:
     return round(paid_out / deposited * 100, 2)
 
 
-# ── Публичный статус банка ────────────────────────────────────────────────────
+def _require_admin(current_user: dict) -> None:
+    """Проверяет, что текущий пользователь — администратор. Бросает 403 иначе."""
+    if current_user["id"] != config.ADMIN_ID:
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
+
+# ── Административная статистика банка ────────────────────────────────────────
 
 @router.get("/status")
-async def bank_status():
+async def bank_status(current_user: dict = Depends(get_current_user)):
+    _require_admin(current_user)
     bank     = await database.get_bank()
     day      = await database.get_bank_day_stats()
     earnings = await database.get_bank_earnings_summary()
@@ -92,11 +98,12 @@ async def bank_status():
 # ── Статистика за конкретный день ─────────────────────────────────────────────
 
 @router.get("/day")
-async def bank_day_stats(day: str = None):
+async def bank_day_stats(day: str = None, current_user: dict = Depends(get_current_user)):
     """
-    Статистика банка за один день.
+    Статистика банка за один день (только администратор).
     Параметр day: YYYY-MM-DD. По умолчанию — сегодня (UTC).
     """
+    _require_admin(current_user)
     from datetime import datetime
     if day is not None:
         try:
@@ -112,8 +119,9 @@ async def bank_day_stats(day: str = None):
 # ── История за последние N дней ───────────────────────────────────────────────
 
 @router.get("/history")
-async def bank_day_history(days: int = 7):
-    """Возвращает статистику за последние N дней (max 90)."""
+async def bank_day_history(days: int = 7, current_user: dict = Depends(get_current_user)):
+    """Возвращает статистику за последние N дней (max 90). Только администратор."""
+    _require_admin(current_user)
     if days < 1 or days > 90:
         raise HTTPException(status_code=400, detail="days должен быть от 1 до 90")
     rows = await database.get_bank_day_history(days)
@@ -125,8 +133,9 @@ async def bank_day_history(days: int = 7):
 # ── Топ активных игроков сегодня ──────────────────────────────────────────────
 
 @router.get("/top-active")
-async def bank_top_active(limit: int = 3):
-    """Топ самых активных игроков за сегодня (по количеству игр)."""
+async def bank_top_active(limit: int = 3, current_user: dict = Depends(get_current_user)):
+    """Топ самых активных игроков за сегодня (по количеству игр). Только администратор."""
+    _require_admin(current_user)
     if limit < 1 or limit > 20:
         raise HTTPException(status_code=400, detail="limit должен быть от 1 до 20")
     return await database.get_top_active_today(limit)

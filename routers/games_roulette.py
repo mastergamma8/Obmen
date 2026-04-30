@@ -82,13 +82,16 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
     if can_free:
         await database.update_last_free_spin(tg_id, now)
     else:
-        # Атомарное списание
-        if currency == "stars":
-            deducted = await database.deduct_stars(tg_id, cost)
-        else:
-            deducted = await database.deduct_balance(tg_id, cost)
-
-        if not deducted:
+        # Атомарное списание У ПОЛЬЗОВАТЕЛЯ + зачисление В БАНК в одной транзакции.
+        # Если списание не прошло — deduct_and_deposit_atomic вернёт None
+        # и банк останется нетронутым (нет рассинхронизации).
+        result = await database.deduct_and_deposit_atomic(
+            user_id=tg_id,
+            gross_bet=cost,
+            house_edge=ROULETTE_HOUSE_EDGE,
+            asset_type=currency,
+        )
+        if result is None:
             raise HTTPException(
                 status_code=400,
                 detail=f"Недостаточно {'звезд' if currency == 'stars' else 'пончиков'} для прокрутки",
@@ -98,7 +101,6 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
             tg_id, f"roulette_paid_{currency}",
             f"Платная прокрутка рулетки (-{cost} {currency})", -cost
         )
-        await database.bank_deposit(cost, ROULETTE_HOUSE_EDGE, asset_type=currency)
 
     items = config.ROULETTE_CONFIG["items"]
 

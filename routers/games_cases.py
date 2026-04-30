@@ -122,13 +122,15 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
     currency = case.get("currency", "donuts")
     price    = case["price"]
 
-    # Атомарное списание
-    if currency == "stars":
-        deducted = await database.deduct_stars(tg_id, price)
-    else:
-        deducted = await database.deduct_balance(tg_id, price)
-
-    if not deducted:
+    # Атомарное списание У ПОЛЬЗОВАТЕЛЯ + зачисление В БАНК в одной транзакции.
+    # Если средств не хватит — оба шага откатятся, рассинхронизация исключена.
+    result = await database.deduct_and_deposit_atomic(
+        user_id=tg_id,
+        gross_bet=price,
+        house_edge=CASE_HOUSE_EDGE,
+        asset_type=currency,
+    )
+    if result is None:
         raise HTTPException(
             status_code=400,
             detail=f"Not enough {'stars' if currency == 'stars' else 'donuts'} to open this case",
@@ -136,7 +138,6 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
 
     await database.add_history_entry(tg_id, f"case_paid_{currency}",
         f"Case opened: '{case['name']}' [case_id:{case_id}]", -price)
-    await database.bank_deposit(price, CASE_HOUSE_EDGE, asset_type=currency)
 
     win_item  = await _roll_item_bank_aware(case["items"], currency)
     win_value = _get_item_value_stars(win_item)

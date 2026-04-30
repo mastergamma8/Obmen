@@ -20,7 +20,13 @@ WEBAPP_URL = os.getenv("WEBAPP_URL")
 if not WEBAPP_URL:
     raise ValueError("WEBAPP_URL не найден в переменных окружения (.env)!") 
 
-ADMIN_ID = 1809630966
+_ADMIN_ID_RAW = os.getenv("ADMIN_ID")
+if not _ADMIN_ID_RAW:
+    raise ValueError("ADMIN_ID не найден в переменных окружения (.env)!")
+try:
+    ADMIN_ID: int = int(_ADMIN_ID_RAW)
+except ValueError:
+    raise ValueError("ADMIN_ID должен быть целым числом (Telegram user_id)!")
 
 # ── Курс конвертации валют для банка ─────────────────────────────────────────
 # 1 пончик = DONUTS_TO_STARS_RATE звёзд в единицах стоимости банка.
@@ -348,7 +354,7 @@ ROCKET_CONFIG = {
     "currency": "stars",          
     "min_bet": 50,                  
     "max_bet": 10000,              
-    "house_edge": 0.05,            
+    "house_edge": 0.10,            
     "max_multiplier": 1000.0,      
     "growth_speed": 1.00006        
 }

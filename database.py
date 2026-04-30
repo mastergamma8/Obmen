@@ -79,6 +79,7 @@ from db.db_bank import (  # noqa: F401
     bank_deposit,
     bank_can_payout,
     bank_payout,
+    deduct_and_deposit_atomic,
     bank_get_max_payout,
     bank_add_stars,
     bank_add_donuts,

@@ -26,7 +26,7 @@ WAITING_DURATION   = 12.0
 COUNTDOWN_DURATION =  3.0
 CRASH_SHOW_DURATION =  4.0
 
-HOUSE_EDGE   = config.ROCKET_CONFIG.get("house_edge", 0.05)
+HOUSE_EDGE   = config.ROCKET_CONFIG.get("house_edge", 0.10)
 GROWTH_SPEED = config.ROCKET_CONFIG.get("growth_speed", 1.00006)
 MAX_MULT     = config.ROCKET_CONFIG.get("max_multiplier", 1000.0)
 CURRENCY     = config.ROCKET_CONFIG.get("currency", "stars")
@@ -87,32 +87,20 @@ async def _generate_crash_point(total_bet: int = 0) -> float:
 
 async def _deduct_and_deposit(user_id: int, bet: int, currency: str) -> bool:
     """
-    Атомарно списывает ставку с баланса игрока и зачисляет в банк.
-    Использует database.bank_deposit() — точно как оригинальный rocket_start_atomic,
-    чтобы bank_day_stats, games_count и house_edge учитывались корректно.
+    Атомарно (в одной транзакции BEGIN IMMEDIATE) списывает ставку с баланса
+    игрока и зачисляет pool_amount в банк вместе с house_edge и дневной статистикой.
+
+    Использует database.deduct_and_deposit_atomic — единственный правильный путь,
+    гарантирующий отсутствие рассинхронизации даже при падении сервера между шагами.
+    При недостатке средств возвращает False без каких-либо изменений в БД.
     """
-    import aiosqlite
-    from db.db_core import DB_NAME
-
-    user_col = "stars" if currency == "stars" else "balance"
-
-    # Шаг 1: атомарное списание у пользователя
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("BEGIN IMMEDIATE")
-        cur = await db.execute(
-            f"UPDATE users SET {user_col} = {user_col} - ? "
-            f"WHERE tg_id = ? AND {user_col} >= ?",
-            (bet, user_id, bet),
-        )
-        if cur.rowcount != 1:
-            await db.rollback()
-            return False
-        await db.commit()
-
-    # Шаг 2: зачисление в банк через официальную функцию
-    # (обновляет bank_day_stats, games_count, house_edge — идентично оригиналу)
-    await database.bank_deposit(gross_bet=bet, house_edge=HOUSE_EDGE, asset_type=currency)
-    return True
+    result = await database.deduct_and_deposit_atomic(
+        user_id=user_id,
+        gross_bet=bet,
+        house_edge=HOUSE_EDGE,
+        asset_type=currency,
+    )
+    return result is not None
 
 
 async def _do_cashout(user_id: int, bet_data: dict, mult: float):
