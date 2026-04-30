@@ -515,6 +515,7 @@ TG_GIFTS = {
     2016: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5893356958802511476/Original.png", "required_value": 50,  "tg_gift_id": "5893356958802511476", "price": 60},
     2017: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5935895822435615975/Original.png", "required_value": 50,  "tg_gift_id": "5935895822435615975", "price": 60},
     2018: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/5969796561943660080/Original.png", "required_value": 50,  "tg_gift_id": "5969796561943660080", "price": 60},
+    2019: {"name": "",  "photo": "https://cdn.changes.tg/gifts/originals/6026193266406327981/Original.png", "required_value": 50,  "tg_gift_id": "6026193266406327981", "price": 60},
 }
 
 
