@@ -59,8 +59,9 @@ async def init_bank():
         """)
         await db.execute("INSERT OR IGNORE INTO system_bank (id) VALUES (1)")
 
-        # Безопасная миграция: добавляем только отсутствующие колонки
-        _safe_columns = [
+        # Безопасная миграция: ADD COLUMN IF NOT EXISTS — PostgreSQL 9.6+,
+        # не абортирует транзакцию при повторном запуске в отличие от try/except.
+        for col_name, col_def in [
             ("donuts_balance",          "INTEGER DEFAULT 0"),
             ("gift_value_balance",      "INTEGER DEFAULT 0"),
             ("total_deposited_value",   "INTEGER DEFAULT 0"),
@@ -72,40 +73,25 @@ async def init_bank():
             ("donuts_paid_out",         "INTEGER DEFAULT 0"),
             ("gift_value_paid_out",     "INTEGER DEFAULT 0"),
             ("games_count",             "INTEGER DEFAULT 0"),
-        ]
-        for col_name, col_def in _safe_columns:
-            try:
-                await db.execute(f"ALTER TABLE system_bank ADD COLUMN {col_name} {col_def}")
-            except Exception:
-                pass
+        ]:
+            await db.execute(
+                f"ALTER TABLE system_bank ADD COLUMN IF NOT EXISTS {col_name} {col_def}"
+            )
 
-        # Перенос legacy-колонок при первом запуске после миграции
-        try:
-            await db.execute("""
-                UPDATE system_bank
-                SET
-                    total_deposited_value  = COALESCE(total_deposited, total_deposited_value),
-                    total_paid_out_value   = COALESCE(total_paid_out, total_paid_out_value),
-                    total_house_edge_value = COALESCE(total_house_edge, total_house_edge_value),
-                    stars_deposited        = COALESCE(total_deposited, stars_deposited),
-                    stars_paid_out         = COALESCE(total_paid_out, stars_paid_out)
-                WHERE id = 1
-                  AND total_deposited_value = 0
-                  AND (total_deposited > 0 OR total_house_edge > 0)
-            """)
-        except Exception:
-            pass
+        # Блок переноса legacy-колонок (total_deposited / total_paid_out / total_house_edge)
+        # удалён: эти колонки не существовали в схеме PostgreSQL с самого начала,
+        # запрос к ним ронял транзакцию через InFailedSqlTransaction.
 
         # ── Ежедневная статистика ─────────────────────────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bank_day_stats (
-                day_date         TEXT    PRIMARY KEY,
-                deposited_value  INTEGER DEFAULT 0,
-                paid_out_value   INTEGER DEFAULT 0,
-                house_edge_value INTEGER DEFAULT 0,
-                games_count      INTEGER DEFAULT 0,
-                stars_deposited  INTEGER DEFAULT 0,
-                stars_paid_out   INTEGER DEFAULT 0,
+                day_date              TEXT    PRIMARY KEY,
+                deposited_value       INTEGER DEFAULT 0,
+                paid_out_value        INTEGER DEFAULT 0,
+                house_edge_value      INTEGER DEFAULT 0,
+                games_count           INTEGER DEFAULT 0,
+                stars_deposited       INTEGER DEFAULT 0,
+                stars_paid_out        INTEGER DEFAULT 0,
                 donuts_deposited      INTEGER DEFAULT 0,
                 donuts_paid_out       INTEGER DEFAULT 0,
                 gift_value_deposited  INTEGER DEFAULT 0,
@@ -113,28 +99,26 @@ async def init_bank():
             )
         """)
 
-        # Безопасная миграция: добавляем gift_value-колонки для существующих БД
+        # Безопасная миграция gift_value-колонок
         for _col, _def in [
             ("gift_value_deposited", "INTEGER DEFAULT 0"),
             ("gift_value_paid_out",  "INTEGER DEFAULT 0"),
         ]:
-            try:
-                await db.execute(
-                    f"ALTER TABLE bank_day_stats ADD COLUMN {_col} {_def}"
-                )
-            except Exception:
-                pass
+            await db.execute(
+                f"ALTER TABLE bank_day_stats ADD COLUMN IF NOT EXISTS {_col} {_def}"
+            )
 
         # ── Индексы для производительности (leaderboard / history) ───────────
-        for ddl in [
-            "CREATE INDEX IF NOT EXISTS idx_uh_user_date ON user_history (user_id, created_at)",
-            "CREATE INDEX IF NOT EXISTS idx_uh_action_date ON user_history (action_type, created_at)",
-            "CREATE INDEX IF NOT EXISTS idx_uh_amount ON user_history (amount, created_at)",
-        ]:
-            try:
-                await db.execute(ddl)
-            except Exception:
-                pass
+        # CREATE INDEX IF NOT EXISTS безопасен в PostgreSQL без try/except.
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_uh_user_date ON user_history (user_id, created_at)"
+        )
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_uh_action_date ON user_history (action_type, created_at)"
+        )
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_uh_amount ON user_history (amount, created_at)"
+        )
 
         await db.commit()
 
@@ -438,8 +422,7 @@ async def bank_payout(amount: int, asset_type: str = "stars") -> bool:
     today = _today_utc()
 
     async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("BEGIN IMMEDIATE")
-
+        # BEGIN IMMEDIATE убран: psycopg3 (autocommit=False) открывает транзакцию автоматически.
         async with db.execute(
             "SELECT stars_balance, donuts_balance, gift_value_balance FROM system_bank WHERE id = 1"
         ) as cursor:
@@ -595,7 +578,7 @@ async def deduct_and_deposit_atomic(
     now         = int(time.time())
 
     async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("BEGIN IMMEDIATE")
+        # BEGIN IMMEDIATE убран: psycopg3 (autocommit=False) открывает транзакцию автоматически.
 
         # Шаг 1: Атомарное списание у пользователя
         cur = await db.execute(
