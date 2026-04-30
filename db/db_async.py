@@ -3,7 +3,7 @@
 SQLite поддержка удалена намеренно: в проде используется только PostgreSQL,
 двойная ветка усложняла отладку и скрывала ошибки конфигурации.
 
-Требует: psycopg[binary] или psycopg (psycopg3).
+Требует:  psycopg[binary] или psycopg (psycopg3).
 """
 
 from __future__ import annotations
