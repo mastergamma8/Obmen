@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from db import db_async as aiosqlite
+from db.db_async import init_pool, close_pool
 import config
 import database
 from routers import users, gifts, games, tasks, bank
@@ -117,6 +118,11 @@ async def _check_rate_limit_db(ip: str, path: str) -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Пул соединений инициализируется первым — все последующие вызовы БД его используют.
+    # min_size=5: 5 соединений всегда открыты и готовы.
+    # max_size=20: при пиковой нагрузке пул расширяется до 20 соединений.
+    await init_pool(DB_NAME, min_size=5, max_size=20)
+
     await database.init_db()
     await database.init_bank()
     await database.init_rocket_games_table()
@@ -139,6 +145,9 @@ async def lifespan(app: FastAPI):
         await rocket_task
     except asyncio.CancelledError:
         pass
+
+    # Закрываем пул при остановке приложения — корректно завершаем все соединения.
+    await close_pool()
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
