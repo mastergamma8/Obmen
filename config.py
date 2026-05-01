@@ -227,16 +227,17 @@ CASES_CONFIG = {
             {"type": "stars", "amount": 5, "chance": 40},
             {"type": "stars", "amount": 7, "chance": 30},
             {"type": "stars", "amount": 10, "chance": 10},
-            {"type": "stars", "amount": 15, "chance": 15},
-            {"type": "stars", "amount": 20, "chance": 5},
-            {"type": "stars", "amount": 25, "chance": 3},
-            {"type": "stars", "amount": 35, "chance": 1},
-            {"type": "donuts", "amount": 0.1, "chance": 1},
-            {"type": "donuts", "amount": 0.5, "chance": 1},
+            {"type": "stars", "amount": 15, "chance": 20},
+            {"type": "stars", "amount": 20, "chance": 8},
+            {"type": "stars", "amount": 25, "chance": 5},
+            {"type": "stars", "amount": 35, "chance": 3},
+            {"type": "donuts", "amount": 0.1, "chance": 5},
+            {"type": "donuts", "amount": 0.5, "chance": 2},
             {"type": "gift", "gift_id": 2009, "chance": 1},
             {"type": "gift", "gift_id": 2008, "chance": 1},
             {"type": "gift", "gift_id": 2007, "chance": 1},
-            {"type": "gift", "gift_id": 8, "chance": 0}
+            {"type": "gift", "gift_id": 8, "chance": 0},
+            {"type": "gift", "gift_id": 2017, "chance": 0}
         ]
     },
     2: {
