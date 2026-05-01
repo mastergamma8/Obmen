@@ -351,7 +351,9 @@ function renderCasesGrid() {
         return;
     }
 
-    Object.keys(casesConfig).forEach(id => {
+    Object.keys(casesConfig)
+        .sort((a, b) => (casesConfig[a].price || 0) - (casesConfig[b].price || 0))
+        .forEach(id => {
         const c = casesConfig[id];
         const photoUrl = getImgSrc(c.photo);
         const currencyIcon = c.currency === 'stars' ? '/gifts/stars.png' : '/gifts/dount.png';
