@@ -347,6 +347,7 @@ async def webhook_support(request: Request):
 
 
 @app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
     return templates.TemplateResponse(
     request=request,
     name="index.html",
