@@ -345,6 +345,25 @@ CASES_CONFIG = {
             {"type": "stars", "amount": 350, "chance": 33},
             {"type": "stars", "amount": 500, "chance": 26}
         ]
+    },
+    5: {
+        "name": "May Case",
+        "photo": "https://cdn.changes.tg/gifts/originals/6026193266406327981/Original.png", 
+        "currency": "stars", 
+        "price": 10,
+        "items": [
+            {"type": "stars", "amount": 2, "chance": 40},
+            {"type": "stars", "amount": 5, "chance": 30},
+            {"type": "stars", "amount": 7, "chance": 10},
+            {"type": "stars", "amount": 10, "chance": 20},
+            {"type": "stars", "amount": 15, "chance": 8},
+            {"type": "stars", "amount": 25, "chance": 5},
+            {"type": "donuts", "amount": 0.1, "chance": 5},
+            {"type": "gift", "gift_id": 2009, "chance": 2},
+            {"type": "gift", "gift_id": 2008, "chance": 2},
+            {"type": "gift", "gift_id": 2019, "chance": 1},
+            {"type": "gift", "gift_id": 51, "chance": 0}
+        ]
     }
 }
 
