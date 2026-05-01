@@ -104,7 +104,7 @@ def _build_markup(button_cfg: dict | None, target=None) -> InlineKeyboardMarkup 
             return InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(
                     text=button_cfg.get("label", "Открыть приложение"),
-                    url=config.WEBAPP_URL,
+                    url="http://t.me/SpaceDonutBot/app",
                 )
             ]])
 
