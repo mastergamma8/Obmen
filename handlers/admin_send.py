@@ -94,10 +94,31 @@ def _first_custom_emoji_id(entities) -> str | None:
 
 # ── Вспомогательная функция: построить reply_markup по данным из FSM ──────────
 
-def _build_markup(button_cfg: dict | None) -> InlineKeyboardMarkup | None:
+def _build_markup(button_cfg: dict | None, target=None) -> InlineKeyboardMarkup | None:
     if not button_cfg:
         return None
 
+    # Для канала — только безопасная URL-кнопка без style/web_app/emoji
+    if target == "channel":
+        if button_cfg["type"] == "webapp":
+            return InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=button_cfg.get("label", "Открыть приложение"),
+                    url=config.WEBAPP_URL,
+                )
+            ]])
+
+        if button_cfg["type"] == "url":
+            return InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=button_cfg["text"],
+                    url=button_cfg["url"],
+                )
+            ]])
+
+        return None
+
+    # Для личных сообщений — полный набор возможностей
     common_extra = {}
     if button_cfg.get("icon_custom_emoji_id"):
         common_extra["icon_custom_emoji_id"] = button_cfg["icon_custom_emoji_id"]
@@ -408,7 +429,7 @@ def register(dp: Dispatcher, bot: Bot):
         button_cfg = data.get("button_cfg")
         await state.clear()
 
-        markup = _build_markup(button_cfg)
+        markup = _build_markup(button_cfg, target)
 
         await message.answer(f"{E_TIME} Начинаю отправку...", parse_mode="HTML")
 
