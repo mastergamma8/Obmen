@@ -39,6 +39,15 @@ async def main():
 
         await bot.delete_webhook(drop_pending_updates=True)
 
+        # Принудительно завершаем любую активную long-polling сессию
+        # на стороне Telegram (актуально при рестарте контейнера на Railway).
+        # delete_webhook() закрывает только webhook; для polling нужен
+        # вызов getUpdates с коротким timeout — он вытесняет старую сессию.
+        try:
+            await bot.get_updates(offset=-1, timeout=1)
+        except Exception:
+            pass
+
         # Запуск фоновых задач
         asyncio.create_task(roulette_reminder_worker(bot))
         asyncio.create_task(gift_claim_reminder_worker(bot))
