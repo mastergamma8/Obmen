@@ -34,6 +34,7 @@ from .admin_constants import E_CHECK, E_CROSS, E_STOP, E_TIME
 
 class SendMessage(StatesGroup):
     waiting_for_target = State()
+    waiting_for_channel_id = State()
     waiting_for_button_type = State()
     waiting_for_url_text = State()
     waiting_for_url_link = State()
@@ -196,8 +197,10 @@ def register(dp: Dispatcher, bot: Bot):
             return
 
         await message.answer(
-            "Кому отправить сообщение?\n"
-            "Напишите слово <b>всем</b> или отправьте <b>ID пользователя</b>.\n"
+            "Кому отправить сообщение?\n\n"
+            "  • <b>всем</b> — рассылка всем пользователям\n"
+            "  • <b>канал</b> — публикация в Telegram-канале\n"
+            "  • числовой <b>ID пользователя</b>\n\n"
             "<i>(Для отмены введите /cancel)</i>",
             parse_mode="HTML",
         )
@@ -211,12 +214,49 @@ def register(dp: Dispatcher, bot: Bot):
 
         if text == "всем":
             await state.update_data(target="all")
+        elif text == "канал":
+            await state.update_data(target="channel")
+            await message.answer(
+                "Введите ID канала или его @username.\n\n"
+                "<b>Примеры:</b>\n"
+                "  <code>@mychannel</code>\n"
+                "  <code>-1001234567890</code>\n\n"
+                "<i>Бот должен быть администратором канала с правом публикации сообщений.</i>",
+                parse_mode="HTML",
+            )
+            await state.set_state(SendMessage.waiting_for_channel_id)
+            return
         elif text.isdigit():
             await state.update_data(target=int(text))
         else:
-            await message.answer("Пожалуйста, напишите <b>всем</b> или числовой ID.", parse_mode="HTML")
+            await message.answer(
+                "Пожалуйста, напишите <b>всем</b>, <b>канал</b> или числовой ID пользователя.",
+                parse_mode="HTML",
+            )
             return
 
+        await message.answer(_BUTTON_MENU, parse_mode="HTML")
+        await state.set_state(SendMessage.waiting_for_button_type)
+
+    # ── Шаг 1б: ID или @username канала ───────────────────────────────────────
+
+    @dp.message(SendMessage.waiting_for_channel_id)
+    async def process_channel_id(message: Message, state: FSMContext):
+        raw = (message.text or "").strip()
+
+        if raw.startswith("@") and len(raw) > 1:
+            channel_id = raw
+        elif raw.lstrip("-").isdigit():
+            channel_id = int(raw)
+        else:
+            await message.answer(
+                f"{E_CROSS} Не похоже на ID канала.\n"
+                "Введите <code>@username</code> или числовой ID вида <code>-1001234567890</code>.",
+                parse_mode="HTML",
+            )
+            return
+
+        await state.update_data(channel_id=channel_id)
         await message.answer(_BUTTON_MENU, parse_mode="HTML")
         await state.set_state(SendMessage.waiting_for_button_type)
 
@@ -390,6 +430,21 @@ def register(dp: Dispatcher, bot: Bot):
                 f"Ошибок: <b>{fail_count}</b>",
                 parse_mode="HTML",
             )
+        elif target == "channel":
+            channel_id = data.get("channel_id")
+            try:
+                await message.copy_to(chat_id=channel_id, reply_markup=markup)
+                await message.answer(
+                    f"{E_CHECK} Сообщение опубликовано в канале <b>{channel_id}</b>!",
+                    parse_mode="HTML",
+                )
+            except Exception as e:
+                await message.answer(
+                    f"{E_CROSS} Не удалось опубликовать в канале.\n"
+                    f"Убедитесь, что бот является администратором канала.\n"
+                    f"Детали: <code>{e}</code>",
+                    parse_mode="HTML",
+                )
         else:
             try:
                 await message.copy_to(chat_id=target, reply_markup=markup)
