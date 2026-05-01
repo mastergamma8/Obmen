@@ -40,12 +40,13 @@ async def main():
 
     await bot.delete_webhook(drop_pending_updates=True)
 
-    # Принудительно завершаем любую активную long-polling сессию
-    # на стороне Telegram (актуально при рестарте контейнера на Railway).
+    # Вытесняем активную long-polling сессию предыдущего контейнера (Railway).
     try:
-        await bot.get_updates(offset=-1, timeout=1)
+        await bot.get_updates(offset=0, timeout=0)
     except Exception:
         pass
+    logging.info("Ожидаем завершения предыдущей polling-сессии...")
+    await asyncio.sleep(3)
 
     logging.info("Бот поддержки @SpaceDonutSupportBot запущен!")
     await dp.start_polling(bot)
