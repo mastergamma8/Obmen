@@ -1,11 +1,7 @@
-# support_bot.py — Точка входа для @SpaceDonutSupportBot
+# support_bot.py — инстанс бота поддержки и регистрация хэндлеров
 #
-# Запускай ОТДЕЛЬНО от основного bot.py:
-#   python support_bot.py
-#
-# Требует в .env:
-#   SUPPORT_BOT_TOKEN=<токен @SpaceDonutSupportBot>
-#   ADMIN_ID=<твой Telegram ID>   (уже есть в config.py)
+# В продакшене (Railway) бот работает через webhook внутри FastAPI (main.py).
+# При локальной разработке можно запустить напрямую: python support_bot.py
 
 import asyncio
 import logging
@@ -29,28 +25,33 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 
-bot = Bot(token=SUPPORT_BOT_TOKEN)
-dp  = Dispatcher(storage=MemoryStorage())
+# Инстансы создаются на уровне модуля — импортируются из main.py для webhook-режима.
+support_bot = Bot(token=SUPPORT_BOT_TOKEN)
+support_dp  = Dispatcher(storage=MemoryStorage())
 
 
-async def main():
-    # Импортируем здесь, чтобы bot был уже создан
+def setup_handlers():
+    """Регистрирует хэндлеры на диспетчере. Вызывается один раз при старте."""
     from handlers.support import register
-    register(dp, bot)
+    register(support_dp, support_bot)
 
-    await bot.delete_webhook(drop_pending_updates=True)
 
-    # Вытесняем активную long-polling сессию предыдущего контейнера (Railway).
+# ── Локальный запуск (long polling) ───────────────────────────────────────────
+
+async def _run_polling():
+    """Только для локальной разработки. В продакшене используется webhook."""
+    setup_handlers()
+
+    await support_bot.delete_webhook(drop_pending_updates=True)
     try:
-        await bot.get_updates(offset=0, timeout=0)
+        await support_bot.get_updates(offset=0, timeout=0)
     except Exception:
         pass
-    logging.info("Ожидаем завершения предыдущей polling-сессии...")
     await asyncio.sleep(3)
 
-    logging.info("Бот поддержки @SpaceDonutSupportBot запущен!")
-    await dp.start_polling(bot)
+    logging.info("Бот поддержки @SpaceDonutSupportBot запущен! (polling-режим)")
+    await support_dp.start_polling(support_bot)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(_run_polling())
