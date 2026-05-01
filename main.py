@@ -4,7 +4,8 @@ import time
 import uvicorn
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
+from aiogram.types import Update
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,10 @@ import database
 from routers import users, gifts, games, tasks, bank
 from routers import tg_shop
 from db.db_core import DB_NAME
+
+# Секрет для верификации webhook-запросов от Telegram.
+# Установи переменную окружения WEBHOOK_SECRET на Railway.
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
 
 # ── Rate Limiter (SQLite-backed, multi-process safe) ──────────────────────────
@@ -123,7 +128,7 @@ async def lifespan(app: FastAPI):
     # max_size=20: при пиковой нагрузке пул расширяется до 20 соединений.
     await init_pool(DB_NAME, min_size=5, max_size=20)
 
-    rocket_task = None  # объявляем заранее — на случай ошибки до create_task
+    rocket_task = None
 
     try:
         await database.init_db()
@@ -135,6 +140,40 @@ async def lifespan(app: FastAPI):
 
         print("Инициализация обновления цен подарков (API Portals)...")
         config.update_base_gifts_prices()
+
+        # ── Боты (webhook-режим) ───────────────────────────────────────────────
+        from bot import bot as main_bot, dp as main_dp, setup_handlers as setup_main
+        from support_bot import support_bot, support_dp, setup_handlers as setup_support
+        from handlers.workers import (
+            roulette_reminder_worker,
+            gift_claim_reminder_worker,
+            gift_withdraw_reminder_worker,
+            free_case_reminder_worker,
+        )
+
+        setup_main()
+        setup_support()
+
+        # Фоновые задачи бота (напоминания, воркеры)
+        asyncio.create_task(roulette_reminder_worker(main_bot))
+        asyncio.create_task(gift_claim_reminder_worker(main_bot))
+        asyncio.create_task(gift_withdraw_reminder_worker(main_bot))
+        asyncio.create_task(free_case_reminder_worker(main_bot))
+
+        # Регистрация webhook-адресов в Telegram
+        webhook_base = config.WEBAPP_URL.rstrip("/")
+        secret = WEBHOOK_SECRET or None
+        await main_bot.set_webhook(
+            url=f"{webhook_base}/webhook/main",
+            secret_token=secret,
+            drop_pending_updates=True,
+        )
+        await support_bot.set_webhook(
+            url=f"{webhook_base}/webhook/support",
+            secret_token=secret,
+            drop_pending_updates=True,
+        )
+        print(f"✅ Webhooks зарегистрированы: {webhook_base}/webhook/main, /webhook/support")
 
         # Запускаем менеджер общих раундов ракеты
         from routers.games_rocket import round_manager
@@ -151,7 +190,17 @@ async def lifespan(app: FastAPI):
             except asyncio.CancelledError:
                 pass
 
-        # Закрываем пул при остановке приложения — корректно завершаем все соединения.
+        # Снимаем webhooks и закрываем сессии ботов
+        try:
+            from bot import bot as main_bot
+            from support_bot import support_bot
+            await main_bot.delete_webhook()
+            await support_bot.delete_webhook()
+            await main_bot.session.close()
+            await support_bot.session.close()
+        except Exception:
+            pass
+
         await close_pool()
 
 
@@ -220,6 +269,7 @@ async def maintenance_middleware(request: Request, call_next):
         path.startswith("/static")
         or path.startswith("/gifts")
         or path.startswith("/partials")
+        or path.startswith("/webhook")   # webhook-запросы от Telegram всегда пропускаем
         or path in _MAINTENANCE_WHITELIST
     ):
         return await call_next(request)
@@ -267,8 +317,36 @@ app.include_router(bank.router)
 app.include_router(tg_shop.router)
 
 
+# ── Webhook endpoints для Telegram ───────────────────────────────────────────
+
+def _verify_webhook_secret(request: Request) -> bool:
+    """Проверяет X-Telegram-Bot-Api-Secret-Token если WEBHOOK_SECRET задан."""
+    if not WEBHOOK_SECRET:
+        return True
+    return request.headers.get("X-Telegram-Bot-Api-Secret-Token", "") == WEBHOOK_SECRET
+
+
+@app.post("/webhook/main")
+async def webhook_main(request: Request):
+    if not _verify_webhook_secret(request):
+        return JSONResponse(status_code=403, content={"error": "Forbidden"})
+    from bot import bot as main_bot, dp as main_dp
+    update = Update.model_validate(await request.json())
+    await main_dp.feed_update(bot=main_bot, update=update)
+    return Response()
+
+
+@app.post("/webhook/support")
+async def webhook_support(request: Request):
+    if not _verify_webhook_secret(request):
+        return JSONResponse(status_code=403, content={"error": "Forbidden"})
+    from support_bot import support_bot, support_dp
+    update = Update.model_validate(await request.json())
+    await support_dp.feed_update(bot=support_bot, update=update)
+    return Response()
+
+
 @app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
     return templates.TemplateResponse(
     request=request,
     name="index.html",
