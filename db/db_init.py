@@ -19,7 +19,7 @@ async def init_db():
                 username    TEXT,
                 first_name  TEXT,
                 photo_url   TEXT,
-                balance     INTEGER DEFAULT 0,
+                balance     FLOAT8  DEFAULT 0,
                 stars       INTEGER DEFAULT 0,
                 referrer_id BIGINT  DEFAULT NULL,
                 last_free_spin INTEGER DEFAULT 0
@@ -30,11 +30,13 @@ async def init_db():
         # не меняет типы уже существующих колонок).
         await db.execute("ALTER TABLE users ALTER COLUMN tg_id TYPE BIGINT")
         await db.execute("ALTER TABLE users ALTER COLUMN referrer_id TYPE BIGINT")
+        # Migrate balance to FLOAT8 — PostgreSQL INTEGER rounds fractions (e.g. 0.5→1, 0.1→0)
+        await db.execute("ALTER TABLE users ALTER COLUMN balance TYPE FLOAT8")
 
         # Безопасное добавление колонок для уже существующих баз.
         # ADD COLUMN IF NOT EXISTS поддерживается в PostgreSQL 9.6+
         # и не ломает транзакцию при повторном запуске в отличие от try/except.
-        await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 0")
+        await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance FLOAT8 DEFAULT 0")
         await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS stars INTEGER DEFAULT 0")
         await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer_id BIGINT DEFAULT NULL")
         await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_free_spin INTEGER DEFAULT 0")
@@ -74,11 +76,13 @@ async def init_db():
                 user_id     BIGINT NOT NULL,
                 action_type TEXT   NOT NULL,
                 description TEXT   NOT NULL,
-                amount      INTEGER NOT NULL,
+                amount      FLOAT8 NOT NULL,
                 created_at  INTEGER NOT NULL
             )
         """)
         await db.execute("ALTER TABLE user_history ALTER COLUMN user_id TYPE BIGINT")
+        # Migrate amount to FLOAT8 so fractional donut values are stored correctly
+        await db.execute("ALTER TABLE user_history ALTER COLUMN amount TYPE FLOAT8")
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS promo_codes (
@@ -125,12 +129,14 @@ async def init_rocket_games_table():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS rocket_active_games (
                 user_id     BIGINT  PRIMARY KEY,
-                bet         INTEGER NOT NULL,
+                bet         FLOAT8  NOT NULL,
                 currency    TEXT    NOT NULL DEFAULT 'donuts',
                 crash_point REAL    NOT NULL,
-                pool_amount INTEGER NOT NULL DEFAULT 0,
+                pool_amount FLOAT8  NOT NULL DEFAULT 0,
                 created_at  INTEGER NOT NULL
             )
         """)
         await db.execute("ALTER TABLE rocket_active_games ALTER COLUMN user_id TYPE BIGINT")
+        await db.execute("ALTER TABLE rocket_active_games ALTER COLUMN bet TYPE FLOAT8")
+        await db.execute("ALTER TABLE rocket_active_games ALTER COLUMN pool_amount TYPE FLOAT8")
         await db.commit()
