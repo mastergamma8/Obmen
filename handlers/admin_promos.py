@@ -37,7 +37,11 @@ def register(dp: Dispatcher, bot: Bot):
         reward_type = args[2].strip().lower()
 
         try:
-            if reward_type in ("donuts", "stars"):
+            if reward_type == "donuts":
+                reward_value = float(args[3])
+                max_uses     = int(args[4])
+                case_id      = None
+            elif reward_type == "stars":
                 reward_value = int(args[3])
                 max_uses     = int(args[4])
                 case_id      = None
@@ -95,7 +99,8 @@ def register(dp: Dispatcher, bot: Bot):
         elif reward_type == "stars":
             reward_text = f"<b>{reward_value}</b> {E_STAR}"
         else:
-            reward_text = f"<b>{reward_value}</b> {E_DONUT}"
+            donut_display = int(reward_value) if reward_value == int(reward_value) else reward_value
+            reward_text = f"<b>{donut_display}</b> {E_DONUT}"
 
         await message.answer(
             f"{E_CHECK} Промокод <code>{code}</code> создан.\n\n"
