@@ -12,7 +12,7 @@ async def init_promo_tables():
             CREATE TABLE IF NOT EXISTS promo_codes (
                 code TEXT PRIMARY KEY,
                 reward_type TEXT NOT NULL,
-                reward_value INTEGER NOT NULL DEFAULT 0,
+                reward_value REAL NOT NULL DEFAULT 0,
                 case_id INTEGER DEFAULT NULL,
                 max_uses INTEGER NOT NULL DEFAULT 1,
                 uses_left INTEGER NOT NULL DEFAULT 1,
@@ -42,7 +42,7 @@ async def init_promo_tables():
         await db.commit()
 
 
-async def create_promo_code(code: str, reward_type: str, reward_value: int, max_uses: int, case_id: int | None = None, created_by: int | None = None) -> bool:
+async def create_promo_code(code: str, reward_type: str, reward_value: float, max_uses: int, case_id: int | None = None, created_by: int | None = None) -> bool:
     code = code.strip().upper()
     reward_type = reward_type.strip().lower()
 
@@ -161,7 +161,7 @@ async def redeem_promo_code(user_id: int, code: str) -> tuple[bool, str, dict | 
                     ON CONFLICT(user_id, case_id) DO UPDATE SET amount = user_promo_cases.amount + 1
                 """, (user_id, case_id))
             elif promo["reward_type"] == "donuts":
-                await db.execute("UPDATE users SET balance = balance + ? WHERE tg_id = ?", (int(promo["reward_value"]), user_id))
+                await db.execute("UPDATE users SET balance = balance + ? WHERE tg_id = ?", (float(promo["reward_value"]), user_id))
             elif promo["reward_type"] == "stars":
                 await db.execute("UPDATE users SET stars = stars + ? WHERE tg_id = ?", (int(promo["reward_value"]), user_id))
 
