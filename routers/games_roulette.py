@@ -17,10 +17,12 @@ ROULETTE_GAME_KEY   = "roulette"  # единый ключ пити для рул
 
 
 def _get_item_value(item: dict) -> int:
-    if item["type"] in ("donuts", "stars"):
+    if item["type"] == "stars":
+        return item.get("amount", 0)
+    if item["type"] == "donuts":
         return item.get("amount", 0)
     if item["type"] == "gift":
-        return get_gift_value(item.get("gift_id"))
+        return get_gift_value(item.get("gift_id")) * config.DONUTS_TO_STARS_RATE
     return 0
 
 
