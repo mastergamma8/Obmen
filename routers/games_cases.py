@@ -28,7 +28,7 @@ def _get_item_value_stars(item: dict) -> int:
         return item.get("amount", 0) * rate
 
     if item["type"] == "gift":
-        return get_gift_value(item.get("gift_id"))
+        return get_gift_value(item.get("gift_id")) * rate
 
     return 0
 
