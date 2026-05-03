@@ -7,10 +7,13 @@ import database
 from handlers.tg_gifts import get_gift_def, get_gift_value, is_real_tg_gift
 from handlers.models import SpinData
 from handlers.security import get_current_user, check_channel_subscription
+from utils.chance_engine import roll_with_pity, is_jackpot, COOLDOWN_START
+from db import db_pity
 
 router = APIRouter(prefix="/roulette", tags=["roulette"])
 
 ROULETTE_HOUSE_EDGE = 0.15
+ROULETTE_GAME_KEY   = "roulette"  # единый ключ пити для рулетки (per-user)
 
 
 def _get_item_value(item: dict) -> int:
@@ -22,6 +25,7 @@ def _get_item_value(item: dict) -> int:
 
 
 def _roll_item(items: list) -> tuple[int, dict]:
+    """Базовый взвешенный ролл без пити."""
     total_chance = sum(item.get("chance", 0) for item in items)
     if total_chance <= 0:
         total_chance = 100
@@ -37,16 +41,36 @@ def _roll_item(items: list) -> tuple[int, dict]:
     return 0, items[0]
 
 
-async def _roll_item_bank_aware(items: list, currency: str) -> tuple[int, dict]:
+async def _roll_item_pity(items: list, currency: str, tg_id: int, cost: int) -> tuple[int, dict]:
+    """
+    Взвешенный ролл с системой пити и банковскими ограничениями.
+    Возвращает (индекс_в_оригинальном_списке, предмет).
+    """
+    # ── Банковский фильтр ────────────────────────────────────────────────────
     bank_liquidity = await database.bank_get_max_payout()
-    affordable = [item for item in items if _get_item_value(item) <= bank_liquidity]
-
+    affordable     = [item for item in items if _get_item_value(item) <= bank_liquidity]
     if not affordable:
         cheapest = min(items, key=lambda i: _get_item_value(i))
         return items.index(cheapest), cheapest
 
-    idx_in_affordable, win_item = _roll_item(affordable)
-    real_idx = items.index(win_item)
+    # ── Пити ─────────────────────────────────────────────────────────────────
+    pity_count, cooldown_count = await db_pity.get_pity(tg_id, ROULETTE_GAME_KEY)
+
+    win_item = roll_with_pity(
+        items          = affordable,
+        get_value      = _get_item_value,
+        cost           = cost,
+        pity_count     = pity_count,
+        cooldown_count = cooldown_count,
+    )
+
+    # ── Обновляем счётчики ────────────────────────────────────────────────────
+    if is_jackpot(win_item, _get_item_value, cost):
+        await db_pity.on_jackpot(tg_id, ROULETTE_GAME_KEY, cooldown_start=COOLDOWN_START)
+    else:
+        await db_pity.on_no_jackpot(tg_id, ROULETTE_GAME_KEY)
+
+    real_idx = items.index(win_item) if win_item in items else 0
     return real_idx, win_item
 
 
@@ -58,13 +82,18 @@ async def get_roulette_info(current_user: dict = Depends(get_current_user)):
     now       = int(time.time())
     can_free  = (now - last_spin) >= 86400
 
+    # Возвращаем счётчики пити, чтобы фронтенд мог показать «близко к джекпоту»
+    pity_count, cooldown_count = await db_pity.get_pity(tg_id, ROULETTE_GAME_KEY)
+
     return {
-        "status":   "ok",
-        "can_free": can_free,
-        "cost":     config.ROULETTE_CONFIG["cost"],
-        "currency": config.ROULETTE_CONFIG.get("currency", "donuts"),
-        "items":    config.ROULETTE_CONFIG["items"],
-        "time_left": 86400 - (now - last_spin) if not can_free else 0,
+        "status":         "ok",
+        "can_free":       can_free,
+        "cost":           config.ROULETTE_CONFIG["cost"],
+        "currency":       config.ROULETTE_CONFIG.get("currency", "donuts"),
+        "items":          config.ROULETTE_CONFIG["items"],
+        "time_left":      86400 - (now - last_spin) if not can_free else 0,
+        "pity_count":     pity_count,
+        "cooldown_count": cooldown_count,
     }
 
 
@@ -72,10 +101,8 @@ async def get_roulette_info(current_user: dict = Depends(get_current_user)):
 async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current_user)):
     tg_id     = current_user["id"]
 
-    # ── Проверка подписки на канал ──────────────────────────────────────────
     if not await check_channel_subscription(tg_id):
         return {"status": "error", "detail": "not_subscribed"}
-    # ────────────────────────────────────────────────────────────────────────
 
     user_data = await database.get_user_data(tg_id)
     last_spin = user_data.get("last_free_spin", 0)
@@ -88,14 +115,11 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
     if can_free:
         await database.update_last_free_spin(tg_id, now)
     else:
-        # Атомарное списание У ПОЛЬЗОВАТЕЛЯ + зачисление В БАНК в одной транзакции.
-        # Если списание не прошло — deduct_and_deposit_atomic вернёт None
-        # и банк останется нетронутым (нет рассинхронизации).
         result = await database.deduct_and_deposit_atomic(
-            user_id=tg_id,
-            gross_bet=cost,
-            house_edge=ROULETTE_HOUSE_EDGE,
-            asset_type=currency,
+            user_id   = tg_id,
+            gross_bet = cost,
+            house_edge = ROULETTE_HOUSE_EDGE,
+            asset_type = currency,
         )
         if result is None:
             raise HTTPException(
@@ -111,6 +135,7 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
     items = config.ROULETTE_CONFIG["items"]
 
     if can_free:
+        # Бесплатный спин — всегда минимальный приз, без пити
         win_index = next(
             (i for i, item in enumerate(items)
              if item.get("type") == "stars" and item.get("amount") == 1),
@@ -118,18 +143,20 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
         )
         win_item = items[win_index]
     else:
-        win_index, win_item = await _roll_item_bank_aware(items, currency)
+        # Платный спин — с системой пити
+        win_index, win_item = await _roll_item_pity(items, currency, tg_id, cost)
 
     spin_type = "Бесплатная прокрутка рулетки" if can_free else "Прокрутка рулетки"
 
     if win_item["type"] == "donuts":
         prize_value = win_item["amount"]
         if not can_free:
-            # Используем bank_payout как финальную проверку (пункт 6)
             paid = await database.bank_payout(prize_value, asset_type="donuts")
             if not paid:
-                # Fallback — выдаём 1 звезду (самый дешёвый приз)
-                fallback = next((i for i in items if i.get("type") == "stars" and i.get("amount") == 1), None)
+                fallback = next(
+                    (i for i in items if i.get("type") == "stars" and i.get("amount") == 1),
+                    None,
+                )
                 if fallback:
                     win_item  = fallback
                     win_index = items.index(fallback)
@@ -148,7 +175,7 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
         if not can_free:
             paid = await database.bank_payout(prize_value, asset_type="stars")
             if not paid:
-                fallback = min(items, key=_get_item_value)
+                fallback  = min(items, key=_get_item_value)
                 win_item  = fallback
                 win_index = items.index(fallback)
                 prize_value = _get_item_value(fallback)
@@ -163,28 +190,27 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
             f"{spin_type} — выиграно звезд", prize_value)
 
     elif win_item["type"] == "gift":
-        gift_id = win_item["gift_id"]
-        gift_def = get_gift_def(gift_id)
+        gift_id   = win_item["gift_id"]
+        gift_def  = get_gift_def(gift_id)
         gift_name = gift_def["name"] if gift_def else "Подарок"
         gift_value = get_gift_value(gift_id)
 
         if not can_free and gift_value > 0:
             paid = await database.bank_payout(gift_value, asset_type="gift_value")
             if not paid:
-                # Банк не потянул — заменяем на самый дешёвый нон-гифт приз
                 fallback_items = [i for i in items if i["type"] != "gift"]
                 if fallback_items:
                     _, win_item = _roll_item(fallback_items)
-                    win_index = items.index(win_item)
+                    win_index   = items.index(win_item)
                     ptype = win_item["type"]
-                    fv = win_item["amount"]
+                    fv    = win_item["amount"]
                     if ptype == "stars":
                         await database.add_stars_to_user(tg_id, fv)
                     else:
                         await database.add_points_to_user(tg_id, fv)
                     await database.add_history_entry(tg_id, f"roulette_win_{ptype}",
                         f"{spin_type} — замена подарка (банк пуст)", fv)
-                    updated_user = await database.get_user_data(tg_id)
+                    updated_user  = await database.get_user_data(tg_id)
                     updated_gifts = await database.get_user_gifts(tg_id)
                     return _build_spin_response(win_index, win_item, updated_user, updated_gifts)
 
@@ -210,4 +236,4 @@ def _build_spin_response(win_index, win_item, updated_user, updated_gifts):
         "stars":        updated_user["stars"],
         "user_gifts":   updated_gifts,
         "can_free_now": False,
-    }
+                                       }
