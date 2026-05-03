@@ -7,6 +7,8 @@ import database
 from handlers.tg_gifts import get_gift_def, get_gift_value, is_real_tg_gift
 from handlers.models import ActionData
 from handlers.security import get_current_user, check_channel_subscription
+from utils.chance_engine import roll_with_pity, is_jackpot, COOLDOWN_START
+from db import db_pity
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -37,6 +39,7 @@ def _get_item_value(item: dict) -> int:
 
 
 def _roll_item(items: list) -> dict:
+    """Базовый взвешенный ролл без пити (для бесплатного кейса)."""
     total_chance = sum(item.get("chance", 0) for item in items)
     if total_chance <= 0:
         total_chance = 100
@@ -52,15 +55,44 @@ def _roll_item(items: list) -> dict:
     return items[0]
 
 
-async def _roll_item_bank_aware(items: list, currency: str) -> dict:
-    if currency != "stars":
-        return _roll_item(items)
+async def _roll_item_pity(items: list, currency: str, tg_id: int, case_id, price: int) -> dict:
+    """
+    Взвешенный ролл с системой пити и банковскими ограничениями.
 
-    bank_balance = await database.bank_get_max_payout()
-    affordable   = [i for i in items if _get_item_value_stars(i) <= bank_balance]
-    if not affordable:
-        return min(items, key=lambda i: _get_item_value_stars(i))
-    return _roll_item(affordable)
+    1. Получаем счётчики пити/кулдауна из БД.
+    2. Фильтруем предметы, недоступные банку.
+    3. Роллим через chance_engine.roll_with_pity.
+    4. Обновляем счётчики в зависимости от результата.
+    """
+    game_key = f"case_{case_id}"
+
+    # ── Банковский фильтр ────────────────────────────────────────────────────
+    if currency == "stars":
+        bank_balance = await database.bank_get_max_payout()
+        affordable   = [i for i in items if _get_item_value_stars(i) <= bank_balance]
+        if not affordable:
+            return min(items, key=lambda i: _get_item_value_stars(i))
+    else:
+        affordable = items
+
+    # ── Пити ─────────────────────────────────────────────────────────────────
+    pity_count, cooldown_count = await db_pity.get_pity(tg_id, game_key)
+
+    win_item = roll_with_pity(
+        items          = affordable,
+        get_value      = _get_item_value_stars,
+        cost           = price,
+        pity_count     = pity_count,
+        cooldown_count = cooldown_count,
+    )
+
+    # ── Обновляем счётчики ────────────────────────────────────────────────────
+    if is_jackpot(win_item, _get_item_value_stars, price):
+        await db_pity.on_jackpot(tg_id, game_key, cooldown_start=COOLDOWN_START)
+    else:
+        await db_pity.on_no_jackpot(tg_id, game_key)
+
+    return win_item
 
 
 async def _apply_win(tg_id: int, win_item: dict, case: dict, price: int, case_id: int = 0):
@@ -87,9 +119,9 @@ async def _apply_win(tg_id: int, win_item: dict, case: dict, price: int, case_id
         )
 
     elif win_item["type"] == "gift":
-        gift_id = win_item["gift_id"]
+        gift_id  = win_item["gift_id"]
         gift_def = get_gift_def(gift_id)
-        gift_name = gift_def["name"] if gift_def else "Gift"
+        gift_name  = gift_def["name"] if gift_def else "Gift"
         gift_value = get_gift_value(gift_id)
 
         await database.add_gift_to_user(tg_id, gift_id, 1)
@@ -112,12 +144,10 @@ async def _apply_win(tg_id: int, win_item: dict, case: dict, price: int, case_id
 
 @router.post("/open")
 async def open_case(data: ActionData, current_user: dict = Depends(get_current_user)):
-    tg_id   = current_user["id"]
+    tg_id = current_user["id"]
 
-    # ── Проверка подписки на канал ──────────────────────────────────────────
     if not await check_channel_subscription(tg_id):
         return {"status": "error", "detail": "not_subscribed"}
-    # ────────────────────────────────────────────────────────────────────────
 
     case_id = data.gift_id
 
@@ -128,13 +158,11 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
     currency = case.get("currency", "donuts")
     price    = case["price"]
 
-    # Атомарное списание У ПОЛЬЗОВАТЕЛЯ + зачисление В БАНК в одной транзакции.
-    # Если средств не хватит — оба шага откатятся, рассинхронизация исключена.
     result = await database.deduct_and_deposit_atomic(
-        user_id=tg_id,
-        gross_bet=price,
-        house_edge=CASE_HOUSE_EDGE,
-        asset_type=currency,
+        user_id   = tg_id,
+        gross_bet = price,
+        house_edge = CASE_HOUSE_EDGE,
+        asset_type = currency,
     )
     if result is None:
         raise HTTPException(
@@ -145,7 +173,8 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
     await database.add_history_entry(tg_id, f"case_paid_{currency}",
         f"Case opened: '{case['name']}' [case_id:{case_id}]", -price)
 
-    win_item  = await _roll_item_bank_aware(case["items"], currency)
+    # ── Ролл с пити ───────────────────────────────────────────────────────────
+    win_item  = await _roll_item_pity(case["items"], currency, tg_id, case_id, price)
     win_value = _get_item_value_stars(win_item)
 
     if win_value > 0:
@@ -158,13 +187,12 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
 
         paid = await database.bank_payout(payout_amount, asset_type=payout_type)
         if not paid:
-            # Банк не смог выплатить — выбираем только предметы, реально доступные банку
-            bank_max = await database.bank_get_max_payout(asset_type=currency)
+            bank_max         = await database.bank_get_max_payout(asset_type=currency)
             affordable_items = [i for i in case["items"] if _get_item_value_stars(i) <= bank_max]
 
             if affordable_items:
-                win_item      = min(affordable_items, key=lambda i: _get_item_value_stars(i))
-                win_value     = _get_item_value_stars(win_item)
+                win_item  = min(affordable_items, key=lambda i: _get_item_value_stars(i))
+                win_value = _get_item_value_stars(win_item)
                 if win_item["type"] == "gift":
                     fallback_payout_type   = "gift_value"
                     fallback_payout_amount = win_value
@@ -174,7 +202,6 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
                 if win_value > 0:
                     fallback_paid = await database.bank_payout(fallback_payout_amount, asset_type=fallback_payout_type)
                     if not fallback_paid:
-                        # Даже дешевейший предмет не прошёл — не выдаём ничего
                         await database.add_history_entry(
                             tg_id, "case_bank_empty",
                             f"Case '{case['name']}' — банк исчерпан, приз не выдан", 0
@@ -188,9 +215,7 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
                             "stars":      updated_user["stars"],
                             "user_gifts": updated_gifts,
                         }
-                # else: win_value == 0 (бесплатный предмет), продолжаем выдачу
             else:
-                # Вообще нет доступных предметов — ничего не выдаём
                 await database.add_history_entry(
                     tg_id, "case_bank_empty",
                     f"Case '{case['name']}' — банк исчерпан, приз не выдан", 0
@@ -223,10 +248,8 @@ async def open_case(data: ActionData, current_user: dict = Depends(get_current_u
 async def open_promo_case(data: ActionData, current_user: dict = Depends(get_current_user)):
     tg_id = current_user["id"]
 
-    # ── Проверка подписки на канал ──────────────────────────────────────────
     if not await check_channel_subscription(tg_id):
         return {"status": "error", "detail": "not_subscribed"}
-    # ────────────────────────────────────────────────────────────────────────
 
     case_id = data.gift_id
 
@@ -241,13 +264,12 @@ async def open_promo_case(data: ActionData, current_user: dict = Depends(get_cur
     currency = case.get("currency", "donuts")
 
     await database.add_history_entry(
-        tg_id,
-        "case_promo_open",
-        f"Promo case opened: '{case['name']}' [case_id:{case_id}]",
-        0,
+        tg_id, "case_promo_open",
+        f"Promo case opened: '{case['name']}' [case_id:{case_id}]", 0,
     )
 
-    win_item  = await _roll_item_bank_aware(case["items"], currency)
+    # Промо-кейс тоже участвует в пити: игроку интересно получить хорошие вещи
+    win_item  = await _roll_item_pity(case["items"], currency, tg_id, case_id, case["price"])
     win_value = _get_item_value_stars(win_item)
 
     if win_value > 0:
@@ -260,12 +282,12 @@ async def open_promo_case(data: ActionData, current_user: dict = Depends(get_cur
 
         paid = await database.bank_payout(payout_amount, asset_type=payout_type)
         if not paid:
-            bank_max = await database.bank_get_max_payout(asset_type=currency)
+            bank_max         = await database.bank_get_max_payout(asset_type=currency)
             affordable_items = [i for i in case["items"] if _get_item_value_stars(i) <= bank_max]
 
             if affordable_items:
-                win_item      = min(affordable_items, key=lambda i: _get_item_value_stars(i))
-                win_value     = _get_item_value_stars(win_item)
+                win_item  = min(affordable_items, key=lambda i: _get_item_value_stars(i))
+                win_value = _get_item_value_stars(win_item)
                 if win_item["type"] == "gift":
                     fallback_payout_type   = "gift_value"
                     fallback_payout_amount = win_value
@@ -281,12 +303,10 @@ async def open_promo_case(data: ActionData, current_user: dict = Depends(get_cur
                         )
                         updated_user  = await database.get_user_data(tg_id)
                         updated_gifts = await database.get_user_gifts(tg_id)
-                        promo_cases = await database.get_user_promo_cases(tg_id)
+                        promo_cases   = await database.get_user_promo_cases(tg_id)
                         return {
-                            "status": "bank_empty",
-                            "win_item": None,
-                            "balance": updated_user["balance"],
-                            "stars": updated_user["stars"],
+                            "status": "bank_empty", "win_item": None,
+                            "balance": updated_user["balance"], "stars": updated_user["stars"],
                             "user_gifts": updated_gifts,
                             "promo_case_credits": {str(k): v for k, v in promo_cases.items()},
                         }
@@ -297,12 +317,10 @@ async def open_promo_case(data: ActionData, current_user: dict = Depends(get_cur
                 )
                 updated_user  = await database.get_user_data(tg_id)
                 updated_gifts = await database.get_user_gifts(tg_id)
-                promo_cases = await database.get_user_promo_cases(tg_id)
+                promo_cases   = await database.get_user_promo_cases(tg_id)
                 return {
-                    "status": "bank_empty",
-                    "win_item": None,
-                    "balance": updated_user["balance"],
-                    "stars": updated_user["stars"],
+                    "status": "bank_empty", "win_item": None,
+                    "balance": updated_user["balance"], "stars": updated_user["stars"],
                     "user_gifts": updated_gifts,
                     "promo_case_credits": {str(k): v for k, v in promo_cases.items()},
                 }
@@ -311,7 +329,7 @@ async def open_promo_case(data: ActionData, current_user: dict = Depends(get_cur
 
     updated_user  = await database.get_user_data(tg_id)
     updated_gifts = await database.get_user_gifts(tg_id)
-    promo_cases = await database.get_user_promo_cases(tg_id)
+    promo_cases   = await database.get_user_promo_cases(tg_id)
 
     return {
         "status": "ok",
@@ -324,6 +342,8 @@ async def open_promo_case(data: ActionData, current_user: dict = Depends(get_cur
 
 
 # ─── Бесплатный кейс (раз в 24 ч) ────────────────────────────────────────────
+# Бесплатный кейс НЕ участвует в системе пити: он не должен давать джекпоты,
+# чтобы не обесценивать платные кейсы.
 
 @router.get("/free_status")
 async def free_case_status(current_user: dict = Depends(get_current_user)):
@@ -338,10 +358,8 @@ async def free_case_status(current_user: dict = Depends(get_current_user)):
 async def open_free_case(current_user: dict = Depends(get_current_user)):
     tg_id = current_user["id"]
 
-    # ── Проверка подписки на канал ──────────────────────────────────────────
     if not await check_channel_subscription(tg_id):
         return {"status": "error", "detail": "not_subscribed"}
-    # ────────────────────────────────────────────────────────────────────────
 
     if not hasattr(config, "FREE_CASE_CONFIG"):
         raise HTTPException(status_code=503, detail="Free case is not configured")
@@ -359,7 +377,7 @@ async def open_free_case(current_user: dict = Depends(get_current_user)):
         )
 
     case     = config.FREE_CASE_CONFIG
-    win_item = _roll_item(case["items"])
+    win_item = _roll_item(case["items"])  # без пити для бесплатного кейса
 
     await database.update_last_free_case(tg_id, now)
     await database.add_history_entry(tg_id, "case_free_open",
@@ -376,4 +394,4 @@ async def open_free_case(current_user: dict = Depends(get_current_user)):
         "stars":        updated_user["stars"],
         "user_gifts":   updated_gifts,
         "next_free_in": FREE_CASE_COOLDOWN,
-    }
+        }
