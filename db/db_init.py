@@ -120,6 +120,19 @@ async def init_db():
         """)
         await db.execute("ALTER TABLE user_promo_cases ALTER COLUMN user_id TYPE BIGINT")
 
+        # ── Пити-система: счётчики для кейсов и рулетки ─────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_pity (
+                tg_id          BIGINT  NOT NULL,
+                game_key       TEXT    NOT NULL,
+                pity_count     INTEGER NOT NULL DEFAULT 0,
+                cooldown_count INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (tg_id, game_key)
+            )
+        """)
+        # Безопасная миграция типов для существующих баз.
+        await db.execute("ALTER TABLE user_pity ALTER COLUMN tg_id TYPE BIGINT")
+
         await db.commit()
 
 
