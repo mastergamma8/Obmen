@@ -173,18 +173,10 @@ async function openFreeCaseDetails() {
 
     sortedItems.forEach(item => {
         const info = getItemInfoForCase(item);
-        const chance = item.chance || 0;
-        let rarityColor, rarityBorder, rarityGlow, rarityBg;
-        if (chance <= 5) {
-            rarityColor = '#facc15'; rarityBorder = 'rgba(250,204,21,0.45)';
-            rarityGlow  = 'rgba(250,204,21,0.25)'; rarityBg = 'rgba(250,204,21,0.08)';
-        } else if (chance <= 15) {
-            rarityColor = '#c084fc'; rarityBorder = 'rgba(192,132,252,0.45)';
-            rarityGlow  = 'rgba(192,132,252,0.22)'; rarityBg = 'rgba(192,132,252,0.07)';
-        } else {
-            rarityColor = '#60a5fa'; rarityBorder = 'rgba(96,165,250,0.35)';
-            rarityGlow  = 'rgba(96,165,250,0.18)'; rarityBg = 'rgba(96,165,250,0.06)';
-        }
+        const rarityColor = '#60a5fa';
+        const rarityBorder = 'rgba(96,165,250,0.35)';
+        const rarityGlow   = 'rgba(96,165,250,0.18)';
+        const rarityBg     = 'rgba(96,165,250,0.06)';
 
         const card = document.createElement('div');
         card.style.cssText = `
@@ -446,18 +438,10 @@ function openCaseDetails(caseId) {
 
     sortedItems.forEach(item => {
         const info = getItemInfoForCase(item);
-        const chance = item.chance || 0;
-        let rarityColor, rarityBorder, rarityGlow, rarityBg;
-        if (chance <= 5) {
-            rarityColor = '#facc15'; rarityBorder = 'rgba(250,204,21,0.45)';
-            rarityGlow  = 'rgba(250,204,21,0.25)'; rarityBg = 'rgba(250,204,21,0.08)';
-        } else if (chance <= 15) {
-            rarityColor = '#c084fc'; rarityBorder = 'rgba(192,132,252,0.45)';
-            rarityGlow  = 'rgba(192,132,252,0.22)'; rarityBg = 'rgba(192,132,252,0.07)';
-        } else {
-            rarityColor = '#60a5fa'; rarityBorder = 'rgba(96,165,250,0.35)';
-            rarityGlow  = 'rgba(96,165,250,0.18)'; rarityBg = 'rgba(96,165,250,0.06)';
-        }
+        const rarityColor = '#60a5fa';
+        const rarityBorder = 'rgba(96,165,250,0.35)';
+        const rarityGlow   = 'rgba(96,165,250,0.18)';
+        const rarityBg     = 'rgba(96,165,250,0.06)';
 
         const card = document.createElement('div');
         card.style.cssText = `
