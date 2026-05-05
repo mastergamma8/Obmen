@@ -95,6 +95,10 @@ def register(dp: Dispatcher, bot: Bot):
 
             user_id      = int(parts[1])
             stars_amount = int(parts[2])
+            # UUID присутствует начиная с новой версии payload (parts[3]).
+            # Старые инвойсы (без UUID) не проверяются по pending_invoices,
+            # но по-прежнему защищены уровнем 1 (charge_id идемпотентность).
+            payment_uuid = parts[3] if len(parts) >= 4 else None
 
             # Защита от подмены: реальный плательщик должен совпадать
             # с user_id из payload, чтобы нельзя было зачислить звёзды чужому аккаунту.
@@ -106,17 +110,28 @@ def register(dp: Dispatcher, bot: Bot):
                 await message.answer(f"{E_STOP} Ошибка верификации платежа. Обратитесь в поддержку.")
                 return
 
-            # ── Идемпотентность ──────────────────────────────────────────────
-            # charge_id уникален для каждого платежа на стороне Telegram.
-            # Если Telegram повторно доставит это событие (ретрай вебхука),
-            # claim_payment_idempotent вернёт False и мы не начислим звёзды повторно.
+            # ── Уровень 1: идемпотентность по charge_id ──────────────────────
+            # Защищает от ретраев вебхука — один charge_id обрабатывается только раз.
             is_new = await database.claim_payment_idempotent(charge_id, user_id, stars_amount)
             if not is_new:
                 logging.warning(
-                    f"successful_payment duplicate: charge_id={charge_id}, "
-                    f"user_id={user_id}, stars={stars_amount} — пропущено"
+                    f"successful_payment duplicate (charge_id): charge_id={charge_id}, "
+                    f"user_id={user_id} — пропущено"
                 )
                 return
+
+            # ── Уровень 2: проверка статуса инвойса ──────────────────────────
+            # Инвойс должен быть в статусе 'pending'. Если пользователь создал
+            # несколько инвойсов, все предыдущие при создании нового переходят
+            # в 'cancelled' и не могут быть оплачены повторно.
+            if payment_uuid is not None:
+                invoice_ok = await database.claim_invoice(payment_uuid)
+                if not invoice_ok:
+                    logging.warning(
+                        f"successful_payment rejected (invoice cancelled/used): "
+                        f"uuid={payment_uuid}, user_id={user_id}, charge_id={charge_id}"
+                    )
+                    return
             # ────────────────────────────────────────────────────────────────
 
             await database.add_stars_to_user(user_id, stars_amount)
