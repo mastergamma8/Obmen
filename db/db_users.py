@@ -349,3 +349,47 @@ async def claim_payment_idempotent(charge_id: str, user_id: int, stars: int) -> 
         # rowcount == 1: строка вставлена (первый раз)
         # rowcount == 0: конфликт, строка уже была (дубль)
         return cursor.rowcount == 1
+
+
+# ── Отслеживание инвойсов ────────────────────────────────────────────────────
+
+async def create_invoice_record(payment_uuid: str, user_id: int, stars: int) -> None:
+    """
+    Регистрирует новый инвойс и аннулирует все предыдущие pending-инвойсы
+    этого пользователя атомарно в одной транзакции.
+    Это гарантирует, что у пользователя всегда только один активный инвойс.
+    """
+    import time
+    async with aiosqlite.connect(DB_NAME) as db:
+        # Аннулируем все предыдущие незакрытые инвойсы пользователя
+        await db.execute(
+            "UPDATE pending_invoices SET status = 'cancelled' WHERE user_id = ? AND status = 'pending'",
+            (user_id,)
+        )
+        # Регистрируем новый инвойс
+        await db.execute(
+            """
+            INSERT INTO pending_invoices (payment_uuid, user_id, stars, status, created_at)
+            VALUES (?, ?, ?, 'pending', ?)
+            """,
+            (payment_uuid, user_id, stars, int(time.time()))
+        )
+        await db.commit()
+
+
+async def claim_invoice(payment_uuid: str) -> bool:
+    """
+    Атомарно переводит инвойс из статуса 'pending' в 'paid'.
+    Возвращает True, если инвойс был pending и успешно закрыт.
+    Возвращает False, если инвойс уже cancelled или paid — начислять нельзя.
+    """
+    async with aiosqlite.connect(DB_NAME) as db:
+        cursor = await db.execute(
+            """
+            UPDATE pending_invoices SET status = 'paid'
+            WHERE payment_uuid = ? AND status = 'pending'
+            """,
+            (payment_uuid,)
+        )
+        await db.commit()
+        return cursor.rowcount == 1
