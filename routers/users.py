@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 import httpx
 import json
 from urllib.parse import parse_qsl
+from datetime import datetime, timezone
 
 import config
 import database
@@ -63,7 +64,14 @@ async def init_user(current_user: dict = Depends(get_current_user)):
             "tg_gifts":     getattr(config, "TG_GIFTS", {}),
             "bot_username": config.BOT_USERNAME,
             "roulette":     config.ROULETTE_CONFIG,
-            "cases":        config.CASES_CONFIG,
+            "cases":        {
+                k: v for k, v in config.CASES_CONFIG.items()
+                if not (
+                    v.get("expires_at") and
+                    datetime.fromisoformat(v["expires_at"]).replace(tzinfo=timezone.utc)
+                    < datetime.now(timezone.utc)
+                )
+            },
             "rocket":       config.ROCKET_CONFIG,
             "withdraw_fee": getattr(config, "WITHDRAW_FEE_STARS", 25),
             "donuts_to_stars_rate": getattr(config, "DONUTS_TO_STARS_RATE", 115),
