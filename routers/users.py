@@ -131,8 +131,13 @@ async def redeem_promo(data: PromoRedeemData, current_user: dict = Depends(get_c
 @router.post("/topup/stars")
 async def create_topup_invoice(data: TopupData, current_user: dict = Depends(get_current_user)):
     """Создаёт платёжную ссылку для Telegram Stars (XTR)."""
+    import uuid
     tg_id = current_user["id"]
-    payload = f"topup_{tg_id}_{data.stars_amount}"
+    # UUID в payload делает каждый инвойс уникальным.
+    # Это позволяет отличать несколько открытых инвойсов на одну сумму
+    # и дополнительно помогает при идемпотентности на стороне бота.
+    payment_uuid = uuid.uuid4().hex[:16]
+    payload = f"topup_{tg_id}_{data.stars_amount}_{payment_uuid}"
 
     url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/createInvoiceLink"
     invoice_data = {
