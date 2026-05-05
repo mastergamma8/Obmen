@@ -146,6 +146,26 @@ async def init_db():
             )
         """)
 
+        # ── Отслеживание инвойсов ────────────────────────────────────────────
+        # Каждый созданный инвойс регистрируется здесь со статусом 'pending'.
+        # При создании нового инвойса для пользователя все его предыдущие
+        # pending-инвойсы переводятся в 'cancelled'.
+        # Это исключает оплату нескольких «висящих» инвойсов одного пользователя.
+        #
+        # Статусы:
+        #   pending   — инвойс создан, ждёт оплаты
+        #   paid      — оплачен, звёзды начислены
+        #   cancelled — аннулирован (создан новый инвойс или истёк)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pending_invoices (
+                payment_uuid TEXT    PRIMARY KEY,
+                user_id      BIGINT  NOT NULL,
+                stars        INTEGER NOT NULL,
+                status       TEXT    NOT NULL DEFAULT 'pending',
+                created_at   INTEGER NOT NULL
+            )
+        """)
+
         await db.commit()
 
 
