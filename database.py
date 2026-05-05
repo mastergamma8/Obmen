@@ -110,3 +110,4 @@ from db.db_promos import (  # noqa: F401
 )
 
 from db.db_users import claim_payment_idempotent  # noqa: F401
+from db.db_users import create_invoice_record, claim_invoice  # noqa: F401
