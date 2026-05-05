@@ -347,7 +347,7 @@ _STAR_USD_PRICE = 0.013
 async def _fetch_ton_to_stars_rate() -> float:
     """
     Возвращает количество Stars за 1 TON.
-    Алгоритм: TON/USD (CoinGecko) / STAR_USD_PRICE.
+    Алгоритм: TON/USDT (Binance public API) / STAR_USD_PRICE.
     Результат кэшируется на 5 минут. При ошибке возвращает фоллбэк.
     """
     now = time.time()
@@ -358,17 +358,17 @@ async def _fetch_ton_to_stars_rate() -> float:
     try:
         async with httpx.AsyncClient(timeout=6) as client:
             resp = await client.get(
-                "https://api.coingecko.com/api/v3/simple/price",
-                params={"ids": "the-open-network", "vs_currencies": "usd"},
+                "https://api.binance.com/api/v3/ticker/price",
+                params={"symbol": "TONUSDT"},
             )
             if resp.status_code == 200:
-                ton_usd = resp.json()["the-open-network"]["usd"]
+                ton_usd = float(resp.json()["price"])
                 rate = ton_usd / _STAR_USD_PRICE
                 _ton_stars_cache["rate"] = rate
                 _ton_stars_cache["ts"] = now
                 return rate
     except Exception as e:
-        print(f"[TON rate] CoinGecko error: {e}")
+        print(f"[TON rate] Binance error: {e}")
 
     return fallback
 
@@ -550,4 +550,4 @@ async def exchange_for_stars(data: ActionData, current_user: dict = Depends(get_
         "balance":      updated_user.get("balance", 0),
         "stars":        updated_user.get("stars", 0),
         "user_gifts":   updated_gifts,
-    }
+        }
