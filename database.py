@@ -108,3 +108,5 @@ from db.db_promos import (  # noqa: F401
     redeem_promo_code,
     get_all_promo_codes,
 )
+
+from db.db_users import claim_payment_idempotent  # noqa: F401
