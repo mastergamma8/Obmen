@@ -105,7 +105,7 @@ function closeModal(id) {
     if (!modal) return;
     if (modal.classList.contains('hidden')) return; // уже закрыто — не запускаем дважды
     
-    const bottomSheets = ['add-gift-modal', 'sort-modal', 'history-modal', 'withdraw-requirements-modal'];
+    const bottomSheets = ['add-gift-modal', 'sort-modal', 'history-modal', 'withdraw-requirements-modal', 'channel-sub-modal'];
     const panel = modal.querySelector('.glass-panel') || modal.firstElementChild;
     
     if (bottomSheets.includes(id) && panel) {
@@ -368,7 +368,7 @@ window.toggleDemoMode = toggleDemoMode;
 // ИНИЦИАЛИЗАЦИЯ "ШТОРОК" (ЗАКРЫТИЕ СВАЙПОМ / КЛИК ВНЕ)
 // =====================================================
 function initBottomSheets() {
-    const bottomSheets = ['add-gift-modal', 'sort-modal', 'history-modal', 'withdraw-requirements-modal'];
+    const bottomSheets = ['add-gift-modal', 'sort-modal', 'history-modal', 'withdraw-requirements-modal', 'channel-sub-modal'];
 
     // Функция поиска скроллируемого родителя, чтобы не перехватывать скролл контента
     function getScrollableParent(el, limitNode) {
