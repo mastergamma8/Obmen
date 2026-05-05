@@ -48,6 +48,9 @@ async def claim_gift(data: ActionData, current_user: dict = Depends(get_current_
     gift_name = config.MAIN_GIFTS[data.gift_id]["name"]
     await database.log_action(tg_id, "claim_gift", f"Покупка подарка: {gift_name} [gift_id:{data.gift_id}]", -cost)
 
+    # Пончики списаны у пользователя — зачисляем в банк как доход.
+    await database.bank_add_donuts(int(cost))
+
     gift_value = config.MAIN_GIFTS[data.gift_id].get("value", cost)
     await database.distribute_referral_bonus(tg_id, gift_value)
 
@@ -231,6 +234,9 @@ async def withdraw_gift(data: ActionData, current_user: dict = Depends(get_curre
 
     await database.update_last_gift_withdraw(tg_id, now)
 
+    # Комиссия за вывод — звёзды списаны у пользователя, зачисляем в банк.
+    await database.bank_add_stars(config.WITHDRAW_FEE_STARS)
+
     await database.log_action(tg_id, "withdraw_gift", f"Вывод подарка: {gift_name} [gift_id:{data.gift_id}]", 0)
 
     # Уведомление админа
@@ -276,6 +282,13 @@ async def exchange_gift(data: ActionData, current_user: dict = Depends(get_curre
     removed = await database.remove_gift_from_user(tg_id, data.gift_id)
     if not removed:
         raise HTTPException(status_code=400, detail="Подарок не найден")
+
+    # Списываем выплату из банка перед зачислением пользователю.
+    # Если ликвидности не хватает — возвращаем подарок и отклоняем обмен.
+    bank_ok = await database.bank_payout(reward_stars, asset_type="stars")
+    if not bank_ok:
+        await database.add_gift_to_user(tg_id, data.gift_id, 1)
+        raise HTTPException(status_code=503, detail="Недостаточно ликвидности в банке. Попробуйте позже.")
 
     await database.add_stars_to_user(tg_id, reward_stars)
     await database.log_action(
@@ -532,6 +545,13 @@ async def exchange_for_stars(data: ActionData, current_user: dict = Depends(get_
     removed = await database.remove_gift_from_user(tg_id, data.gift_id)
     if not removed:
         raise HTTPException(status_code=400, detail="Подарок не найден")
+
+    # Списываем выплату из банка перед зачислением пользователю.
+    # Если ликвидности не хватает — возвращаем подарок и отклоняем обмен.
+    bank_ok = await database.bank_payout(stars_reward, asset_type="stars")
+    if not bank_ok:
+        await database.add_gift_to_user(tg_id, data.gift_id, 1)
+        raise HTTPException(status_code=503, detail="Недостаточно ликвидности в банке. Попробуйте позже.")
 
     await database.add_stars_to_user(tg_id, stars_reward)
     await database.log_action(
