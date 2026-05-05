@@ -227,6 +227,9 @@ CASES_CONFIG = {
         "photo": "https://cdn.changes.tg/gifts/models/Instant Ramen/png/Original.png", 
         "currency": "stars", 
         "price": 15,
+        "is_new": False,
+        "background": None,
+        "expires_at": None,
         "items": [
             {"type": "stars", "amount": 5, "chance": 40},
             {"type": "stars", "amount": 7, "chance": 30},
@@ -249,6 +252,9 @@ CASES_CONFIG = {
         "photo": "https://cdn.changes.tg/gifts/models/Victory Medal/png/Original.png",
         "currency": "stars",
         "price": 50,
+        "is_new": False,
+        "background": "green",
+        "expires_at": None,
         "items": [
             {"type": "stars", "amount": 15, "chance": 40},
             {"type": "stars", "amount": 20, "chance": 30},
@@ -272,6 +278,9 @@ CASES_CONFIG = {
         "photo": "https://cdn.changes.tg/gifts/models/Toy Bear/png/Ursa Major.png",
         "currency": "stars", 
         "price": 150,
+        "is_new": False,
+        "background": "purple",
+        "expires_at": None,
         "items": [
             {"type": "stars", "amount": 50, "chance": 40},
             {"type": "stars", "amount": 70, "chance": 30},
@@ -300,6 +309,9 @@ CASES_CONFIG = {
         "photo": "https://cdn.changes.tg/gifts/models/Durov's Cap/png/Aurora.png",
         "currency": "stars", 
         "price": 450,
+        "is_new": False,
+        "background": "gold",
+        "expires_at": None,
         "items": [
             {"type": "gift", "gift_id": 113, "chance": 28},
             {"type": "gift", "gift_id": 114, "chance": 28},
@@ -355,6 +367,9 @@ CASES_CONFIG = {
         "photo": "https://cdn.changes.tg/gifts/originals/6026193266406327981/Original.png", 
         "currency": "stars", 
         "price": 10,
+        "is_new": True,
+        "background": "green",
+        "expires_at": "2026-05-06T00:00:00",
         "items": [
             {"type": "stars", "amount": 2, "chance": 40},
             {"type": "stars", "amount": 5, "chance": 30},
