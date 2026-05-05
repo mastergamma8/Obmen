@@ -14,7 +14,7 @@ if not BOT_TOKEN:
 
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 
-# Канал, на который нужно быть подписаным для игры в рулетку и открытия кейсов
+# Канал на который нужно быть подписаным для игры в рулетку и открытия кейсов
 REQUIRED_CHANNEL     = "@Space_Donut"
 REQUIRED_CHANNEL_URL = "https://t.me/Space_Donut"
 if not BOT_USERNAME:
