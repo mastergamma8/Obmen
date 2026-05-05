@@ -94,6 +94,7 @@ const i18n = {
             free_case_cooldown: 'Следующий бесплатный кейс через:',
             free_case_wait: 'Ожидайте',
             free_case_not_yet: 'Бесплатный кейс будет доступен через {h}ч {m}мин.',
+            case_expires_label: 'Истекает через',
 
             // РАКЕТА И ПОПОЛНЕНИЕ
             rocket_title: 'Ракета', rocket_desc: 'Успей забрать иксы до краша!',
@@ -297,6 +298,7 @@ const i18n = {
             free_case_cooldown: 'Next free case in:',
             free_case_wait: 'Wait',
             free_case_not_yet: 'Free case available in {h}h {m}m.',
+            case_expires_label: 'Expires in',
 
             // ROCKET & TOP-UP
             rocket_title: 'Rocket', rocket_desc: 'Grab the multiplier before it crashes!',
