@@ -332,7 +332,81 @@ async function openPromoCase(caseId) {
 
 // ── Cases Grid ────────────────────────────────────────────────────────────────
 
+// ── Case Expiry Helpers ───────────────────────────────────────────────────────
+
+function getCaseSecondsLeft(expiresAt) {
+    if (!expiresAt) return null;
+    const exp = new Date(expiresAt).getTime();
+    const now = Date.now();
+    const diff = Math.max(0, Math.floor((exp - now) / 1000));
+    return diff;
+}
+
+function formatCaseCountdown(seconds) {
+    if (seconds <= 0) return '00:00:00';
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (d > 0) {
+        return `${d}д ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// Background presets for case cards
+const CASE_BG_PRESETS = {
+    green: {
+        cardClass: 'case-bg-green',
+        glowColor: 'rgba(34,197,94,0.35)',
+        gradientColor: 'rgba(34,197,94,0.30)',
+    },
+    gold: {
+        cardClass: 'case-bg-gold',
+        glowColor: 'rgba(234,179,8,0.35)',
+        gradientColor: 'rgba(234,179,8,0.30)',
+    },
+    purple: {
+        cardClass: 'case-bg-purple',
+        glowColor: 'rgba(168,85,247,0.35)',
+        gradientColor: 'rgba(168,85,247,0.30)',
+    },
+};
+
+// Intervals map for per-card countdown timers
+const _caseCardTimers = {};
+
+function _startCardTimer(id, secondsLeft, el) {
+    if (_caseCardTimers[id]) {
+        clearInterval(_caseCardTimers[id]);
+        delete _caseCardTimers[id];
+    }
+    let s = secondsLeft;
+    const update = () => {
+        if (!document.body.contains(el)) {
+            clearInterval(_caseCardTimers[id]);
+            delete _caseCardTimers[id];
+            return;
+        }
+        if (s <= 0) {
+            clearInterval(_caseCardTimers[id]);
+            delete _caseCardTimers[id];
+            renderCasesGrid();
+            return;
+        }
+        const isUrgent = s < 86400;
+        el.textContent = '⏱ ' + formatCaseCountdown(s);
+        el.style.color = isUrgent ? '#f87171' : 'rgba(255,255,255,0.55)';
+        s--;
+    };
+    update();
+    _caseCardTimers[id] = setInterval(update, 1000);
+}
+
 function renderCasesGrid() {
+    // Clear old card timers
+    Object.keys(_caseCardTimers).forEach(k => { clearInterval(_caseCardTimers[k]); delete _caseCardTimers[k]; });
+
     const grid = document.getElementById('cases-grid');
     if (!grid) return;
     grid.innerHTML = '';
@@ -352,29 +426,55 @@ function renderCasesGrid() {
         const photoUrl = getImgSrc(c.photo);
         const currencyIcon = c.currency === 'stars' ? '/gifts/stars.png' : '/gifts/dount.png';
 
+        // Background preset
+        const bg = c.background && CASE_BG_PRESETS[c.background] ? CASE_BG_PRESETS[c.background] : null;
+        const bgClass   = bg ? bg.cardClass : '';
+        const glowColor = bg ? bg.glowColor : 'rgba(99,102,241,0.30)';
+        const gradColor = bg ? bg.gradientColor : 'rgba(99,102,241,0.25)';
+
         const card = document.createElement('div');
-        card.className = "glass rounded-3xl p-4 flex flex-col items-center justify-between text-center cursor-pointer transition-transform border border-indigo-400/30 shadow-[0_10px_20px_rgba(0,0,0,0.4)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] bg-gradient-to-b from-indigo-500/20 to-black/40 relative overflow-hidden group";
+        card.className = `glass rounded-3xl p-4 flex flex-col items-center justify-between text-center cursor-pointer transition-transform relative overflow-hidden group ${bgClass}`;
         card.setAttribute('data-case-id', id);
         card.onclick = () => openCaseDetails(id);
+
+        // Expiry timer
+        const secsLeft = getCaseSecondsLeft(c.expires_at);
+        const isUrgent = secsLeft !== null && secsLeft < 86400;
+        const timerHtml = secsLeft !== null
+            ? `<div class="case-card-timer w-full text-center font-mono text-[10px] font-bold mt-1.5 relative z-10" style="color:${isUrgent ? '#f87171' : 'rgba(255,255,255,0.55)'}">⏱ ${formatCaseCountdown(secsLeft)}</div>`
+            : '';
+
+        // NEW badge
+        const newBadge = c.is_new
+            ? `<div class="absolute top-2.5 left-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg z-20 tracking-wider uppercase">NEW</div>`
+            : '';
 
         const promoCount = getPromoCaseCount(id);
         card.innerHTML = `
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 bg-indigo-500/30 blur-[30px] rounded-full pointer-events-none group-hover:bg-indigo-400/40 transition-colors"></div>
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 blur-[30px] rounded-full pointer-events-none transition-colors" style="background:${gradColor};"></div>
+            ${newBadge}
             ${promoCount > 0 ? `<div class="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg z-20">FREE ×${promoCount}</div>` : ''}
 
             <div class="w-24 h-24 mb-3 relative z-10">
                 <img src="${escapeHtml(photoUrl)}" class="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.6)] transition-all duration-300" onerror="this.src='https://via.placeholder.com/96?text=📦'">
             </div>
 
-            <h4 class="text-white font-extrabold text-sm mb-3 glow-text w-full truncate relative z-10 tracking-wide">${escapeHtml(c.name)}</h4>
+            <h4 class="text-white font-extrabold text-sm mb-2 glow-text w-full truncate relative z-10 tracking-wide">${escapeHtml(c.name)}</h4>
 
             <div class="bg-black/60 rounded-xl px-3 py-1.5 flex items-center justify-center gap-1.5 border border-white/10 relative z-10 w-full backdrop-blur-sm shadow-inner">
                 <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-indigo-300 font-black text-sm">${c.price}</span>
                 <img src="${currencyIcon}" class="w-4 h-4 object-contain drop-shadow-[0_0_5px_rgba(59,130,246,0.6)]" onerror="this.src='https://via.placeholder.com/16'">
             </div>
+            ${timerHtml}
         `;
         grid.appendChild(card);
+
+        // Start live countdown timer on the card
+        if (secsLeft !== null && secsLeft > 0) {
+            const timerEl = card.querySelector('.case-card-timer');
+            if (timerEl) _startCardTimer(id, secsLeft, timerEl);
+        }
     });
 
     // Применяем флаги скрытия для конкретных кейсов (если есть)
@@ -397,6 +497,34 @@ function getItemInfoForCase(item) {
 
 // ── Paid Case Details Modal ───────────────────────────────────────────────────
 
+// Interval ref for modal expiry timer
+let _modalExpiryTimer = null;
+
+function _stopModalExpiryTimer() {
+    if (_modalExpiryTimer) { clearInterval(_modalExpiryTimer); _modalExpiryTimer = null; }
+}
+
+function _startModalExpiryTimer(expiresAt) {
+    _stopModalExpiryTimer();
+    const wrap  = document.getElementById('cd-expiry-wrap');
+    const timerEl = document.getElementById('cd-expiry-timer');
+    if (!wrap || !timerEl || !expiresAt) { if (wrap) wrap.classList.add('hidden'); return; }
+
+    wrap.classList.remove('hidden');
+    let s = getCaseSecondsLeft(expiresAt);
+
+    const update = () => {
+        if (!document.getElementById('cd-expiry-timer')) { _stopModalExpiryTimer(); return; }
+        if (s <= 0) { _stopModalExpiryTimer(); renderCasesGrid(); closeModal('case-details-modal'); return; }
+        const urgent = s < 86400;
+        timerEl.textContent = formatCaseCountdown(s);
+        timerEl.style.color = urgent ? '#f87171' : 'rgba(255,255,255,0.75)';
+        s--;
+    };
+    update();
+    _modalExpiryTimer = setInterval(update, 1000);
+}
+
 function openCaseDetails(caseId) {
     if (typeof vibrate === 'function') vibrate('light');
     const c = casesConfig[caseId];
@@ -405,6 +533,22 @@ function openCaseDetails(caseId) {
 
     document.getElementById('cd-photo').src = getImgSrc(c.photo);
     document.getElementById('cd-title').innerText = c.name;
+
+    // NEW badge
+    const newBadge = document.getElementById('cd-new-badge');
+    if (newBadge) { c.is_new ? newBadge.classList.remove('hidden') : newBadge.classList.add('hidden'); }
+
+    // Expiry timer
+    _startModalExpiryTimer(c.expires_at || null);
+
+    // Modal header background
+    const header = document.getElementById('cd-modal-header');
+    if (header) {
+        header.className = header.className.replace(/case-bg-\w+/g, '').trim();
+        if (c.background && ['green','gold','purple'].includes(c.background)) {
+            header.classList.add('case-bg-' + c.background);
+        }
+    }
 
     const currencyIcon = c.currency === 'stars' ? '/gifts/stars.png' : '/gifts/dount.png';
     const currentBal = c.currency === 'stars' ? myStars : myBalance;
