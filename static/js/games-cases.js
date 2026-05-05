@@ -527,6 +527,11 @@ function _startModalExpiryTimer(expiresAt) {
     if (!wrap || !timerEl || !expiresAt) { if (wrap) wrap.classList.add('hidden'); return; }
 
     wrap.classList.remove('hidden');
+    // Translate label
+    const expiryLabel = wrap.querySelector('[data-i18n="case_expires_label"]');
+    if (expiryLabel && typeof i18n !== 'undefined' && i18n[currentLang]) {
+        expiryLabel.textContent = i18n[currentLang].case_expires_label || 'Истекает через';
+    }
     let s = getCaseSecondsLeft(expiresAt);
 
     const update = () => {
