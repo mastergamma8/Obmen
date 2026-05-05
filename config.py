@@ -368,7 +368,7 @@ CASES_CONFIG = {
         "currency": "stars", 
         "price": 10,
         "is_new": True,
-        "background": "green",
+        "background": "red",
         "expires_at": "2026-05-06T00:00:00",
         "items": [
             {"type": "stars", "amount": 2, "chance": 40},
