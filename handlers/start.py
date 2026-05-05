@@ -80,32 +80,54 @@ def register(dp: Dispatcher, bot: Bot):
 
     @dp.message(F.successful_payment)
     async def process_successful_payment(message: Message):
-        payload = message.successful_payment.invoice_payload
+        payment     = message.successful_payment
+        payload     = payment.invoice_payload
+        charge_id   = payment.telegram_payment_charge_id  # уникальный ID платежа от Telegram
+
         if payload.startswith("topup_"):
             parts = payload.split("_")
-            if len(parts) == 3:
-                user_id = int(parts[1])
-                stars_amount = int(parts[2])
+            # Поддерживаем оба формата payload:
+            #   старый:  topup_{user_id}_{stars}
+            #   новый:   topup_{user_id}_{stars}_{uuid}   ← устойчив к дублям инвойсов
+            if len(parts) < 3:
+                logging.warning(f"successful_payment: неверный payload '{payload}', charge_id={charge_id}")
+                return
 
-                # Защита от подмены: реальный плательщик должен совпадать
-                # с user_id из payload, чтобы нельзя было зачислить звёзды чужому аккаунту.
-                if message.from_user.id != user_id:
-                    logging.warning(
-                        f"successful_payment mismatch: from_user={message.from_user.id}, "
-                        f"payload_user={user_id} — начисление отклонено"
-                    )
-                    await message.answer(f"{E_STOP} Ошибка верификации платежа. Обратитесь в поддержку.")
-                    return
+            user_id      = int(parts[1])
+            stars_amount = int(parts[2])
 
-                await database.add_stars_to_user(user_id, stars_amount)
-                await database.add_history_entry(
-                    user_id, "topup_stars", f"Пополнение баланса на {stars_amount} {E_STAR}", stars_amount
+            # Защита от подмены: реальный плательщик должен совпадать
+            # с user_id из payload, чтобы нельзя было зачислить звёзды чужому аккаунту.
+            if message.from_user.id != user_id:
+                logging.warning(
+                    f"successful_payment mismatch: from_user={message.from_user.id}, "
+                    f"payload_user={user_id} — начисление отклонено"
                 )
+                await message.answer(f"{E_STOP} Ошибка верификации платежа. Обратитесь в поддержку.")
+                return
 
-                # Реферальный бонус: 10% от пополнения звёздами пригласившему
-                await distribute_referral_bonus_stars(user_id, stars_amount)
-
-                await message.answer(
-                    f"{E_PARTY} <b>Успешно!</b>\nВаш баланс пополнен на <b>{stars_amount} {E_STAR}</b>!",
-                    parse_mode="HTML"
+            # ── Идемпотентность ──────────────────────────────────────────────
+            # charge_id уникален для каждого платежа на стороне Telegram.
+            # Если Telegram повторно доставит это событие (ретрай вебхука),
+            # claim_payment_idempotent вернёт False и мы не начислим звёзды повторно.
+            is_new = await database.claim_payment_idempotent(charge_id, user_id, stars_amount)
+            if not is_new:
+                logging.warning(
+                    f"successful_payment duplicate: charge_id={charge_id}, "
+                    f"user_id={user_id}, stars={stars_amount} — пропущено"
                 )
+                return
+            # ────────────────────────────────────────────────────────────────
+
+            await database.add_stars_to_user(user_id, stars_amount)
+            await database.add_history_entry(
+                user_id, "topup_stars", f"Пополнение баланса на {stars_amount} {E_STAR}", stars_amount
+            )
+
+            # Реферальный бонус: 10% от пополнения звёздами пригласившему
+            await distribute_referral_bonus_stars(user_id, stars_amount)
+
+            await message.answer(
+                f"{E_PARTY} <b>Успешно!</b>\nВаш баланс пополнен на <b>{stars_amount} {E_STAR}</b>!",
+                parse_mode="HTML"
+            )
