@@ -135,6 +135,9 @@ def register(dp: Dispatcher, bot: Bot):
             # ────────────────────────────────────────────────────────────────
 
             await database.add_stars_to_user(user_id, stars_amount)
+            # Зачисляем пополнение в банк — реальные звёзды пользователя
+            # должны отражаться в ликвидности банка, иначе баланс не сходится.
+            await database.bank_add_stars(stars_amount)
             await database.add_history_entry(
                 user_id, "topup_stars", f"Пополнение баланса на {stars_amount} {E_STAR}", stars_amount
             )
