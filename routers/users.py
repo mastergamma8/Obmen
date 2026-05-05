@@ -130,13 +130,18 @@ async def redeem_promo(data: PromoRedeemData, current_user: dict = Depends(get_c
 
 @router.post("/topup/stars")
 async def create_topup_invoice(data: TopupData, current_user: dict = Depends(get_current_user)):
-    """Создаёт платёжную ссылку для Telegram Stars (XTR)."""
+    """Создаёт платёжную ссылку для Telegram Stars (XTR).
+
+    При каждом вызове:
+      1. Генерируется уникальный payment_uuid, включаемый в payload.
+      2. Все предыдущие pending-инвойсы пользователя аннулируются.
+      3. Новый инвойс сохраняется в БД со статусом 'pending'.
+    Это гарантирует, что у пользователя только один активный инвойс:
+    оплата любого более раннего будет отклонена в successful_payment.
+    """
     import uuid
     tg_id = current_user["id"]
-    # UUID в payload делает каждый инвойс уникальным.
-    # Это позволяет отличать несколько открытых инвойсов на одну сумму
-    # и дополнительно помогает при идемпотентности на стороне бота.
-    payment_uuid = uuid.uuid4().hex[:16]
+    payment_uuid = uuid.uuid4().hex  # полный 32-символьный UUID
     payload = f"topup_{tg_id}_{data.stars_amount}_{payment_uuid}"
 
     url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/createInvoiceLink"
@@ -153,13 +158,17 @@ async def create_topup_invoice(data: TopupData, current_user: dict = Depends(get
         resp     = await client.post(url, json=invoice_data)
         res_data = resp.json()
 
-        if res_data.get("ok"):
-            return {"status": "ok", "invoice_url": res_data["result"]}
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Ошибка создания инвойса: {res_data.get('description')}",
-            )
+    if not res_data.get("ok"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ошибка создания инвойса: {res_data.get('description')}",
+        )
+
+    # Регистрируем инвойс только после успешного ответа Telegram.
+    # Это также аннулирует все предыдущие pending-инвойсы данного пользователя.
+    await database.create_invoice_record(payment_uuid, tg_id, data.stars_amount)
+
+    return {"status": "ok", "invoice_url": res_data["result"]}
 
 
 @router.get("/history")
