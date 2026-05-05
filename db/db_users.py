@@ -324,3 +324,28 @@ async def get_user_gifts(user_id: int):
         ) as cursor:
             rows = await cursor.fetchall()
             return {row["gift_id"]: row["amount"] for row in rows}
+
+
+async def claim_payment_idempotent(charge_id: str, user_id: int, stars: int) -> bool:
+    """
+    Атомарно регистрирует платёж по его уникальному telegram_payment_charge_id.
+
+    Возвращает True, если платёж записан впервые — звёзды можно начислять.
+    Возвращает False, если charge_id уже существует — это повтор, начислять нельзя.
+
+    INSERT OR IGNORE (-> ON CONFLICT DO NOTHING в PostgreSQL) гарантирует
+    атомарность даже при параллельных вебхук-ретраях одного платежа.
+    """
+    import time
+    async with aiosqlite.connect(DB_NAME) as db:
+        cursor = await db.execute(
+            """
+            INSERT OR IGNORE INTO processed_payments (charge_id, user_id, stars, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (charge_id, user_id, stars, int(time.time()))
+        )
+        await db.commit()
+        # rowcount == 1: строка вставлена (первый раз)
+        # rowcount == 0: конфликт, строка уже была (дубль)
+        return cursor.rowcount == 1
