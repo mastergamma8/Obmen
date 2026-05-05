@@ -228,7 +228,7 @@ CASES_CONFIG = {
         "currency": "stars", 
         "price": 15,
         "is_new": False,
-        "background": None,
+        "background": "green",
         "expires_at": None,
         "items": [
             {"type": "stars", "amount": 5, "chance": 40},
@@ -253,7 +253,7 @@ CASES_CONFIG = {
         "currency": "stars",
         "price": 50,
         "is_new": False,
-        "background": "green",
+        "background": "purple",
         "expires_at": None,
         "items": [
             {"type": "stars", "amount": 15, "chance": 40},
