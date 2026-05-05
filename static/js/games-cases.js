@@ -436,6 +436,10 @@ function renderCasesGrid() {
     }
 
     Object.keys(casesConfig)
+        .filter(id => {
+            const exp = casesConfig[id].expires_at;
+            return !exp || new Date(exp) > new Date();
+        })
         .sort((a, b) => (casesConfig[a].price || 0) - (casesConfig[b].price || 0))
         .forEach(id => {
         const c = casesConfig[id];
@@ -550,6 +554,10 @@ function openCaseDetails(caseId) {
     if (typeof vibrate === 'function') vibrate('light');
     const c = casesConfig[caseId];
     if (!c) return;
+    if (c.expires_at && new Date(c.expires_at) <= new Date()) {
+        renderCasesGrid();
+        return;
+    }
     currentOpenedCaseId = caseId;
 
     document.getElementById('cd-photo').src = getImgSrc(c.photo);
