@@ -133,6 +133,19 @@ async def init_db():
         # Безопасная миграция типов для существующих баз.
         await db.execute("ALTER TABLE user_pity ALTER COLUMN tg_id TYPE BIGINT")
 
+        # ── Идемпотентность платежей ─────────────────────────────────────────
+        # Хранит уникальный charge_id каждого обработанного платежа Telegram.
+        # Предотвращает повторное начисление звёзд при ретраях вебхука
+        # или повторной доставке одного и того же события successful_payment.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS processed_payments (
+                charge_id  TEXT    PRIMARY KEY,
+                user_id    BIGINT  NOT NULL,
+                stars      INTEGER NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
+
         await db.commit()
 
 
