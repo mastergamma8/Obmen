@@ -157,6 +157,17 @@ async function openFreeCaseDetails() {
     document.getElementById('cd-photo').src = getImgSrc(c.photo);
     document.getElementById('cd-title').innerText = c.name;
 
+    // Reset modal header to default (no tinted background, no NEW badge, no expiry timer)
+    const freeHeader = document.getElementById('cd-modal-header');
+    if (freeHeader) {
+        freeHeader.className = freeHeader.className.replace(/case-bg-\w+/g, '').trim();
+    }
+    const freeNewBadge = document.getElementById('cd-new-badge');
+    if (freeNewBadge) freeNewBadge.classList.add('hidden');
+    const freeExpiryWrap = document.getElementById('cd-expiry-wrap');
+    if (freeExpiryWrap) freeExpiryWrap.classList.add('hidden');
+    if (typeof _stopModalExpiryTimer === 'function') _stopModalExpiryTimer();
+
     const btn = document.getElementById('btn-open-case');
     btn.classList.remove('opacity-50', 'pointer-events-none');
     if (isDemoMode) {
@@ -371,6 +382,11 @@ const CASE_BG_PRESETS = {
         glowColor: 'rgba(168,85,247,0.35)',
         gradientColor: 'rgba(168,85,247,0.30)',
     },
+    red: {
+        cardClass: 'case-bg-red',
+        glowColor: 'rgba(239,68,68,0.35)',
+        gradientColor: 'rgba(239,68,68,0.30)',
+    },
 };
 
 // Intervals map for per-card countdown timers
@@ -545,7 +561,7 @@ function openCaseDetails(caseId) {
     const header = document.getElementById('cd-modal-header');
     if (header) {
         header.className = header.className.replace(/case-bg-\w+/g, '').trim();
-        if (c.background && ['green','gold','purple'].includes(c.background)) {
+        if (c.background && ['green','gold','purple','red'].includes(c.background)) {
             header.classList.add('case-bg-' + c.background);
         }
     }
