@@ -26,7 +26,7 @@ WAITING_DURATION   = 12.0
 COUNTDOWN_DURATION =  3.0
 CRASH_SHOW_DURATION =  4.0
 
-HOUSE_EDGE   = config.ROCKET_CONFIG.get("house_edge", 0.10)
+HOUSE_EDGE   = config.ROCKET_CONFIG.get("house_edge", 0.13)
 GROWTH_SPEED = config.ROCKET_CONFIG.get("growth_speed", 1.00006)
 MAX_MULT     = config.ROCKET_CONFIG.get("max_multiplier", 1000.0)
 CURRENCY     = config.ROCKET_CONFIG.get("currency", "stars")
