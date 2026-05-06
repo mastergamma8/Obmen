@@ -508,47 +508,49 @@
 </div>
 
 <!-- ===== ТРЕБОВАНИЯ ДЛЯ ВЫВОДА ===== -->
-<div id="withdraw-requirements-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden flex items-end z-[80] transition-opacity">
-    <div class="w-full rounded-t-3xl border-t border-white/10 shadow-2xl overflow-hidden"
-         style="background:linear-gradient(160deg,#0f172a 0%,#0a0f1e 100%);max-height:85vh;">
+<div id="withdraw-requirements-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden flex items-end sm:items-center justify-center z-[80] p-0 sm:p-5 transition-opacity">
+    <div class="glass-panel w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl border-t border-x sm:border-b border-white/10 shadow-2xl flex flex-col relative overflow-hidden" style="max-height:88vh;">
 
-        <!-- Drag handle -->
-        <div class="flex justify-center pt-3 pb-1">
-            <div class="w-10 h-1 rounded-full bg-white/20"></div>
-        </div>
+        <!-- Декоративное свечение -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[200%] h-32 bg-amber-500/10 blur-[50px] rounded-full pointer-events-none"></div>
 
-        <div style="overflow-y:auto;max-height:calc(85vh - 16px);" class="px-5 pb-6">
+        <!-- Скроллируемая область -->
+        <div class="overflow-y-auto flex flex-col px-6 pb-6" style="max-height:88vh;">
 
-            <!-- Header -->
-            <div class="flex items-start justify-between mt-3 mb-5">
-                <div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <div class="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center">
-                            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                        </div>
-                        <h3 class="text-lg font-black text-white tracking-tight" data-i18n="wr_modal_title">Условия вывода</h3>
-                    </div>
-                    <p class="text-white/40 text-xs" data-i18n="wr_modal_subtitle">Выполните все условия, чтобы вывести подарок</p>
-                </div>
-                <button onclick="closeModal('withdraw-requirements-modal')"
-                        class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center active:scale-95 transition-transform text-white/40 hover:text-white/80 ml-3 flex-shrink-0 mt-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+            <!-- Drag pill -->
+            <div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-4 mb-4 shrink-0 sm:hidden"></div>
+
+            <!-- Иконка подарка -->
+            <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-white/10 relative z-10 shadow-[0_0_25px_rgba(251,191,36,0.25)] shrink-0">
+                <svg class="w-10 h-10 text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.6)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
+                </svg>
             </div>
 
+            <!-- Заголовок -->
+            <h3 class="text-xl font-black mb-2 text-white text-center relative z-10" data-i18n="wr_modal_title">Условия вывода</h3>
+            <p class="text-sm text-white/60 text-center mb-5 leading-relaxed relative z-10" data-i18n="wr_modal_subtitle">Выполните все условия, чтобы вывести подарок</p>
+
             <!-- Requirements list -->
-            <div id="wr-list" class="flex flex-col gap-2.5 mb-4"></div>
+            <div id="wr-list" class="flex flex-col gap-2.5 mb-4 relative z-10"></div>
 
             <!-- Status message area -->
-            <div id="wr-status" class="mb-4"></div>
+            <div id="wr-status" class="mb-4 relative z-10"></div>
 
-            <!-- Check button -->
+            <!-- Основная кнопка: проверить -->
             <button id="wr-check-btn" onclick="recheckWithdrawRequirements()"
-                    class="w-full relative overflow-hidden py-4 rounded-2xl font-bold text-white text-[15px] active:scale-[0.98] transition-all"
-                    style="background:linear-gradient(135deg,#3b82f6,#7c3aed);box-shadow:0 0 24px rgba(96,165,250,0.3);"
+                    class="w-full bg-gradient-to-r from-amber-500 to-orange-500 py-4 rounded-xl font-bold text-white active:scale-95 transition-all shadow-[0_0_20px_rgba(251,191,36,0.35)] border border-white/10 mb-3 relative z-10 flex items-center justify-center gap-2"
                     data-i18n="wr_check_btn">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 Проверить выполнение
+            </button>
+
+            <!-- Вторичная кнопка: закрыть -->
+            <button onclick="closeModal('withdraw-requirements-modal')"
+                    class="w-full glass py-3.5 rounded-xl font-bold text-white border border-white/15 active:scale-95 transition-all relative z-10"
+                    data-i18n="close">
+                Закрыть
             </button>
         </div>
     </div>
-    </div>
+</div>
