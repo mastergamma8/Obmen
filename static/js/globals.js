@@ -81,44 +81,87 @@ function updateUI() {
     if (typeof updateTgShopBalance === 'function') updateTgShopBalance();
 }
 
-// Открытие модального окна со сбросом инлайн-анимаций (чтобы работали CSS-классы)
+// =====================================================
+// BOTTOM SHEET IDS — список «нижних шторок»
+// =====================================================
+const BOTTOM_SHEET_IDS = [
+    'add-gift-modal',
+    'sort-modal',
+    'history-modal',
+    'withdraw-requirements-modal',
+    'channel-sub-modal'
+];
+
+// Открытие модального окна:
+//   • Нижние шторки — JS-спринг-анимация (translateY 100% → 0) + fade бэкдропа
+//   • Остальные     — мгновенный показ (как было)
 function openModal(id) {
     vibrate('light');
     const modal = document.getElementById(id);
     if (!modal) return;
-    
-    // Очищаем инлайн-стили перед показом, чтобы отработала анимация появления
+
     const panel = modal.querySelector('.glass-panel') || modal.firstElementChild;
-    if (panel) {
-        modal.style.opacity = '';
-        panel.style.transition = '';
-        panel.style.transform = '';
+
+    if (BOTTOM_SHEET_IDS.includes(id) && panel) {
+        // 1. Выставляем начальное состояние: фон прозрачный, панель за нижним краем
+        modal.style.transition = 'none';
+        modal.style.opacity   = '0';
+        panel.style.transition = 'none';
+        panel.style.transform  = 'translateY(100%)';
+
+        // 2. Показываем (пока ещё invisible)
+        modal.classList.remove('hidden');
+
+        // 3. Принудительный reflow — браузер «видит» начальное состояние
+        void panel.offsetHeight;
+
+        // 4. Запускаем анимацию: iOS-спринг для панели + плавный fade бэкдропа
+        requestAnimationFrame(() => {
+            modal.style.transition  = 'opacity 0.32s ease';
+            modal.style.opacity     = '1';
+            panel.style.transition  = 'transform 0.44s cubic-bezier(0.16, 1, 0.3, 1)';
+            panel.style.transform   = 'translateY(0)';
+
+            // Чистим инлайн-стили после завершения — они не должны мешать свайпу
+            setTimeout(() => {
+                if (!modal.classList.contains('hidden')) {
+                    panel.style.transition = '';
+                    modal.style.transition = '';
+                }
+            }, 460);
+        });
+    } else {
+        // Не-шторка: просто показываем
+        if (panel) {
+            modal.style.opacity   = '';
+            panel.style.transition = '';
+            panel.style.transform  = '';
+        }
+        modal.classList.remove('hidden');
     }
-    
-    modal.classList.remove('hidden');
 }
 
-// Умное закрытие окна (с анимацией уезда вниз для нижних шторок)
+// Закрытие модального окна:
+//   • Нижние шторки — панель уезжает вниз (ease-in), бэкдроп гаснет
+//   • Остальные     — мгновенное скрытие
 function closeModal(id) {
     vibrate('light');
     const modal = document.getElementById(id);
     if (!modal) return;
     if (modal.classList.contains('hidden')) return; // уже закрыто — не запускаем дважды
-    
-    const bottomSheets = ['add-gift-modal', 'sort-modal', 'history-modal', 'withdraw-requirements-modal', 'channel-sub-modal'];
+
     const panel = modal.querySelector('.glass-panel') || modal.firstElementChild;
-    
-    if (bottomSheets.includes(id) && panel) {
-        // Если на панели уже висит transform от свайпа — анимируем от текущего положения до конца
-        panel.style.transition = 'transform 0.28s ease-in';
-        panel.style.transform = 'translateY(110%)';
-        modal.style.transition = 'opacity 0.25s ease';
-        modal.style.opacity = '0';
-        
+
+    if (BOTTOM_SHEET_IDS.includes(id) && panel) {
+        // Панель уезжает вниз с acceleration-кривой, бэкдроп гаснет чуть раньше
+        panel.style.transition = 'transform 0.32s cubic-bezier(0.4, 0, 1, 1)';
+        panel.style.transform  = 'translateY(110%)';
+        modal.style.transition = 'opacity 0.28s ease';
+        modal.style.opacity    = '0';
+
         setTimeout(() => {
             modal.classList.add('hidden');
-            // Сбрасываем инлайн-стили — openModal восстановит их при следующем открытии
-            modal.style.opacity = '';
+            modal.style.opacity   = '';
             modal.style.transition = '';
             panel.style.transform = '';
             panel.style.transition = '';
