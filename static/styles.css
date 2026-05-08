@@ -287,3 +287,74 @@ header {
     background: linear-gradient(to bottom, rgba(239,68,68,0.22), transparent);
     border-color: rgba(239,68,68,0.20);
                                                 }
+
+/* ===== MINES GAME ===== */
+.mines-cell {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+}
+.mines-cell:active:not(:disabled) {
+    transform: scale(0.92);
+}
+.mines-cell:hover:not(:disabled) {
+    background: rgba(16,185,129,0.12);
+    border-color: rgba(16,185,129,0.35);
+    box-shadow: 0 0 12px rgba(16,185,129,0.2);
+}
+.mines-cell-inner {
+    font-size: 1.4rem;
+    line-height: 1;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+.mines-cell--loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+.mines-cell--safe {
+    background: rgba(16,185,129,0.18) !important;
+    border-color: rgba(16,185,129,0.5) !important;
+    box-shadow: 0 0 16px rgba(16,185,129,0.25) !important;
+    animation: mines-safe-pop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.mines-cell--mine {
+    background: rgba(239,68,68,0.18) !important;
+    border-color: rgba(239,68,68,0.4) !important;
+    animation: mines-mine-reveal 0.3s ease;
+}
+.mines-cell--exploded {
+    background: rgba(239,68,68,0.35) !important;
+    border-color: rgba(239,68,68,0.8) !important;
+    box-shadow: 0 0 24px rgba(239,68,68,0.6) !important;
+    animation: mines-explode 0.4s ease;
+}
+@keyframes mines-safe-pop {
+    0%   { transform: scale(0.85); opacity:0.7; }
+    60%  { transform: scale(1.08); }
+    100% { transform: scale(1); opacity:1; }
+}
+@keyframes mines-mine-reveal {
+    0%   { transform: scale(0.9); opacity:0; }
+    100% { transform: scale(1); opacity:1; }
+}
+@keyframes mines-explode {
+    0%   { transform: scale(1); }
+    25%  { transform: scale(1.15); }
+    50%  { transform: scale(0.95); }
+    75%  { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
