@@ -12,11 +12,105 @@ const MinesGame = {
     winAmount:  0,
     nextMult:   null,
     status:     'idle',   // idle | active | won | lost
+    // Demo state
+    _demoMinePos: [],
 };
 
 const MINES_MIN_BET  = 50;
 const MINES_MAX_BET  = 5000;
 const MINES_VALID    = [1, 3, 5, 10];
+const MINES_GRID     = 25;
+const MINES_HOUSE    = 0.10;
+
+// ─── МУЛЬТИПЛИКАТОР (дублируется на клиенте для демо) ─
+function _minesCalcMult(mines, revealed) {
+    if (revealed === 0) return 1.00;
+    const safe = MINES_GRID - mines;
+    if (revealed > safe) return 1.00;
+    let num = 1, den = 1;
+    for (let i = 0; i < revealed; i++) {
+        num *= (MINES_GRID - i);
+        den *= (safe - i);
+    }
+    return Math.round(num / den * (1 - MINES_HOUSE) * 10000) / 10000;
+}
+function _minesNextMult(mines, revealed) {
+    return _minesCalcMult(mines, revealed + 1);
+}
+
+// ─── ДЕМО-РЕЖИМ ──────────────────────────────────────
+function _minesIsDemo() {
+    return typeof isDemoMode !== 'undefined' && isDemoMode;
+}
+
+function _minesDemoStart(bet, mines) {
+    // Генерируем поле локально
+    const positions = [];
+    const all = Array.from({length: MINES_GRID}, (_, i) => i);
+    for (let i = all.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [all[i], all[j]] = [all[j], all[i]];
+    }
+    MinesGame._demoMinePos = all.slice(0, mines);
+
+    MinesGame.active     = true;
+    MinesGame.bet        = bet;
+    MinesGame.mines      = mines;
+    MinesGame.revealed   = [];
+    MinesGame.multiplier = 1.00;
+    MinesGame.winAmount  = bet;
+    MinesGame.nextMult   = _minesNextMult(mines, 0);
+    MinesGame.status     = 'active';
+
+    if (typeof vibrate === 'function') vibrate('medium');
+    _minesRenderField([], []);
+    _minesUpdatePanel();
+    _minesSetGameActive(true);
+}
+
+function _minesDemoReveal(cellIdx) {
+    if (MinesGame.status !== 'active') return;
+    if (MinesGame.revealed.includes(cellIdx)) return;
+
+    const isMine = MinesGame._demoMinePos.includes(cellIdx);
+
+    if (isMine) {
+        MinesGame.status = 'lost';
+        if (typeof vibrate === 'function') vibrate('heavy');
+        _minesRevealAll(cellIdx, MinesGame._demoMinePos, MinesGame.revealed);
+        _minesUpdatePanel();
+        _minesSetGameActive(false, 'lost');
+        setTimeout(() => _minesShowToast(t('mines_status_lost'), 'error'), 300);
+        return;
+    }
+
+    MinesGame.revealed.push(cellIdx);
+    const safe_left = (MINES_GRID - MinesGame.mines) - MinesGame.revealed.length;
+    MinesGame.multiplier = _minesCalcMult(MinesGame.mines, MinesGame.revealed.length);
+    MinesGame.winAmount  = Math.floor(MinesGame.bet * MinesGame.multiplier);
+    MinesGame.nextMult   = safe_left > 0 ? _minesNextMult(MinesGame.mines, MinesGame.revealed.length) : null;
+    MinesGame.status     = safe_left === 0 ? 'won' : 'active';
+
+    if (typeof vibrate === 'function') vibrate('light');
+    _minesCellSafe(cellIdx);
+    _minesUpdatePanel();
+
+    if (MinesGame.status === 'won') {
+        _minesSetGameActive(false, 'won');
+        _minesShowToast(`🎉 DEMO +${MinesGame.winAmount} ⭐`, 'success');
+    }
+}
+
+function _minesDemoCashout() {
+    if (MinesGame.status !== 'active' || MinesGame.revealed.length === 0) {
+        _minesShowToast(t('mines_reveal_first'), 'warn');
+        return;
+    }
+    MinesGame.status = 'won';
+    _minesSetGameActive(false, 'won');
+    _minesShowToast(`🎉 DEMO +${MinesGame.winAmount} ⭐`, 'success');
+    _minesUpdatePanel();
+}
 
 // ─── ОТКРЫТЬ ЭКРАН ────────────────────────────────────
 function openMinesGame() {
@@ -25,12 +119,13 @@ function openMinesGame() {
     const minesView = document.getElementById('games-mines-view');
     if (mainView)  mainView.classList.add('hidden');
     if (minesView) minesView.classList.remove('hidden');
+    if (typeof syncDemoToggles === 'function') syncDemoToggles();
+    _minesUpdateDemoRibbon();
     _minesCheckState();
 }
 
 function closeMinesGame() {
-    if (MinesGame.status === 'active' && MinesGame.revealed.length > 0) {
-        // Предупреждаем если есть активная игра с ходами
+    if (MinesGame.status === 'active' && MinesGame.revealed.length > 0 && !_minesIsDemo()) {
         _minesShowToast(t('mines_reveal_first'), 'warn');
         return;
     }
@@ -41,8 +136,19 @@ function closeMinesGame() {
     if (mainView)  mainView.classList.remove('hidden');
 }
 
+// ─── ДЕМО-ЛЕНТА ──────────────────────────────────────
+function _minesUpdateDemoRibbon() {
+    const ribbon = document.getElementById('mines-demo-ribbon');
+    if (ribbon) ribbon.classList.toggle('hidden', !_minesIsDemo());
+}
+
 // ─── ПРОВЕРКА АКТИВНОЙ ИГРЫ НА СЕРВЕРЕ ───────────────
 async function _minesCheckState() {
+    _minesUpdateDemoRibbon();
+    if (_minesIsDemo()) {
+        _minesSetGameIdle();
+        return;
+    }
     try {
         const res = await fetch('/api/mines/state', { headers: getApiHeaders() });
         const data = await res.json();
@@ -84,12 +190,12 @@ function minesSelectMines(count) {
     document.querySelectorAll('.mines-count-btn').forEach(btn => {
         const active = parseInt(btn.dataset.mines) === count;
         btn.classList.toggle('mines-count-btn--active', active);
-        btn.classList.toggle('bg-green-500/30',   active);
+        btn.classList.toggle('bg-green-500/30',    active);
         btn.classList.toggle('border-green-500/60', active);
-        btn.classList.toggle('text-green-300',    active);
-        btn.classList.toggle('bg-white/5',        !active);
-        btn.classList.toggle('border-white/10',   !active);
-        btn.classList.toggle('text-white/70',     !active);
+        btn.classList.toggle('text-green-300',     active);
+        btn.classList.toggle('bg-white/5',         !active);
+        btn.classList.toggle('border-white/10',    !active);
+        btn.classList.toggle('text-white/70',      !active);
     });
 }
 
@@ -106,6 +212,13 @@ async function minesStart() {
         return;
     }
 
+    // ── DEMO ──────────────────────────────────────────
+    if (_minesIsDemo()) {
+        _minesDemoStart(bet, MinesGame.mines);
+        return;
+    }
+
+    // ── РЕАЛЬНАЯ ИГРА ─────────────────────────────────
     _minesSetLoading(true);
     try {
         const res = await fetch('/api/mines/start', {
@@ -132,7 +245,6 @@ async function minesStart() {
         _minesUpdatePanel();
         _minesSetGameActive(true);
 
-        // Обновляем баланс звёзд
         if (typeof loadUserData === 'function') loadUserData();
     } catch(e) {
         _minesShowToast(t('err_conn'), 'error');
@@ -146,6 +258,13 @@ async function minesReveal(cellIdx) {
     if (MinesGame.status !== 'active') return;
     if (MinesGame.revealed.includes(cellIdx)) return;
 
+    // ── DEMO ──────────────────────────────────────────
+    if (_minesIsDemo()) {
+        _minesDemoReveal(cellIdx);
+        return;
+    }
+
+    // ── РЕАЛЬНАЯ ИГРА ─────────────────────────────────
     const cellEl = document.querySelector(`.mines-cell[data-cell="${cellIdx}"]`);
     if (cellEl) cellEl.classList.add('mines-cell--loading');
 
@@ -162,7 +281,6 @@ async function minesReveal(cellIdx) {
         }
 
         if (data.hit_mine) {
-            // ВЗРЫВ
             MinesGame.status   = 'lost';
             MinesGame.revealed = data.revealed || [];
             if (typeof vibrate === 'function') vibrate('heavy');
@@ -182,7 +300,6 @@ async function minesReveal(cellIdx) {
             _minesUpdatePanel();
 
             if (data.status === 'won') {
-                // Все безопасные ячейки открыты — автовыигрыш
                 _minesSetGameActive(false, 'won');
                 _minesShowToast(`🎉 +${data.win_amount} ⭐`, 'success');
                 if (typeof loadUserData === 'function') loadUserData();
@@ -201,6 +318,14 @@ async function minesCashout() {
         _minesShowToast(t('mines_reveal_first'), 'warn');
         return;
     }
+
+    // ── DEMO ──────────────────────────────────────────
+    if (_minesIsDemo()) {
+        _minesDemoCashout();
+        return;
+    }
+
+    // ── РЕАЛЬНАЯ ИГРА ─────────────────────────────────
     _minesSetLoading(true);
     try {
         const res = await fetch('/api/mines/cashout', {
@@ -215,8 +340,6 @@ async function minesCashout() {
         MinesGame.multiplier = data.multiplier;
         MinesGame.winAmount  = data.win_amount;
         MinesGame.status     = 'won';
-
-        if (typeof vibrate === 'function') vibrate('medium');
         _minesUpdatePanel();
         _minesSetGameActive(false, 'won');
         _minesShowToast(`🎉 +${data.win_amount} ⭐`, 'success');
@@ -231,6 +354,14 @@ async function minesCashout() {
 // ─── ОТМЕНА ИГРЫ (ДО ПЕРВОГО ХОДА) ───────────────────
 async function minesCancel() {
     if (MinesGame.status !== 'active' || MinesGame.revealed.length > 0) return;
+
+    if (_minesIsDemo()) {
+        MinesGame.status = 'idle';
+        MinesGame.active = false;
+        _minesSetGameIdle();
+        return;
+    }
+
     _minesSetLoading(true);
     try {
         const res = await fetch('/api/mines/cancel', {
@@ -255,9 +386,10 @@ async function minesCancel() {
 
 // ─── НОВАЯ ИГРА ───────────────────────────────────────
 function minesNewGame() {
-    MinesGame.status   = 'idle';
-    MinesGame.active   = false;
-    MinesGame.revealed = [];
+    MinesGame.status       = 'idle';
+    MinesGame.active       = false;
+    MinesGame.revealed     = [];
+    MinesGame._demoMinePos = [];
     _minesSetGameIdle();
 }
 
@@ -297,7 +429,6 @@ function _minesRevealAll(explodedIdx, minePos, safeRevealed) {
         if (minePos.includes(i)) {
             cell.classList.add(i === explodedIdx ? 'mines-cell--exploded' : 'mines-cell--mine');
             cell.innerHTML = `<span class="mines-cell-inner">💣</span>`;
-            cell.disabled = true;
         } else if (safeRevealed.includes(i)) {
             _applySafeStyle(cell);
         }
@@ -326,21 +457,21 @@ function _minesUpdatePanel() {
         };
         statusEl.textContent = map[MinesGame.status] || '';
         statusEl.className = 'text-xs font-bold px-3 py-1 rounded-full ' +
-            (MinesGame.status === 'won'  ? 'bg-green-500/20 text-green-300' :
-             MinesGame.status === 'lost' ? 'bg-red-500/20 text-red-300' :
-             MinesGame.status === 'active' ? 'bg-blue-500/20 text-blue-300' :
+            (MinesGame.status === 'won'    ? 'bg-green-500/20 text-green-300'  :
+             MinesGame.status === 'lost'   ? 'bg-red-500/20 text-red-300'      :
+             MinesGame.status === 'active' ? 'bg-blue-500/20 text-blue-300'    :
              'bg-white/10 text-white/50');
     }
 }
 
 // ─── ПЕРЕКЛЮЧЕНИЕ РЕЖИМОВ ЭКРАНА ─────────────────────
 function _minesSetGameActive(active, endStatus) {
-    const setup    = document.getElementById('mines-setup-panel');
-    const gameArea = document.getElementById('mines-game-area');
-    const cashBtn  = document.getElementById('mines-btn-cashout');
+    const setup     = document.getElementById('mines-setup-panel');
+    const gameArea  = document.getElementById('mines-game-area');
+    const cashBtn   = document.getElementById('mines-btn-cashout');
     const cancelBtn = document.getElementById('mines-btn-cancel');
-    const newBtn   = document.getElementById('mines-btn-new');
-    const gridEl   = document.getElementById('mines-grid');
+    const newBtn    = document.getElementById('mines-btn-new');
+    const gridEl    = document.getElementById('mines-grid');
 
     if (active) {
         setup?.classList.add('hidden');
@@ -350,17 +481,12 @@ function _minesSetGameActive(active, endStatus) {
         newBtn?.classList.add('hidden');
         if (gridEl) gridEl.classList.remove('pointer-events-none', 'opacity-60');
     } else {
-        // Game ended
         cashBtn?.classList.add('hidden');
         cancelBtn?.classList.add('hidden');
         newBtn?.classList.remove('hidden');
         if (gridEl) gridEl.classList.add('pointer-events-none');
-        // Show overlay on grid
-        if (endStatus === 'won') {
-            _minesShowOverlay('won');
-        } else if (endStatus === 'lost') {
-            _minesShowOverlay('lost');
-        }
+        if (endStatus === 'won')  _minesShowOverlay('won');
+        if (endStatus === 'lost') _minesShowOverlay('lost');
     }
 }
 
@@ -387,11 +513,12 @@ function _minesShowOverlay(type) {
     ov.id = 'mines-grid-overlay';
     ov.className = 'absolute inset-0 flex flex-col items-center justify-center rounded-2xl z-20 ' +
         (type === 'won' ? 'bg-green-900/60 backdrop-blur-sm' : 'bg-red-900/60 backdrop-blur-sm');
+    const demoTag = _minesIsDemo() ? ' <span class="text-xs opacity-70">DEMO</span>' : '';
     ov.innerHTML = type === 'won'
         ? `<div class="text-4xl mb-1">🎉</div>
-           <div class="text-lg font-black text-green-300">${MinesGame.winAmount} ⭐</div>`
+           <div class="text-lg font-black text-green-300">${MinesGame.winAmount} ⭐${demoTag}</div>`
         : `<div class="text-4xl mb-1">💥</div>
-           <div class="text-sm font-bold text-red-300">${t('mines_game_over')}</div>`;
+           <div class="text-sm font-bold text-red-300">${t('mines_game_over')}${demoTag}</div>`;
     grid.parentElement.style.position = 'relative';
     grid.parentElement.appendChild(ov);
 }
@@ -427,12 +554,12 @@ function t(key) {
 }
 
 // ─── ГЛОБАЛЬНЫЙ ЭКСПОРТ ───────────────────────────────
-window.openMinesGame   = openMinesGame;
-window.closeMinesGame  = closeMinesGame;
-window.minesStart      = minesStart;
-window.minesReveal     = minesReveal;
-window.minesCashout    = minesCashout;
-window.minesCancel     = minesCancel;
-window.minesNewGame    = minesNewGame;
-window.minesSetBet     = minesSetBet;
+window.openMinesGame    = openMinesGame;
+window.closeMinesGame   = closeMinesGame;
+window.minesStart       = minesStart;
+window.minesReveal      = minesReveal;
+window.minesCashout     = minesCashout;
+window.minesCancel      = minesCancel;
+window.minesNewGame     = minesNewGame;
+window.minesSetBet      = minesSetBet;
 window.minesSelectMines = minesSelectMines;
