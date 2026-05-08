@@ -43,6 +43,10 @@ function _el(id) { return document.getElementById(id); }
 // ─── Открытие / Закрытие ──────────────────────────────────────────────────────
 
 function openMinesGame() {
+    if (window._featureFlags && window._featureFlags.mines === false) {
+        showNotify?.('Игра временно скрыта', 'warning');
+        return;
+    }
     showGameView('games-mines-view');
     minesS.isDemo = typeof isDemoMode !== 'undefined' ? isDemoMode : false;
     _minesRestoreOrReset();
