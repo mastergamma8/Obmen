@@ -376,6 +376,7 @@ function toggleDemoMode(sourceId) {
     isDemoMode = !isDemoMode;
     syncDemoToggles();
     if (typeof vibrate === 'function') vibrate('light');
+    if (typeof minesSyncDemo === 'function') minesSyncDemo();
     if (typeof fetchRouletteInfo === 'function') {
         const roulettePage = document.getElementById('page-roulette');
         if (roulettePage && !roulettePage.classList.contains('hidden-tab')) {
@@ -385,7 +386,7 @@ function toggleDemoMode(sourceId) {
 }
 
 function syncDemoToggles() {
-    ['demo-toggle-roulette', 'demo-toggle-cases', 'demo-toggle-rocket'].forEach(id => {
+    ['demo-toggle-roulette', 'demo-toggle-cases', 'demo-toggle-rocket', 'demo-toggle-mines'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         const knob  = el.querySelector('.demo-knob');
