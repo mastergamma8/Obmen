@@ -17,6 +17,7 @@ let minesS = {
     nextMult: null,
     safeLeft: 0,
     locked:   false,
+    cashing:  false,   // защита от двойного вызова кэшаута
     isDemo:   false,
     _dm:      [],      // демо-мины (генерируются локально)
 };
@@ -140,7 +141,7 @@ function _minesStats() {
 function _minesReset() {
     Object.assign(minesS, {
         phase: 'idle', revealed: [], mult: 1.0,
-        nextMult: null, locked: false, _dm: [],
+        nextMult: null, locked: false, cashing: false, _dm: [],
     });
     _minesRenderGrid();
     _minesPreview();
@@ -313,7 +314,10 @@ async function minesCashout() {
 
     if (minesS.isDemo) { _mDemoCashout(); return; }
 
-    minesS.locked = true;
+    // ── Защита от двойного нажатия (Bug 1) ──────────────────────────────────
+    if (minesS.cashing) return;
+    minesS.cashing = true;
+
     const btn = _el('mines-cb-btn');
     if (btn) btn.disabled = true;
 
@@ -323,12 +327,27 @@ async function minesCashout() {
         });
         const data = await res.json();
 
-        if (!res.ok) { showNotify(data.detail || _mt('err_conn_srv'), 'error'); return; }
+        if (!res.ok) {
+            // Если сессия уже закончена (дублирующий запрос) — тихо сбрасываем
+            // игру вместо того чтобы зависнуть в состоянии 'playing' (Bug 2)
+            if (data.detail === 'no_active_game') {
+                _minesReset();
+            } else {
+                showNotify(data.detail || _mt('err_conn_srv'), 'error');
+            }
+            return;
+        }
 
         minesS.phase = 'won';
-        data.mine_cells.forEach(m => {
-            if (!minesS.revealed.includes(m)) _mcSet(m, 'mine-dim');
-        });
+
+        // ── Корректное отображение поля (Bug 3) ─────────────────────────────
+        // Показываем ВСЕ безопасные ячейки как алмазы (включая нераскрытые),
+        // бомбы при выигрыше НЕ показываем — игрок победил и не должен их видеть.
+        const mineSet = new Set(data.mine_cells);
+        for (let i = 0; i < MINES_GRID; i++) {
+            if (!mineSet.has(i)) _mcSet(i, 'safe');
+        }
+
         _minesResult(true, data);
         _mApplyBal(data.balance);
         if (typeof vibrate === 'function') vibrate('success');
@@ -337,7 +356,7 @@ async function minesCashout() {
 
     } catch (_) { showNotify(_mt('err_conn_srv'), 'error'); }
     finally {
-        minesS.locked = false;
+        minesS.cashing = false;
         if (btn) btn.disabled = false;
     }
 }
