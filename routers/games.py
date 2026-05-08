@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from .games_roulette import router as roulette_router
 from .games_rocket import router as rocket_router
 from .games_cases import router as cases_router
+from .games_mines import router as mines_router
 
 # Создаем главный роутер для раздела /api
 # У него префикс /api, а внутренние роутеры добавят свои (например /rocket)
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/api", tags=["games"])
 router.include_router(roulette_router)
 router.include_router(rocket_router)
 router.include_router(cases_router)
+router.include_router(mines_router)
 
 # Теперь в твоем главном файле main.py ничего не сломается!
 # Там по-прежнему достаточно написать:
