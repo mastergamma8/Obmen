@@ -35,7 +35,8 @@ class MinesRevealData(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/start")
-async def mines_start(data: MinesStartData, tg_id: int = Depends(get_current_user)):
+async def mines_start(data: MinesStartData, current_user: dict = Depends(get_current_user)):
+    tg_id    = current_user["id"]
     cfg      = config.MINES_CONFIG
     min_b    = cfg["min_bet"]
     max_b    = cfg["max_bet"]
@@ -80,7 +81,8 @@ async def mines_start(data: MinesStartData, tg_id: int = Depends(get_current_use
 
 
 @router.post("/reveal")
-async def mines_reveal(data: MinesRevealData, tg_id: int = Depends(get_current_user)):
+async def mines_reveal(data: MinesRevealData, current_user: dict = Depends(get_current_user)):
+    tg_id  = current_user["id"]
     result = await mines_reveal_cell(tg_id=tg_id, cell=data.cell)
 
     if not result["ok"]:
@@ -114,7 +116,8 @@ async def mines_reveal(data: MinesRevealData, tg_id: int = Depends(get_current_u
 
 
 @router.post("/cashout")
-async def mines_cashout(tg_id: int = Depends(get_current_user)):
+async def mines_cashout(current_user: dict = Depends(get_current_user)):
+    tg_id  = current_user["id"]
     result = await mines_cashout_atomic(tg_id)
 
     if not result["ok"]:
@@ -139,9 +142,10 @@ async def mines_cashout(tg_id: int = Depends(get_current_user)):
 
 
 @router.get("/state")
-async def mines_state(tg_id: int = Depends(get_current_user)):
+async def mines_state(current_user: dict = Depends(get_current_user)):
     """Восстановление сессии после переподключения."""
-    game = await mines_get_game(tg_id)
+    tg_id = current_user["id"]
+    game  = await mines_get_game(tg_id)
     if not game:
         return {"active": False}
 
