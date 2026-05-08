@@ -280,6 +280,7 @@ async def mines_cashout_atomic(tg_id: int) -> dict:
         "multiplier": multiplier,
         "mine_cells": mine_cells,
         "revealed":   revealed,
+        "bet":        bet,
     }
 
 
