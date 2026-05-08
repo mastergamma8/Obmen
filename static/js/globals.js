@@ -385,7 +385,7 @@ function toggleDemoMode(sourceId) {
 }
 
 function syncDemoToggles() {
-    ['demo-toggle-roulette', 'demo-toggle-cases', 'demo-toggle-rocket'].forEach(id => {
+    ['demo-toggle-roulette', 'demo-toggle-cases', 'demo-toggle-rocket', 'demo-toggle-mines'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         const knob  = el.querySelector('.demo-knob');
@@ -403,6 +403,8 @@ function syncDemoToggles() {
     });
     const rocketRibbon = document.getElementById('rocket-demo-ribbon');
     if (rocketRibbon) rocketRibbon.classList.toggle('hidden', !isDemoMode);
+    const minesRibbon = document.getElementById('mines-demo-ribbon');
+    if (minesRibbon) minesRibbon.classList.toggle('hidden', !isDemoMode);
 }
 window.syncDemoToggles = syncDemoToggles;
 window.toggleDemoMode = toggleDemoMode;
