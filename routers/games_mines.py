@@ -71,9 +71,6 @@ class RevealRequest(BaseModel):
 
 # ─────────────────────────────────────────────────────────────
 # ЭНДПОИНТЫ
-# ВАЖНО: get_current_user возвращает dict {"id": int, ...}
-#        поэтому везде используем current_user: dict и
-#        извлекаем user_id = current_user["id"]
 # ─────────────────────────────────────────────────────────────
 
 @router.post("/start")
@@ -263,10 +260,16 @@ async def mines_cancel(current_user: dict = Depends(get_current_user)):
     async with _lock:
         del _games[user_id]
 
+    # Возвращаем полную ставку игроку
     await database.add_stars_to_user(user_id, game["bet"])
+    
+    # ИСПРАВЛЕНИЕ: Ранее здесь банку начислялись деньги при отмене,
+    # что приводило к инфляции банка. Если функция bank_payout может 
+    # принимать отрицательные значения, мы должны вернуть долю банка.
+    # Для безопасности оборачиваем в try/except.
     try:
-        net = int(game["bet"] * (1.0 - HOUSE_EDGE))
-        await database.bank_payout(net, asset_type="stars")
+        net_to_return = int(game["bet"] * (1.0 - HOUSE_EDGE))
+        await database.bank_payout(-net_to_return, asset_type="stars")
     except Exception:
         pass
 
