@@ -46,6 +46,10 @@ RATE_LIMITS: list[tuple[str, int, int]] = [
     # ── Ракета ───────────────────────────────────────────────────────────────
     ("/api/rocket/bet",        20, 60),
     ("/api/rocket/cashout",    20, 60),
+    # ── Мины ─────────────────────────────────────────────────────────────────
+    ("/api/mines/start",       10, 60),
+    ("/api/mines/reveal",      60, 60),
+    ("/api/mines/cashout",     10, 60),
     # ── Кейсы ────────────────────────────────────────────────────────────────
     ("/api/cases/open",        15, 60),   # платный кейс
     ("/api/cases/open_promo",  10, 60),   # промо-кейс
@@ -134,6 +138,7 @@ async def lifespan(app: FastAPI):
         await database.init_db()
         await database.init_bank()
         await database.init_rocket_games_table()
+        await database.init_mines_table()
         await database.init_settings_table()
         await database.init_beta_testers_table()
         await _init_rate_limit_table()
