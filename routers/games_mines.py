@@ -1,169 +1,315 @@
 # routers/games_mines.py
-# Эндпоинты игры «Мины». Валюта: только Stars (⭐).
+# =====================================================
+# МИНЫ — ИНДИВИДУАЛЬНАЯ ИГРА ДЛЯ КАЖДОГО ИГРОКА
+# =====================================================
 
-import json
+import asyncio
+import math
 import random
+import time
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-import config
 import database
 from handlers.security import get_current_user
-from db.db_history import log_action
-from db.db_mines import (
-    calc_mines_multiplier,
-    mines_cashout_atomic,
-    mines_get_game,
-    mines_reveal_cell,
-    mines_start_atomic,
-)
 
 router = APIRouter(prefix="/mines", tags=["mines"])
-GRID   = 25  # 5×5
+
+# ─────────────────────────────────────────────────────────────
+# ПАРАМЕТРЫ
+# ─────────────────────────────────────────────────────────────
+
+HOUSE_EDGE   = 0.10
+MIN_BET      = 50
+MAX_BET      = 5000
+GRID_SIZE    = 25   # 5×5
+VALID_MINES  = {1, 3, 5, 10}
+
+# ─────────────────────────────────────────────────────────────
+# АКТИВНЫЕ ИГРЫ (user_id → game state)
+# ─────────────────────────────────────────────────────────────
+
+_games: Dict[int, Dict[str, Any]] = {}
+_lock  = asyncio.Lock()
 
 
-class MinesStartData(BaseModel):
-    bet:         int = Field(..., gt=0)
-    mines_count: int = Field(3, ge=1, le=23)
+# ─────────────────────────────────────────────────────────────
+# МАТЕМАТИКА: мультипликатор
+# ─────────────────────────────────────────────────────────────
+
+def _calc_multiplier(mines: int, revealed: int) -> float:
+    """
+    Справедливый мультипликатор после вскрытия `revealed` безопасных ячеек:
+      mult = C(25, revealed) / C(25 - mines, revealed) × (1 - house_edge)
+
+    При revealed=0 возвращает 1.00.
+    """
+    if revealed == 0:
+        return 1.00
+    safe = GRID_SIZE - mines
+    if revealed > safe:
+        return 1.00
+    # Вычисляем C(25, k) / C(25-m, k) без overflow через пошаговое умножение
+    num, den = 1, 1
+    for i in range(revealed):
+        num *= (GRID_SIZE - i)
+        den *= (safe - i)
+    raw = num / den
+    return round(raw * (1.0 - HOUSE_EDGE), 4)
 
 
-class MinesRevealData(BaseModel):
-    cell: int = Field(..., ge=0, lt=GRID)
+def _next_multiplier(mines: int, revealed: int) -> float:
+    """Мультипликатор если откроем ещё одну безопасную ячейку."""
+    return _calc_multiplier(mines, revealed + 1)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# СХЕМЫ
+# ─────────────────────────────────────────────────────────────
+
+class StartRequest(BaseModel):
+    bet:   int
+    mines: int
+
+
+class RevealRequest(BaseModel):
+    cell: int   # 0-24
+
+
+# ─────────────────────────────────────────────────────────────
+# ЭНДПОИНТЫ
+# ─────────────────────────────────────────────────────────────
 
 @router.post("/start")
-async def mines_start(data: MinesStartData, current_user: dict = Depends(get_current_user)):
-    tg_id    = current_user["id"]
-    cfg      = config.MINES_CONFIG
-    min_b    = cfg["min_bet"]
-    max_b    = cfg["max_bet"]
+async def mines_start(req: StartRequest, user_id: int = Depends(get_current_user)):
+    """Начать новую игру. Списывает ставку и генерирует поле."""
+    if req.mines not in VALID_MINES:
+        raise HTTPException(400, f"Недопустимое число мин. Выберите: {sorted(VALID_MINES)}")
+    if not (MIN_BET <= req.bet <= MAX_BET):
+        raise HTTPException(400, f"Ставка должна быть от {MIN_BET} до {MAX_BET} звёзд")
 
-    if not (1 <= data.mines_count <= GRID - 2):
-        raise HTTPException(400, "invalid_mines_count")
-    if not (min_b <= data.bet <= max_b):
-        raise HTTPException(400, f"bet_out_of_range:{min_b}:{max_b}")
+    async with _lock:
+        # Если у игрока уже есть активная игра — отменяем без возврата
+        if user_id in _games:
+            del _games[user_id]
 
-    mine_cells = random.sample(range(GRID), data.mines_count)
-
-    result = await mines_start_atomic(
-        tg_id       = tg_id,
-        bet         = data.bet,
-        mines_count = data.mines_count,
-        mine_cells  = mine_cells,
-        house_edge  = cfg["house_edge"],
+    # Списываем ставку (атомарно через банк)
+    ok = await database.deduct_and_deposit_atomic(
+        user_id=user_id,
+        gross_bet=req.bet,
+        house_edge=HOUSE_EDGE,
+        asset_type="stars",
     )
+    if ok is None:
+        raise HTTPException(400, "Недостаточно звёзд или ошибка списания")
 
-    if not result["ok"]:
-        code = 402 if result["reason"] == "insufficient_balance" else 400
-        raise HTTPException(code, result["reason"])
+    # Генерируем позиции мин (набор индексов 0-24)
+    mine_positions = set(random.sample(range(GRID_SIZE), req.mines))
 
-    # Ставка списана атомарно в mines_start_atomic.
-    # Отдельную запись в историю здесь НЕ делаем — итог игры (выигрыш или
-    # проигрыш) будет залогирован одной записью по завершении раунда.
-
-    user       = await database.get_user_data(tg_id)
-    first_mult = calc_mines_multiplier(GRID, data.mines_count, 1, cfg["house_edge"])
+    async with _lock:
+        _games[user_id] = {
+            "bet":       req.bet,
+            "mines":     req.mines,
+            "mine_pos":  mine_positions,
+            "revealed":  [],        # список вскрытых безопасных ячеек
+            "status":    "active",  # active | won | lost
+            "started":   time.time(),
+        }
 
     return {
-        "ok":             True,
-        "grid_size":      GRID,
-        "mines_count":    data.mines_count,
-        "bet":            data.bet,
-        "next_multiplier": first_mult,
-        "balance":        user.get("stars", 0),
+        "ok":            True,
+        "bet":           req.bet,
+        "mines":         req.mines,
+        "multiplier":    1.00,
+        "next_mult":     _next_multiplier(req.mines, 0),
+        "win_amount":    req.bet,
     }
 
 
 @router.post("/reveal")
-async def mines_reveal(data: MinesRevealData, current_user: dict = Depends(get_current_user)):
-    tg_id  = current_user["id"]
-    result = await mines_reveal_cell(tg_id=tg_id, cell=data.cell)
+async def mines_reveal(req: RevealRequest, user_id: int = Depends(get_current_user)):
+    """Открыть ячейку. Возвращает результат и текущий выигрыш."""
+    if not (0 <= req.cell < GRID_SIZE):
+        raise HTTPException(400, "Недопустимый индекс ячейки")
 
-    if not result["ok"]:
-        raise HTTPException(400, result["reason"])
+    async with _lock:
+        game = _games.get(user_id)
 
-    if result["hit_mine"]:
-        await log_action(
-            user_id     = tg_id,
-            action_type = "mines_lose",
-            description = f"Мины: проигрыш {result['bet']}⭐",
-            amount      = -result["bet"],
+    if not game or game["status"] != "active":
+        raise HTTPException(400, "Нет активной игры")
+
+    if req.cell in game["revealed"]:
+        raise HTTPException(400, "Ячейка уже открыта")
+
+    is_mine = req.cell in game["mine_pos"]
+
+    if is_mine:
+        async with _lock:
+            _games[user_id]["status"] = "lost"
+            mine_positions = list(_games[user_id]["mine_pos"])
+            revealed       = list(_games[user_id]["revealed"])
+        # Записываем проигрыш в историю
+        await database.add_history_entry(
+            user_id, "mines_lose",
+            f"Мины — проигрыш ({game['mines']} мин)",
+            -game["bet"],
         )
-        user = await database.get_user_data(tg_id)
         return {
-            "ok":         True,
-            "hit_mine":   True,
-            "mine_cells": result["mine_cells"],
-            "revealed":   result["revealed"],
-            "balance":    user.get("stars", 0),
+            "ok":           True,
+            "hit_mine":     True,
+            "cell":         req.cell,
+            "mine_pos":     mine_positions,
+            "revealed":     revealed,
+            "multiplier":   0.00,
+            "win_amount":   0,
+            "status":       "lost",
+        }
+
+    # Безопасная ячейка — обновляем состояние
+    async with _lock:
+        _games[user_id]["revealed"].append(req.cell)
+        revealed  = list(_games[user_id]["revealed"])
+        mines     = _games[user_id]["mines"]
+        bet       = _games[user_id]["bet"]
+        safe_left = (GRID_SIZE - mines) - len(revealed)
+
+    mult       = _calc_multiplier(mines, len(revealed))
+    win_amount = int(bet * mult)
+    next_mult  = _next_multiplier(mines, len(revealed)) if safe_left > 0 else None
+
+    # Если открыты все безопасные ячейки — автовыигрыш
+    if safe_left == 0:
+        async with _lock:
+            _games[user_id]["status"] = "won"
+        profit = win_amount - bet
+        if profit > 0:
+            await database.bank_payout(profit, asset_type="stars")
+        await database.add_stars_to_user(user_id, win_amount)
+        await database.add_history_entry(
+            user_id, "mines_win",
+            f"Мины (x{mult:.2f})",
+            profit,
+        )
+        return {
+            "ok":           True,
+            "hit_mine":     False,
+            "cell":         req.cell,
+            "revealed":     revealed,
+            "multiplier":   mult,
+            "win_amount":   win_amount,
+            "next_mult":    None,
+            "status":       "won",
+            "auto_cashout": True,
         }
 
     return {
-        "ok":              True,
-        "hit_mine":        False,
-        "cell":            result["cell"],
-        "revealed":        result["revealed"],
-        "multiplier":      result["multiplier"],
-        "next_multiplier": result.get("next_multiplier"),
-        "safe_left":       result.get("safe_left"),
+        "ok":         True,
+        "hit_mine":   False,
+        "cell":       req.cell,
+        "revealed":   revealed,
+        "multiplier": mult,
+        "win_amount": win_amount,
+        "next_mult":  next_mult,
+        "status":     "active",
     }
 
 
 @router.post("/cashout")
-async def mines_cashout(current_user: dict = Depends(get_current_user)):
-    tg_id  = current_user["id"]
-    result = await mines_cashout_atomic(tg_id)
+async def mines_cashout(user_id: int = Depends(get_current_user)):
+    """Забрать выигрыш вручную."""
+    async with _lock:
+        game = _games.get(user_id)
 
-    if not result["ok"]:
-        raise HTTPException(400, result["reason"])
+    if not game or game["status"] != "active":
+        raise HTTPException(400, "Нет активной игры для вывода")
 
-    await log_action(
-        user_id     = tg_id,
-        action_type = "mines_win",
-        description = f"Мины: выигрыш {result['win_amount']}⭐ (×{result['multiplier']}) · ставка {result['bet']}⭐",
-        amount      = result["win_amount"] - result["bet"],
+    revealed  = game["revealed"]
+    mines     = game["mines"]
+    bet       = game["bet"]
+
+    if len(revealed) == 0:
+        raise HTTPException(400, "Откройте хотя бы одну ячейку перед выводом")
+
+    mult       = _calc_multiplier(mines, len(revealed))
+    win_amount = int(bet * mult)
+    profit     = win_amount - bet
+
+    async with _lock:
+        _games[user_id]["status"] = "won"
+
+    if profit > 0:
+        await database.bank_payout(profit, asset_type="stars")
+    await database.add_stars_to_user(user_id, win_amount)
+    await database.add_history_entry(
+        user_id, "mines_win",
+        f"Мины (x{mult:.2f})",
+        profit,
     )
 
-    user = await database.get_user_data(tg_id)
     return {
         "ok":         True,
-        "win_amount": result["win_amount"],
-        "multiplier": result["multiplier"],
-        "mine_cells": result["mine_cells"],
-        "revealed":   result["revealed"],
-        "balance":    user.get("stars", 0),
+        "multiplier": mult,
+        "win_amount": win_amount,
+        "profit":     profit,
     }
+
+
+@router.post("/cancel")
+async def mines_cancel(user_id: int = Depends(get_current_user)):
+    """Отменить игру до первого хода (возврат ставки)."""
+    async with _lock:
+        game = _games.get(user_id)
+
+    if not game or game["status"] != "active":
+        raise HTTPException(400, "Нет активной игры для отмены")
+
+    if len(game["revealed"]) > 0:
+        raise HTTPException(400, "Нельзя отменить игру после первого хода")
+
+    async with _lock:
+        del _games[user_id]
+
+    # Возвращаем ставку: выплачиваем из банка (bank_payout не вычтет house_edge снова)
+    # Фактически возврат: добавляем ставку обратно пользователю
+    await database.add_stars_to_user(user_id, game["bet"])
+    # Возмещаем банку: снимаем то что он получил (net = bet*(1-HE))
+    # Для простоты — просто отдаём ставку игроку, банк уже получил HE
+    # Можно сделать полный возврат через bank_payout:
+    try:
+        net = int(game["bet"] * (1.0 - HOUSE_EDGE))
+        await database.bank_payout(net, asset_type="stars")
+    except Exception:
+        pass
+
+    return {"ok": True, "refunded": game["bet"]}
 
 
 @router.get("/state")
-async def mines_state(current_user: dict = Depends(get_current_user)):
-    """Восстановление сессии после переподключения."""
-    tg_id = current_user["id"]
-    game  = await mines_get_game(tg_id)
+async def mines_state(user_id: int = Depends(get_current_user)):
+    """Возвращает текущее состояние активной игры (если есть)."""
+    async with _lock:
+        game = _games.get(user_id)
+
     if not game:
         return {"active": False}
 
-    cfg      = config.MINES_CONFIG
-    revealed = json.loads(game["revealed"])
-    safe_left = game["grid_size"] - game["mines_count"] - len(revealed)
-    next_mult = (
-        calc_mines_multiplier(
-            game["grid_size"], game["mines_count"],
-            len(revealed) + 1, cfg["house_edge"],
-        )
-        if safe_left > 0 else None
-    )
+    revealed   = game["revealed"]
+    mines      = game["mines"]
+    bet        = game["bet"]
+    mult       = _calc_multiplier(mines, len(revealed))
+    win_amount = int(bet * mult)
+    safe_left  = (GRID_SIZE - mines) - len(revealed)
+    next_mult  = _next_multiplier(mines, len(revealed)) if safe_left > 0 else None
 
     return {
-        "active":          True,
-        "bet":             game["bet"],
-        "mines_count":     game["mines_count"],
-        "grid_size":       game["grid_size"],
-        "revealed":        revealed,
-        "multiplier":      game["multiplier"],
-        "next_multiplier": next_mult,
-        "safe_left":       safe_left,
-    }
+        "active":      True,
+        "bet":         bet,
+        "mines":       mines,
+        "revealed":    revealed,
+        "multiplier":  mult,
+        "win_amount":  win_amount,
+        "next_mult":   next_mult,
+        "status":      game["status"],
+            }
