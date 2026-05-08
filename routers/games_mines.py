@@ -60,12 +60,9 @@ async def mines_start(data: MinesStartData, current_user: dict = Depends(get_cur
         code = 402 if result["reason"] == "insufficient_balance" else 400
         raise HTTPException(code, result["reason"])
 
-    await log_action(
-        user_id     = tg_id,
-        action_type = "mines_bet",
-        description = f"Мины: ставка {data.bet}⭐, {data.mines_count} мин",
-        amount      = -data.bet,
-    )
+    # Ставка списана атомарно в mines_start_atomic.
+    # Отдельную запись в историю здесь НЕ делаем — итог игры (выигрыш или
+    # проигрыш) будет залогирован одной записью по завершении раунда.
 
     user       = await database.get_user_data(tg_id)
     first_mult = calc_mines_multiplier(GRID, data.mines_count, 1, cfg["house_edge"])
@@ -126,8 +123,8 @@ async def mines_cashout(current_user: dict = Depends(get_current_user)):
     await log_action(
         user_id     = tg_id,
         action_type = "mines_win",
-        description = f"Мины: выигрыш {result['win_amount']}⭐ (×{result['multiplier']})",
-        amount      = result["win_amount"],
+        description = f"Мины: выигрыш {result['win_amount']}⭐ (×{result['multiplier']}) · ставка {result['bet']}⭐",
+        amount      = result["win_amount"] - result["bet"],
     )
 
     user = await database.get_user_data(tg_id)
