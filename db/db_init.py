@@ -7,6 +7,7 @@
 
 from db import db_async as aiosqlite
 from db.db_core import DB_NAME
+from db.db_mines import init_mines_table
 
 
 async def init_db():
@@ -186,3 +187,10 @@ async def init_rocket_games_table():
         await db.execute("ALTER TABLE rocket_active_games ALTER COLUMN bet TYPE FLOAT8")
         await db.execute("ALTER TABLE rocket_active_games ALTER COLUMN pool_amount TYPE FLOAT8")
         await db.commit()
+
+
+async def init_all_tables():
+    """Инициализирует все таблицы: основные + игровые."""
+    await init_db()
+    await init_rocket_games_table()
+    await init_mines_table()
