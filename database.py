@@ -4,6 +4,7 @@
 from db.db_core import DB_NAME, GIFT_WITHDRAW_COOLDOWN, GIFT_CLAIM_COOLDOWN  # noqa: F401
 
 from db.db_init import init_db, init_rocket_games_table  # noqa: F401
+from db.db_mines import init_mines_table  # noqa: F401
 from db.db_promos import init_promo_tables  # noqa: F401
 from db.db_settings import (  # noqa: F401
     init_settings_table,
