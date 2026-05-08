@@ -15,6 +15,7 @@ SECTION_LABELS = {
     "cases":         "Все кейсы",
     "rocket":        "Ракета",
     "limited_gifts": "TG Подарки / Лимитированные подарки",
+    "mines":         "Мины",
 }
 
 # Псевдонимы, которые пользователь может ввести вместо ключа
@@ -44,7 +45,8 @@ def register(dp: Dispatcher, bot: Bot):
                 "<code>/hide cases</code> — скрыть все кейсы\n"
                 "<code>/hide case 3</code> — скрыть кейс с ID 3\n"
                 "<code>/hide rocket</code> — скрыть ракету\n"
-                "<code>/hide limitedgifts</code> — скрыть TG подарки\n\n"
+                "<code>/hide limitedgifts</code> — скрыть TG подарки\n"
+                "<code>/hide mines</code> — скрыть Мины\n\n"
                 "Чтобы вернуть раздел: <code>/show &lt;раздел&gt;</code>",
                 parse_mode="HTML",
             )
@@ -72,7 +74,7 @@ def register(dp: Dispatcher, bot: Bot):
         if section not in SECTION_LABELS:
             await message.answer(
                 f"{E_CROSS} Неизвестный раздел: <b>{section}</b>\n\n"
-                "Доступные разделы: roulette, cases, case &lt;id&gt;, rocket, limitedgifts",
+                "Доступные разделы: roulette, cases, case &lt;id&gt;, rocket, limitedgifts, mines",
                 parse_mode="HTML",
             )
             return
@@ -102,7 +104,8 @@ def register(dp: Dispatcher, bot: Bot):
                 "<code>/show cases</code>\n"
                 "<code>/show case 3</code>\n"
                 "<code>/show rocket</code>\n"
-                "<code>/show limitedgifts</code>",
+                "<code>/show limitedgifts</code>\n"
+                "<code>/show mines</code>",
                 parse_mode="HTML",
             )
             return
@@ -163,6 +166,7 @@ def register(dp: Dispatcher, bot: Bot):
             f"  {flag_icon(flags.get('cases', True))}  Все кейсы",
             f"  {flag_icon(flags.get('rocket', True))}  Ракета",
             f"  {flag_icon(flags.get('limited_gifts', True))}  TG Подарки",
+            f"  {flag_icon(flags.get('mines', True))}  Мины",
         ]
 
         # Добавляем статус отдельных кейсов, если есть
