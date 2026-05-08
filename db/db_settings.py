@@ -39,6 +39,7 @@ async def init_settings_table():
             ("feature_flag_rocket",         "1"),
             ("exchange_bonus_percent",   "10"),
             ("feature_flag_limited_gifts",  "1"),
+            ("feature_flag_mines",           "1"),
         ]
         await db.executemany(
             "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)",
@@ -96,7 +97,7 @@ async def get_feature_flags() -> dict:
         flags[flag_name] = value == "1"
 
     # Гарантируем, что базовые ключи всегда присутствуют
-    for name in ("roulette", "cases", "rocket", "limited_gifts"):
+    for name in ("roulette", "cases", "rocket", "limited_gifts", "mines"):
         flags.setdefault(name, True)
 
     return flags
