@@ -60,6 +60,12 @@ function applyFeatureFlags(flags) {
         limitedBanner.style.display = flags.limited_gifts === false ? 'none' : '';
     }
 
+    // Мины — баннер в разделе Игры
+    const minesBanner = document.getElementById('game-banner-mines');
+    if (minesBanner) {
+        minesBanner.style.display = flags.mines === false ? 'none' : '';
+    }
+
     // Отдельные кейсы — прячем конкретные карточки после рендера
     // (вызывается снова после renderCasesList)
     applyCaseFlags(flags);
