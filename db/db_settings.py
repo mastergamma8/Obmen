@@ -91,10 +91,13 @@ async def get_feature_flags() -> dict:
             rows = await cur.fetchall()
 
     flags = {}
-    for key, value in rows:
+    for row in rows:
+        # row[0] = key, row[1] = value
+        # Используем индексный доступ вместо распаковки, так как _RowProxy
+        # (PostgreSQL-адаптер) итерируется по именам колонок, а не по значениям.
         # "feature_flag_roulette" → "roulette"
-        flag_name = key.replace("feature_flag_", "", 1)
-        flags[flag_name] = value == "1"
+        flag_name = row[0].replace("feature_flag_", "", 1)
+        flags[flag_name] = row[1] == "1"
 
     # Гарантируем, что базовые ключи всегда присутствуют
     for name in ("roulette", "cases", "rocket", "limited_gifts", "mines"):
