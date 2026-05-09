@@ -165,14 +165,21 @@ async def _payout_winner(winner_id: int):
             await database.add_gift_to_user(winner_id, gb["gift_id"], 1)
 
         # Обновить статистику лучшей/последней игры
+        gifts_value_stars = sum(b.get("value_stars", 1) for b in all_gift_bets)
+        total_value_stars = (
+            int(payout_stars)
+            + int(payout_donuts * config.DONUTS_TO_STARS_RATE)
+            + int(gifts_value_stars * (1 - COMMISSION_STARS))
+        )
         game_info = {
-            "name":          players[winner_id]["name"],
-            "avatar":        players[winner_id]["avatar"],
-            "color":         players[winner_id]["color"],
-            "total_stars":   payout_stars,
-            "total_donuts":  payout_donuts,
-            "gifts_count":   len(all_gift_bets),
-            "player_count":  len(players),
+            "name":             players[winner_id]["name"],
+            "avatar":           players[winner_id]["avatar"],
+            "color":            players[winner_id]["color"],
+            "total_stars":      payout_stars,
+            "total_donuts":     payout_donuts,
+            "gifts_count":      len(all_gift_bets),
+            "player_count":     len(players),
+            "total_value_stars": total_value_stars,
         }
         pvp_round["last_game"] = game_info
         if (pvp_round["best_game"] is None
@@ -333,10 +340,8 @@ async def bet_stars(data: BetStarsRequest, current_user: dict = Depends(get_curr
         pvp_round["players"][tg_id]["bets"].append({"type": "stars", "amount": amount})
 
     updated = await database.get_user_data(tg_id)
-    return {"status": "ok", "balance": updated["balance"], "stars": updated["stars"]}
-
-
-@router.post("/bet/donuts")
+    return {"status": "ok", "balance": updated["balance"], "stars": updated["stars"],
+            "gifts": await database.get_user_gifts(tg_id)}
 async def bet_donuts(data: BetDonutsRequest, current_user: dict = Depends(get_current_user)):
     tg_id  = current_user["id"]
     amount = round(data.amount, 2)
@@ -360,7 +365,9 @@ async def bet_donuts(data: BetDonutsRequest, current_user: dict = Depends(get_cu
         pvp_round["players"][tg_id]["bets"].append({"type": "donuts", "amount": amount})
 
     updated = await database.get_user_data(tg_id)
-    return {"status": "ok", "balance": updated["balance"], "stars": updated["stars"]}
+    updated_gifts = await database.get_user_gifts(tg_id)
+    return {"status": "ok", "balance": updated["balance"], "stars": updated["stars"],
+            "gifts": updated_gifts}
 
 
 @router.post("/bet/gift")
@@ -397,23 +404,51 @@ async def bet_gift(data: BetGiftRequest, current_user: dict = Depends(get_curren
         })
 
     updated = await database.get_user_data(tg_id)
-    return {"status": "ok", "balance": updated["balance"], "stars": updated["stars"]}
+    updated_gifts = await database.get_user_gifts(tg_id)
+    return {"status": "ok", "balance": updated["balance"], "stars": updated["stars"],
+            "gifts": updated_gifts}
 
 
 @router.get("/inventory")
 async def get_inventory(current_user: dict = Depends(get_current_user)):
-    """Инвентарь пользователя для выбора подарков в PvP."""
+    """Инвентарь пользователя для выбора подарков в PvP с ценами в звёздах по курсу обмена."""
     tg_id  = current_user["id"]
     gifts  = await database.get_user_gifts(tg_id)
     result = []
     for gift_id, amount in gifts.items():
         info = _get_gift_info(gift_id)
         if info:
+            raw_value = _get_gift_value_stars(gift_id)
+            # Mirror the exchange-for-stars fallback formula so the displayed price
+            # matches what the player would actually receive when exchanging the gift.
+            # BASE_GIFTS  → stored value / 0.80  ≈ portal floor, then ×1.1
+            # MAIN_GIFTS  → required_value / 1.20 ≈ portal floor, then ×1.1
+            # TG_GIFTS    → required_value + 10 (fixed TG exchange bonus)
+            if gift_id in config.TG_GIFTS:
+                exchange_stars = raw_value + 10
+            elif gift_id in config.BASE_GIFTS:
+                exchange_stars = max(1, int(raw_value / 0.80 * 1.1))
+            else:  # MAIN_GIFTS
+                exchange_stars = max(1, int(raw_value / 1.20 * 1.1))
             result.append({
-                "gift_id":    gift_id,
-                "name":       info.get("name", ""),
-                "photo":      info.get("photo", ""),
-                "value_stars": _get_gift_value_stars(gift_id),
-                "amount":     amount,
+                "gift_id":       gift_id,
+                "name":          info.get("name", ""),
+                "photo":         info.get("photo", ""),
+                "value_stars":   raw_value,
+                "exchange_stars": exchange_stars,
+                "amount":        amount,
             })
     return {"gifts": result}
+
+
+@router.get("/user_balance")
+async def get_user_balance(current_user: dict = Depends(get_current_user)):
+    """Быстрое обновление баланса и инвентаря для синхронизации после игры."""
+    tg_id      = current_user["id"]
+    user_data  = await database.get_user_data(tg_id)
+    user_gifts = await database.get_user_gifts(tg_id)
+    return {
+        "balance": user_data.get("balance", 0),
+        "stars":   user_data.get("stars", 0),
+        "gifts":   user_gifts,
+    }
