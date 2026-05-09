@@ -126,11 +126,19 @@ async def init_beta_testers_table():
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS beta_testers (
-                user_id INTEGER PRIMARY KEY,
+                user_id BIGINT PRIMARY KEY,
                 added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
         await db.commit()
+        # Миграция: если колонка была создана как INTEGER — расширяем до BIGINT
+        try:
+            await db.execute(
+                "ALTER TABLE beta_testers ALTER COLUMN user_id TYPE BIGINT"
+            )
+            await db.commit()
+        except Exception:
+            pass  # колонка уже BIGINT или БД не поддерживает ALTER COLUMN
 
 
 async def add_beta_tester(user_id: int) -> bool:
