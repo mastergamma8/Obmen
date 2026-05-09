@@ -72,6 +72,7 @@ FEATURE_FLAGS: dict = {
     "cases": True,           # Все кейсы разом
     "rocket": True,          # Ракета (Crash-игра)
     "limited_gifts": True,   # TG Подарки / Лимитированные подарки
+    "pvp": True,             # PvP Арена (Space Donut PvP)
 
     # Отдельные кейсы — ключ "case_<id>": True/False
     # Заполняются автоматически командами /hide case <id> и /show case <id>
