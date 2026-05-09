@@ -215,7 +215,9 @@
         </div>
 
         <!-- Arena -->
-        <div class="relative w-full rounded-3xl overflow-hidden border border-rose-500/30 shadow-[0_0_40px_rgba(244,63,94,0.15)]" style="height:260px;background:radial-gradient(ellipse at 60% 40%, rgba(244,63,94,0.08) 0%, #020617 70%)">
+        <div id="pvp-arena-wrap" class="relative w-full rounded-3xl overflow-hidden border border-rose-500/30 shadow-[0_0_40px_rgba(244,63,94,0.15)]" style="height:260px;background:radial-gradient(ellipse at 60% 40%, rgba(244,63,94,0.08) 0%, #020617 70%)">
+            <!-- Fullscreen toggle -->
+            <button id="pvp-fullscreen-btn" onclick="togglePvpFullscreen()" class="absolute top-2 right-2 z-30 w-7 h-7 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-lg border border-white/10 text-white/60 text-sm hover:text-white hover:bg-white/10 active:scale-90 transition-all">⛶</button>
             <!-- Starfield -->
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 pointer-events-none"></div>
             <!-- Grid lines -->
@@ -342,4 +344,4 @@
             <!-- Рендерится через JS -->
         </div>
     </div>
-                </div>
+    </div>
