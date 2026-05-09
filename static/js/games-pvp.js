@@ -263,146 +263,137 @@ function renderPvpTrail() {
     });
 }
 
-// ─── Arena render — pie-chart segments ────────────────────────
+// ─── Arena render — SQUARE GRID ───────────────────────────────
 
+/**
+ * Renders players as a responsive square-card grid inside the arena.
+ * Each card shows: avatar, name, win%, bet breakdown.
+ * Winner card gets a glowing gold highlight.
+ */
 function renderPvpArena() {
     const container = document.getElementById('pvp-arena-players');
     if (!container) return;
     container.innerHTML = '';
 
     const players = pvpState.players || [];
-    const total   = players.length;
-    if (total === 0) return;
+    if (players.length === 0) return;
 
-    const totalValue = players.reduce((sum, p) => sum + (p.value_stars || 0), 0);
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const SIZE  = 300;
-    const cx = SIZE / 2, cy = SIZE / 2;
-    const r  = SIZE / 2 - 2;
+    // Grid layout: auto columns, constrained card width
+    const cols  = players.length <= 2 ? players.length : Math.min(players.length, 3);
+    container.style.cssText = `
+        position:absolute; inset:0; overflow:hidden;
+        display:grid;
+        grid-template-columns: repeat(${cols}, 1fr);
+        gap:4px; padding:8px;
+        align-items:stretch;
+    `;
 
-    // Build segment data with angles
-    let startAngle = -Math.PI / 2;
-    const segments = players.map(p => {
-        const pct      = totalValue > 0 ? (p.value_stars || 0) / totalValue : 1 / total;
-        const sweep    = pct * 2 * Math.PI;
-        const endAngle = startAngle + sweep;
-        const midAngle = startAngle + sweep / 2;
-        const seg = { p, pct, startAngle, endAngle, midAngle };
-        startAngle = endAngle;
-        return seg;
-    });
-
-    // SVG pie
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${SIZE} ${SIZE}`);
-    svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
-
-    const defs = document.createElementNS(svgNS, 'defs');
-    svg.appendChild(defs);
-
-    segments.forEach(({ p, startAngle: sa, endAngle: ea }) => {
+    players.forEach((p, idx) => {
         const isWinner = pvpState.state === 'finished' && pvpState.winner?.user_id === p.user_id;
-        const largeArc = (ea - sa) > Math.PI ? 1 : 0;
-        let pathD;
 
-        if (total === 1) {
-            pathD = `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`;
-        } else {
-            const x1 = cx + r * Math.cos(sa), y1 = cy + r * Math.sin(sa);
-            const x2 = cx + r * Math.cos(ea), y2 = cy + r * Math.sin(ea);
-            pathD = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-        }
-
-        if (isWinner) {
-            const filterId = `pvp-glow-${p.user_id}`;
-            const filt = document.createElementNS(svgNS, 'filter');
-            filt.setAttribute('id', filterId);
-            filt.setAttribute('x', '-20%'); filt.setAttribute('y', '-20%');
-            filt.setAttribute('width', '140%'); filt.setAttribute('height', '140%');
-            const blur = document.createElementNS(svgNS, 'feGaussianBlur');
-            blur.setAttribute('stdDeviation', '6'); blur.setAttribute('result', 'blur');
-            filt.appendChild(blur);
-            defs.appendChild(filt);
-        }
-
-        const path = document.createElementNS(svgNS, 'path');
-        path.setAttribute('d', pathD);
-        path.setAttribute('fill', isWinner ? p.color : p.color + 'bb');
-        path.setAttribute('stroke', 'rgba(0,0,0,0.25)');
-        path.setAttribute('stroke-width', total > 1 ? '1.5' : '0');
-        if (isWinner) path.setAttribute('filter', `url(#pvp-glow-${p.user_id})`);
-        svg.appendChild(path);
-    });
-
-    container.appendChild(svg);
-
-    // Avatar + label overlay centered in each segment
-    segments.forEach(({ p, midAngle, pct }) => {
-        const isWinner = pvpState.state === 'finished' && pvpState.winner?.user_id === p.user_id;
-        const dist     = r * 0.55;
-        const ax       = (cx + dist * Math.cos(midAngle)) / SIZE * 100;
-        const ay       = (cy + dist * Math.sin(midAngle)) / SIZE * 100;
-        const imgSize  = Math.max(28, Math.min(50, 28 + pct * 44));
-
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = `
-            position:absolute;
-            left:${ax}%;top:${ay}%;
-            transform:translate(-50%,-50%);
-            display:flex;flex-direction:column;align-items:center;
-            z-index:5;pointer-events:none;
+        const card = document.createElement('div');
+        card.id    = `pvp-player-card-${p.user_id}`;
+        card.style.cssText = `
+            border-radius:12px;
+            border:2px solid ${isWinner ? p.color : p.color + '55'};
+            background:${isWinner
+                ? `linear-gradient(160deg, ${p.color}33, ${p.color}11)`
+                : `linear-gradient(160deg, rgba(255,255,255,0.05), rgba(0,0,0,0.3))`};
+            box-shadow:${isWinner ? `0 0 20px ${p.color}88, 0 0 40px ${p.color}44` : 'none'};
+            display:flex; flex-direction:column; align-items:center;
+            justify-content:center; gap:4px; padding:8px 4px;
+            position:relative; overflow:hidden; cursor:default;
+            transition: box-shadow 0.3s ease;
         `;
+        if (isWinner) card.classList.add('pvp-winner-pulse');
 
-        const ring = document.createElement('div');
-        ring.style.cssText = `
-            width:${imgSize}px;height:${imgSize}px;
-            border-radius:50%;
-            border:2.5px solid ${p.color};
-            box-shadow:0 0 ${8 + pct * 22}px ${p.color}cc;
-            overflow:hidden;
-            background:${p.color}44;
-            display:flex;align-items:center;justify-content:center;
+        // Glow stripe at top matching player colour
+        const stripe = document.createElement('div');
+        stripe.style.cssText = `
+            position:absolute; top:0; left:0; right:0; height:3px;
+            background:${p.color};
+            border-radius:12px 12px 0 0;
         `;
-        if (isWinner) {
-            ring.style.boxShadow = `0 0 28px ${p.color}, 0 0 56px ${p.color}88`;
-            ring.classList.add('pvp-winner-pulse');
-        }
+        card.appendChild(stripe);
 
+        // Avatar
+        const avatarWrap = document.createElement('div');
+        avatarWrap.style.cssText = `
+            width:40px; height:40px; border-radius:50%;
+            border:2px solid ${p.color};
+            box-shadow:0 0 10px ${p.color}77;
+            overflow:hidden; flex-shrink:0;
+            background:${p.color}33;
+            display:flex; align-items:center; justify-content:center;
+        `;
         if (p.avatar) {
             const img = document.createElement('img');
             img.src = p.avatar;
             img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-            img.onerror = () => img.replaceWith(makePvpAvatarFallback(p.name, imgSize, p.color));
-            ring.appendChild(img);
+            img.onerror = () => img.replaceWith(makePvpAvatarFallback(p.name, 40, p.color));
+            avatarWrap.appendChild(img);
         } else {
-            ring.appendChild(makePvpAvatarFallback(p.name, imgSize, p.color));
+            avatarWrap.appendChild(makePvpAvatarFallback(p.name, 40, p.color));
+        }
+        card.appendChild(avatarWrap);
+
+        // Winner crown
+        if (isWinner) {
+            const crown = document.createElement('div');
+            crown.style.cssText = 'position:absolute;top:6px;right:6px;font-size:14px;';
+            crown.textContent = '👑';
+            card.appendChild(crown);
         }
 
+        // Name
+        const nameEl = document.createElement('div');
+        nameEl.style.cssText = `
+            font-size:10px; font-weight:800; color:rgba(255,255,255,0.9);
+            text-align:center; max-width:90%; overflow:hidden;
+            text-overflow:ellipsis; white-space:nowrap;
+            text-shadow:0 1px 4px rgba(0,0,0,0.8);
+        `;
+        nameEl.textContent = p.name;
+        card.appendChild(nameEl);
+
+        // Win % badge
         const badge = document.createElement('div');
         badge.style.cssText = `
-            margin-top:3px;
-            background:${p.color};
-            color:#000;font-size:8px;font-weight:900;
-            padding:1px 5px;border-radius:6px;
-            white-space:nowrap;border:1px solid rgba(0,0,0,0.3);
+            background:${p.color}; color:#000;
+            font-size:8px; font-weight:900;
+            padding:2px 7px; border-radius:8px;
+            border:1px solid rgba(0,0,0,0.25);
+            letter-spacing:0.3px;
         `;
         badge.textContent = p.win_chance.toFixed(1) + '%';
+        card.appendChild(badge);
 
-        const label = document.createElement('div');
-        label.style.cssText = `
-            margin-top:2px;font-size:9px;
-            color:rgba(255,255,255,0.92);
-            font-weight:700;text-align:center;
-            max-width:60px;overflow:hidden;
-            text-overflow:ellipsis;white-space:nowrap;
-            text-shadow:0 1px 4px rgba(0,0,0,0.9);
-        `;
-        label.textContent = p.name;
+        // Bets summary
+        const bets = document.createElement('div');
+        bets.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;justify-content:center;max-width:100%;';
+        if (p.stars_bet  > 0) bets.innerHTML += `<span style="font-size:8px;color:#fbbf24;font-weight:800;">${p.stars_bet}⭐</span>`;
+        if (p.donuts_bet > 0) bets.innerHTML += `<span style="font-size:8px;color:#fb923c;font-weight:800;">${p.donuts_bet}🍩</span>`;
+        if (p.gift_bets?.length > 0) {
+            p.gift_bets.slice(0, 2).forEach(gb => {
+                const gs = document.createElement('span');
+                gs.style.cssText = 'font-size:8px;color:#c084fc;font-weight:800;display:flex;align-items:center;gap:1px;';
+                if (gb.gift_photo) {
+                    gs.innerHTML = `<img src="${gb.gift_photo}" style="width:12px;height:12px;object-fit:contain;" onerror="this.outerHTML='🎁'">`;
+                } else {
+                    gs.textContent = '🎁';
+                }
+                bets.appendChild(gs);
+            });
+            if (p.gift_bets.length > 2) {
+                const more = document.createElement('span');
+                more.style.cssText = 'font-size:8px;color:#c084fc;font-weight:800;';
+                more.textContent = `+${p.gift_bets.length - 2}🎁`;
+                bets.appendChild(more);
+            }
+        }
+        if (bets.innerHTML) card.appendChild(bets);
 
-        wrapper.appendChild(ring);
-        wrapper.appendChild(badge);
-        wrapper.appendChild(label);
-        container.appendChild(wrapper);
+        container.appendChild(card);
     });
 }
 
@@ -412,17 +403,41 @@ function makePvpAvatarFallback(name, size, color) {
         width:${size}px;height:${size}px;border-radius:50%;
         background: linear-gradient(135deg, ${color}88, ${color}33);
         display:flex;align-items:center;justify-content:center;
-        font-size:${size * 0.45}px;font-weight:900;color:#fff;
+        font-size:${Math.round(size * 0.45)}px;font-weight:900;color:#fff;
     `;
     d.textContent = (name || '?')[0].toUpperCase();
     return d;
+}
+
+// ─── Fullscreen arena toggle ───────────────────────────────────
+
+let pvpIsFullscreen = false;
+
+function togglePvpFullscreen() {
+    const arena  = document.getElementById('pvp-arena-wrap');
+    const btn    = document.getElementById('pvp-fullscreen-btn');
+    if (!arena) return;
+    pvpIsFullscreen = !pvpIsFullscreen;
+
+    if (pvpIsFullscreen) {
+        arena.style.cssText = `
+            position:fixed; inset:0; z-index:200;
+            height:100dvh !important; border-radius:0;
+            background:radial-gradient(ellipse at 60% 40%, rgba(244,63,94,0.10) 0%, #020617 70%);
+        `;
+        if (btn) btn.innerHTML = '⛶';
+    } else {
+        arena.style.cssText = '';
+        if (btn) btn.innerHTML = '⛶';
+    }
+    // Re-render cards at new size
+    renderPvpArena();
 }
 
 // ─── Top bar (best/last game) ──────────────────────────────────
 
 function _formatGameStars(game) {
     if (!game) return '';
-    // total_value_stars already includes donuts+gifts converted by backend
     const val = game.total_value_stars || game.total_stars || 0;
     return val > 0 ? `+${val}⭐` : '';
 }
@@ -496,14 +511,38 @@ function updatePvpStatus() {
 
     if (potEl) {
         const p = pvpState.pot;
-        const parts = [];
-        if (p.stars  > 0)  parts.push(`${p.stars}⭐`);
-        if (p.donuts > 0)  parts.push(`${formatDonut ? formatDonut(p.donuts) : p.donuts}🍩`);
-        if (p.gifts  > 0)  parts.push(`${p.gifts}🎁`);
-        potEl.textContent = parts.length > 0 ? 'Банк: ' + parts.join(' + ') : 'Банк пуст';
+        // Build rich pot line: stars + donuts as text, gifts as thumbnails
+        let html = '';
+        if (p.stars  > 0) html += `<span class="font-black text-yellow-300">${p.stars}⭐</span>`;
+        if (p.donuts > 0) {
+            if (html) html += `<span class="text-white/40 mx-1">+</span>`;
+            const dn = typeof formatDonut === 'function' ? formatDonut(p.donuts) : p.donuts;
+            html += `<span class="font-black text-orange-300">${dn}🍩</span>`;
+        }
+        const previews = p.gift_previews || [];
+        if (previews.length > 0) {
+            if (html) html += `<span class="text-white/40 mx-1">+</span>`;
+            previews.slice(0, 3).forEach(g => {
+                if (g.photo) {
+                    html += `<img src="${g.photo}" title="${escHtml(g.name)}" style="width:16px;height:16px;object-fit:contain;display:inline-block;vertical-align:middle;" onerror="this.outerHTML='🎁'">`;
+                } else {
+                    html += `<span>🎁</span>`;
+                }
+            });
+            if (p.gifts > 3) html += `<span class="text-purple-300 font-bold text-[9px]">+${p.gifts - 3}</span>`;
+        } else if (p.gifts > 0) {
+            if (html) html += `<span class="text-white/40 mx-1">+</span>`;
+            html += `<span class="font-black text-purple-300">${p.gifts}🎁</span>`;
+        }
+
+        if (html) {
+            potEl.innerHTML = `<span class="text-white/50 mr-1">Банк:</span>` + html;
+        } else {
+            potEl.textContent = 'Банк пуст';
+        }
     }
 
-    // Ball visibility
+    // Ball: visible only while rolling
     const ball = document.getElementById('pvp-ball');
     if (ball) {
         ball.style.opacity = pvpState.state === 'rolling' ? '1' : '0';
@@ -711,60 +750,63 @@ function setPvpDonutsBet(preset) {
     else                       inp.value = preset;
 }
 
-// ─── Ball guidance to winner segment ─────────────────────────
+// ─── Ball guidance to winner card ─────────────────────────────
 
 /**
- * Computes the % (x,y) position of the winner's pie segment center,
- * mirroring the geometry in renderPvpArena().
+ * Returns the center of the winner player-card as % coordinates
+ * within the arena container, using live getBoundingClientRect().
+ * Works for any grid size — no geometry hardcoding needed.
  */
 function getPvpWinnerSegmentCenter(winnerId) {
-    const players    = pvpState.players || [];
-    const total      = players.length;
-    if (total === 0) return { x: 50, y: 50 };
+    const arena = document.getElementById('pvp-arena-players');
+    const card  = document.getElementById('pvp-player-card-' + winnerId);
+    if (!arena || !card) return { x: 50, y: 50 };
 
-    const totalValue = players.reduce((sum, p) => sum + (p.value_stars || 0), 0);
-    const SIZE = 300;
-    const cx   = SIZE / 2, cy = SIZE / 2;
-    const r    = SIZE / 2 - 2;
+    const arenaRect = arena.getBoundingClientRect();
+    const cardRect  = card.getBoundingClientRect();
 
-    let startAngle = -Math.PI / 2;
-    for (const p of players) {
-        const pct      = totalValue > 0 ? (p.value_stars || 0) / totalValue : 1 / total;
-        const sweep    = pct * 2 * Math.PI;
-        const midAngle = startAngle + sweep / 2;
+    const x = ((cardRect.left - arenaRect.left) + cardRect.width  / 2) / arenaRect.width  * 100;
+    const y = ((cardRect.top  - arenaRect.top)  + cardRect.height / 2) / arenaRect.height * 100;
 
-        if (p.user_id === winnerId) {
-            const dist = r * 0.55;
-            return {
-                x: (cx + dist * Math.cos(midAngle)) / SIZE * 100,
-                y: (cy + dist * Math.sin(midAngle)) / SIZE * 100,
-            };
-        }
-        startAngle += sweep;
-    }
-    return { x: 50, y: 50 };
+    return {
+        x: Math.max(5,  Math.min(95, x)),
+        y: Math.max(8,  Math.min(88, y)),
+    };
 }
 
 /**
- * Smoothly moves the ball element to the target position,
- * then calls callback when the transition finishes.
+ * Two-phase ball animation: quick arc toward winner, then slow precise landing.
+ * Calls callback after the ball settles on the winner card.
  */
 function animatePvpBallToTarget(target, callback) {
     const ball = document.getElementById('pvp-ball');
     if (!ball) { if (callback) callback(); return; }
 
-    ball.style.opacity    = '1';
-    ball.style.transition = 'left 0.65s cubic-bezier(0.25,0.46,0.45,0.94), top 0.65s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.65s ease';
-    ball.style.transform  = 'translate(-50%,-50%) scale(1.5)';
-    ball.style.left       = target.x + '%';
-    ball.style.top        = target.y + '%';
-    pvpBallPos = { x: target.x, y: target.y };
+    ball.style.opacity = '1';
+
+    // Phase 1: fast arc to a midpoint near the target
+    const midX = (pvpBallPos.x + target.x) / 2 + (Math.random() - 0.5) * 20;
+    const midY = (pvpBallPos.y + target.y) / 2 + (Math.random() - 0.5) * 20;
+
+    ball.style.transition = 'left 0.35s ease-in, top 0.35s ease-in, transform 0.35s ease';
+    ball.style.transform  = 'translate(-50%,-50%) scale(1.3)';
+    ball.style.left       = midX + '%';
+    ball.style.top        = midY + '%';
 
     setTimeout(() => {
-        ball.style.transition = '';
-        ball.style.transform  = 'translate(-50%,-50%) scale(1)';
-        if (callback) callback();
-    }, 750);
+        // Phase 2: slow precise landing
+        ball.style.transition = 'left 0.55s cubic-bezier(0.22,1,0.36,1), top 0.55s cubic-bezier(0.22,1,0.36,1), transform 0.4s ease';
+        ball.style.transform  = 'translate(-50%,-50%) scale(1.6)';
+        ball.style.left       = target.x + '%';
+        ball.style.top        = target.y + '%';
+        pvpBallPos = { x: target.x, y: target.y };
+
+        setTimeout(() => {
+            ball.style.transition = 'transform 0.25s ease';
+            ball.style.transform  = 'translate(-50%,-50%) scale(1)';
+            if (callback) callback();
+        }, 620);
+    }, 380);
 }
 
 // ─── Winner reveal ────────────────────────────────────────────
@@ -836,4 +878,4 @@ function spawnPvpConfetti() {
 
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-                           }
+        }
