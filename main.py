@@ -129,6 +129,7 @@ async def lifespan(app: FastAPI):
     await init_pool(DB_NAME, min_size=5, max_size=20)
 
     rocket_task = None
+    pvp_task    = None
 
     try:
         await database.init_db()
@@ -182,6 +183,11 @@ async def lifespan(app: FastAPI):
         rocket_task = asyncio.create_task(round_manager())
         print("✅ Менеджер раундов ракеты запущен")
 
+        # Запускаем менеджер раундов PvP
+        from routers.games_pvp import pvp_round_manager
+        pvp_task = asyncio.create_task(pvp_round_manager())
+        print("✅ Менеджер раундов PvP запущен")
+
         yield
 
     finally:
@@ -189,6 +195,13 @@ async def lifespan(app: FastAPI):
             rocket_task.cancel()
             try:
                 await rocket_task
+            except asyncio.CancelledError:
+                pass
+
+        if pvp_task is not None:
+            pvp_task.cancel()
+            try:
+                await pvp_task
             except asyncio.CancelledError:
                 pass
 
