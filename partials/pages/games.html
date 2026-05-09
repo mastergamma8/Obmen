@@ -29,7 +29,7 @@
         </div>
 
         <!-- Баннер: Ракета -->
-        <div id="game-banner-rocket" onclick="openRocketGame()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-6 active:scale-95 transition-transform bg-gradient-to-r from-blue-600/20 to-indigo-500/10 border border-blue-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(59,130,246,0.1)] group">
+        <div id="game-banner-rocket" onclick="openRocketGame()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-4 active:scale-95 transition-transform bg-gradient-to-r from-blue-600/20 to-indigo-500/10 border border-blue-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(59,130,246,0.1)] group">
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
             <!-- Огонь на фоне -->
             <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-500/20 to-transparent blur-xl pointer-events-none"></div>
@@ -39,6 +39,24 @@
                 <div>
                     <h3 class="text-xl font-bold text-white glow-text" data-i18n="rocket_title">Ракета</h3>
                     <p class="text-sm text-blue-200/80" data-i18n="rocket_desc">Успей забрать иксы до краша!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Баннер: Space Donut PvP -->
+        <div id="game-banner-pvp" onclick="openPvpGame()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-6 active:scale-95 transition-transform bg-gradient-to-r from-rose-600/20 to-fuchsia-600/10 border border-rose-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(244,63,94,0.15)] group">
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
+            <div class="absolute bottom-0 right-0 w-1/2 h-full bg-gradient-to-l from-fuchsia-500/10 to-transparent blur-xl pointer-events-none"></div>
+            <!-- Пульсирующая метка LIVE -->
+            <div class="absolute top-3 right-3 z-20 flex items-center gap-1 bg-rose-500/80 px-2 py-0.5 rounded-full">
+                <div class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                <span class="text-[9px] font-black text-white tracking-wider">LIVE</span>
+            </div>
+            <div class="flex items-center gap-4 relative z-10">
+                <img src="/gifts/pvp.png" class="w-[90px] h-[90px] object-contain drop-shadow-[0_0_20px_rgba(244,63,94,0.9)] group-hover:scale-105 transition-transform" onerror="this.outerHTML='<div class=\'w-[90px] h-[90px] flex items-center justify-center text-5xl\'>⚔️</div>'">
+                <div>
+                    <h3 class="text-xl font-bold text-white" style="text-shadow:0 0 20px rgba(244,63,94,0.8)">PvP Арена</h3>
+                    <p class="text-sm text-rose-200/80">Ставь против других — победитель забирает всё!</p>
                 </div>
             </div>
         </div>
@@ -169,6 +187,142 @@
         </div>
     </div>
 
+    <!-- ===== SPACE DONUT PVP VIEW ===== -->
+    <div id="games-pvp-view" class="hidden animate-slide-up flex flex-col gap-3 pb-10">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="closePvpGame()" class="w-9 h-9 glass rounded-full flex items-center justify-center active:scale-95 transition-transform border border-white/10 hover:bg-white/10">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <div>
+                    <h3 class="text-lg font-black text-white">⚔️ Space PvP</h3>
+                    <div id="pvp-status-text" class="text-[10px] text-white/50 font-bold tracking-wide">Ожидаем игроков...</div>
+                </div>
+            </div>
+            <span id="pvp-round-badge" class="text-xs font-bold text-white/40 bg-white/5 px-3 py-1 rounded-full border border-white/10">Round #0</span>
+        </div>
+
+        <!-- Top bar: best/last game -->
+        <div class="grid grid-cols-2 gap-2">
+            <div id="pvp-last-game" class="glass rounded-xl p-2.5 border border-white/10 min-h-[44px]">
+                <span class="text-white/20 text-[9px]">Нет данных</span>
+            </div>
+            <div id="pvp-best-game" class="glass rounded-xl p-2.5 border border-amber-500/20 min-h-[44px]">
+                <span class="text-white/20 text-[9px]">Нет данных</span>
+            </div>
+        </div>
+
+        <!-- Arena -->
+        <div class="relative w-full rounded-3xl overflow-hidden border border-rose-500/30 shadow-[0_0_40px_rgba(244,63,94,0.15)]" style="height:260px;background:radial-gradient(ellipse at 60% 40%, rgba(244,63,94,0.08) 0%, #020617 70%)">
+            <!-- Starfield -->
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 pointer-events-none"></div>
+            <!-- Grid lines -->
+            <div class="absolute inset-0 pointer-events-none" style="background:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:40px 40px"></div>
+
+            <!-- Pot display -->
+            <div class="absolute top-3 left-0 right-0 flex justify-center z-20 pointer-events-none">
+                <div id="pvp-pot-display" class="text-xs font-black text-white/70 bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">Банк пуст</div>
+            </div>
+
+            <!-- Countdown overlay -->
+            <div id="pvp-countdown-overlay" class="hidden absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                <div class="flex flex-col items-center">
+                    <div class="text-[9px] font-bold text-white/60 tracking-widest uppercase mb-1">До старта</div>
+                    <div id="pvp-countdown-val" class="text-7xl font-black text-transparent bg-clip-text" style="background-image:linear-gradient(135deg,#ff6b6b,#ffeaa7)">15</div>
+                </div>
+            </div>
+
+            <!-- Player avatars layer -->
+            <div id="pvp-arena-players" class="absolute inset-0 z-10"></div>
+
+            <!-- Ball trail layer -->
+            <div id="pvp-ball-trail" class="absolute inset-0 z-15 pointer-events-none"></div>
+
+            <!-- Ball -->
+            <div id="pvp-ball" class="absolute z-20 pointer-events-none" style="left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;transition:opacity 0.3s">
+                <div class="relative">
+                    <div class="w-7 h-7 rounded-full border-2 border-white" style="background:radial-gradient(circle at 35% 35%, #fff 0%, #e0e0e0 40%, #888 100%);box-shadow:0 0 18px rgba(255,255,255,0.9),0 0 40px rgba(255,255,255,0.4)"></div>
+                    <div class="absolute inset-0 rounded-full animate-spin" style="background:conic-gradient(rgba(255,255,255,0.3) 0deg, transparent 120deg, rgba(255,255,255,0.2) 240deg);animation-duration:0.4s"></div>
+                </div>
+            </div>
+
+            <!-- Winner overlay -->
+            <div id="pvp-winner-overlay" class="hidden absolute inset-0 z-30 flex items-center justify-center" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(8px)">
+            </div>
+        </div>
+
+        <!-- Bet panel -->
+        <div id="pvp-bet-panel" class="glass rounded-3xl border border-white/10 overflow-hidden">
+            <!-- Tabs -->
+            <div class="flex border-b border-white/5">
+                <button id="pvp-tab-stars"  onclick="pvpSwitchBetTab('stars')"  class="pvp-tab-active flex-1 py-2.5 text-xs font-black text-white tracking-wide transition-colors">⭐ Звёзды</button>
+                <button id="pvp-tab-donuts" onclick="pvpSwitchBetTab('donuts')" class="flex-1 py-2.5 text-xs font-black text-white/40 tracking-wide transition-colors">🍩 Пончики</button>
+                <button id="pvp-tab-gift"   onclick="pvpSwitchBetTab('gift')"   class="flex-1 py-2.5 text-xs font-black text-white/40 tracking-wide transition-colors">🎁 Подарок</button>
+            </div>
+
+            <!-- Stars pane -->
+            <div id="pvp-pane-stars" class="p-3">
+                <label class="block text-[10px] font-bold text-white/50 mb-1 uppercase tracking-wider">Ставка (мин. 50 ⭐)</label>
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="relative flex-1">
+                        <input type="number" id="pvp-stars-input" value="50" min="50"
+                            class="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-9 py-2 text-sm font-bold text-white focus:outline-none focus:border-rose-500/50 transition-colors">
+                        <img src="/gifts/stars.png" class="w-4 h-4 absolute right-2.5 top-2.5 object-contain opacity-80" onerror="this.style.display='none'">
+                    </div>
+                    <button onclick="setPvpStarsBet('min')" class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white/80 active:scale-95">MIN</button>
+                    <button onclick="setPvpStarsBet('x2')"  class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white/80 active:scale-95">×2</button>
+                    <button onclick="setPvpStarsBet('max')" class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white/80 active:scale-95">MAX</button>
+                </div>
+                <button id="pvp-bet-btn" onclick="placePvpBet()"
+                    class="w-full py-2.5 rounded-xl font-black text-sm text-white active:scale-[0.98] transition-all"
+                    style="background:linear-gradient(135deg,#e11d48,#be185d);box-shadow:0 4px 20px rgba(225,29,72,0.4)">
+                    Поставить ⭐
+                </button>
+            </div>
+
+            <!-- Donuts pane -->
+            <div id="pvp-pane-donuts" class="p-3 hidden">
+                <label class="block text-[10px] font-bold text-white/50 mb-1 uppercase tracking-wider">Ставка (мин. 0.1 🍩)</label>
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="relative flex-1">
+                        <input type="number" id="pvp-donuts-input" value="0.1" min="0.1" step="0.1"
+                            class="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-9 py-2 text-sm font-bold text-white focus:outline-none focus:border-rose-500/50 transition-colors">
+                        <img src="/gifts/dount.png" class="w-4 h-4 absolute right-2.5 top-2.5 object-contain opacity-80" onerror="this.style.display='none'">
+                    </div>
+                    <button onclick="setPvpDonutsBet('min')" class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white/80 active:scale-95">MIN</button>
+                    <button onclick="setPvpDonutsBet('x2')"  class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white/80 active:scale-95">×2</button>
+                    <button onclick="setPvpDonutsBet('max')" class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white/80 active:scale-95">MAX</button>
+                </div>
+                <button onclick="placePvpBet()"
+                    class="w-full py-2.5 rounded-xl font-black text-sm text-white active:scale-[0.98] transition-all"
+                    style="background:linear-gradient(135deg,#f97316,#c2410c);box-shadow:0 4px 20px rgba(249,115,22,0.4)">
+                    Поставить 🍩
+                </button>
+            </div>
+
+            <!-- Gift pane -->
+            <div id="pvp-pane-gift" class="p-3 hidden">
+                <p class="text-[10px] text-white/50 mb-2 font-bold uppercase tracking-wider">Выберите подарок из инвентаря</p>
+                <div id="pvp-gift-grid" class="grid grid-cols-3 gap-2 max-h-36 overflow-y-auto">
+                    <p class="col-span-3 text-center text-white/30 text-xs py-4">Загрузка...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Participants -->
+        <div class="glass rounded-3xl border border-white/10 overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
+                <span class="text-xs font-bold text-white/60 uppercase tracking-wider">Участники</span>
+                <span id="pvp-players-count" class="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded-full">0</span>
+            </div>
+            <div id="pvp-participants-list" class="flex flex-col gap-1.5 p-2 max-h-52 overflow-y-auto">
+                <p class="text-center text-white/30 text-xs py-3">Пока нет участников</p>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== TG SHOP VIEW ===== -->
     <div id="games-tg-shop-view" class="hidden animate-slide-up pb-10">
         <!-- Шапка -->
@@ -188,4 +342,4 @@
             <!-- Рендерится через JS -->
         </div>
     </div>
-</div>
+                </div>
