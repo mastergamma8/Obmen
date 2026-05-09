@@ -11,6 +11,7 @@
 #   feature_flag_cases    — "1" / "0"
 #   feature_flag_rocket   — "1" / "0"
 #   feature_flag_limited_gifts — "1" / "0"
+#   feature_flag_pvp          — "1" / "0"
 #   feature_flag_case_<id>     — "1" / "0"  (для конкретного кейса)
 #
 # Таблица beta_testers:
@@ -39,7 +40,7 @@ async def init_settings_table():
             ("feature_flag_rocket",         "1"),
             ("exchange_bonus_percent",   "10"),
             ("feature_flag_limited_gifts",  "1"),
-            ("feature_flag_mines",           "1"),
+            ("feature_flag_pvp",             "1"),
         ]
         await db.executemany(
             "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)",
@@ -99,8 +100,13 @@ async def get_feature_flags() -> dict:
         flag_name = row[0].replace("feature_flag_", "", 1)
         flags[flag_name] = row[1] == "1"
 
+    # Совместимость со старым названием feature_flag_mines
+    legacy_mines = flags.pop("mines", None)
+    if "pvp" not in flags and legacy_mines is not None:
+        flags["pvp"] = legacy_mines
+
     # Гарантируем, что базовые ключи всегда присутствуют
-    for name in ("roulette", "cases", "rocket", "limited_gifts", "mines"):
+    for name in ("roulette", "cases", "rocket", "limited_gifts", "pvp"):
         flags.setdefault(name, True)
 
     return flags
