@@ -86,14 +86,17 @@ def _get_gift_info(gift_id: int) -> dict:
     return {}
 
 
-def _player_total_stars(player: dict) -> float:
-    """Суммарная стоимость ставок игрока в эквиваленте звёзд."""
+def _player_total_stars(player: dict, donuts_rate: float = 0) -> float:
+    """Суммарная стоимость ставок игрока в эквиваленте звёзд.
+    donuts_rate: живой курс пончик→звёзды (1 пончик = 1 TON в звёздах);
+    если 0, берётся из config."""
+    rate = donuts_rate if donuts_rate > 0 else config.DONUTS_TO_STARS_RATE
     total = 0.0
     for bet in player["bets"]:
         if bet["type"] == "stars":
             total += bet["amount"]
         elif bet["type"] == "donuts":
-            total += bet["amount"] * config.DONUTS_TO_STARS_RATE
+            total += bet["amount"] * rate
         elif bet["type"] == "gift":
             total += bet.get("value_stars", 1)
     return total
@@ -295,6 +298,20 @@ async def get_pvp_state(current_user: dict = Depends(get_current_user)):
     total_donuts = round(sum(p.get("donuts_bet", 0) for p in players), 2)
     total_gifts  = sum(len(p.get("gift_bets", [])) for p in players)
 
+    # Collect unique gift previews (photo + name) for pot display in UI
+    gift_previews: list = []
+    seen_gifts: set = set()
+    for p in players:
+        for gb in (p.get("gift_bets") or []):
+            gid = gb.get("gift_id")
+            if gid and gid not in seen_gifts:
+                seen_gifts.add(gid)
+                gift_previews.append({
+                    "gift_id": gid,
+                    "name":    gb.get("gift_name", ""),
+                    "photo":   gb.get("gift_photo", ""),
+                })
+
     winner_data = None
     if winner_id and state == "finished":
         wp = pvp_round["players"].get(winner_id, {})
@@ -311,7 +328,7 @@ async def get_pvp_state(current_user: dict = Depends(get_current_user)):
         "time_left":  round(time_left, 2),
         "players":    players,
         "winner":     winner_data,
-        "pot":        {"stars": total_stars, "donuts": total_donuts, "gifts": total_gifts},
+        "pot":        {"stars": total_stars, "donuts": total_donuts, "gifts": total_gifts, "gift_previews": gift_previews},
         "last_game":  last_game,
         "best_game":  best_game,
     }
@@ -506,4 +523,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-                }
+        }
