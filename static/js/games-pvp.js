@@ -138,6 +138,16 @@ function applyPvpState(data) {
     renderPvpParticipants();
     renderPvpTopBar();
     updatePvpStatus();
+
+    // Update round badge
+    const badge = document.getElementById('pvp-round-badge');
+    if (badge) badge.textContent = `Round #${data.round_id}`;
+
+    // Sync balance + inventory when game ends and after new round starts
+    if ((data.state === 'finished' && prevState === 'rolling') ||
+        (data.state === 'waiting' && prevState === 'finished')) {
+        setTimeout(pvpRefreshUserData, 1200);
+    }
 }
 
 // ─── Countdown ────────────────────────────────────────────────
@@ -198,12 +208,35 @@ function animatePvpBall() {
         ball.style.opacity = '1';
     }
 
+    // Zoom-in effect: when ball slows down in the last 20% of animation,
+    // scale the arena around the ball position so the landing is dramatic
+    const arenaInner = document.querySelector('#pvp-arena-players')?.parentElement;
+    if (arenaInner) {
+        if (progress > 0.80) {
+            const zoomT = (progress - 0.80) / 0.20;            // 0→1 in last 20%
+            const scale = 1 + zoomT * 0.55;                    // zoom up to 1.55×
+            arenaInner.style.transform       = `scale(${scale.toFixed(3)})`;
+            arenaInner.style.transformOrigin = `${pvpBallPos.x}% ${pvpBallPos.y}%`;
+            arenaInner.style.transition      = 'transform 0.15s ease-out';
+        } else {
+            arenaInner.style.transform  = '';
+            arenaInner.style.transition = '';
+        }
+    }
+
     renderPvpTrail();
 
     if (progress < 1) {
         pvpBallAnimFrame = requestAnimationFrame(animatePvpBall);
     } else {
         pvpBallAnimFrame = null;
+        // Reset zoom after a short pause so the landing color is visible
+        setTimeout(() => {
+            if (arenaInner) {
+                arenaInner.style.transition = 'transform 0.6s ease-in-out';
+                arenaInner.style.transform  = '';
+            }
+        }, 800);
     }
 }
 
@@ -228,88 +261,144 @@ function renderPvpTrail() {
     });
 }
 
-// ─── Arena render ─────────────────────────────────────────────
+// ─── Arena render — pie-chart segments ────────────────────────
 
 function renderPvpArena() {
     const container = document.getElementById('pvp-arena-players');
     if (!container) return;
     container.innerHTML = '';
 
-    const players  = pvpState.players || [];
-    const total    = players.length;
+    const players = pvpState.players || [];
+    const total   = players.length;
     if (total === 0) return;
 
-    const cx = 50, cy = 48;
-    const radius = Math.min(32, 26 + total * 1.5);
+    const totalValue = players.reduce((sum, p) => sum + (p.value_stars || 0), 0);
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const SIZE  = 300;
+    const cx = SIZE / 2, cy = SIZE / 2;
+    const r  = SIZE / 2 - 2;
 
-    players.forEach((p, i) => {
-        const angle  = (i / total) * 2 * Math.PI - Math.PI / 2;
-        const px     = cx + radius * Math.cos(angle);
-        const py     = cy + radius * Math.sin(angle);
-        const pct    = p.win_chance;
-        const size   = 36 + (pct / 100) * 28;
+    // Build segment data with angles
+    let startAngle = -Math.PI / 2;
+    const segments = players.map(p => {
+        const pct      = totalValue > 0 ? (p.value_stars || 0) / totalValue : 1 / total;
+        const sweep    = pct * 2 * Math.PI;
+        const endAngle = startAngle + sweep;
+        const midAngle = startAngle + sweep / 2;
+        const seg = { p, pct, startAngle, endAngle, midAngle };
+        startAngle = endAngle;
+        return seg;
+    });
+
+    // SVG pie
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${SIZE} ${SIZE}`);
+    svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
+
+    const defs = document.createElementNS(svgNS, 'defs');
+    svg.appendChild(defs);
+
+    segments.forEach(({ p, startAngle: sa, endAngle: ea }) => {
+        const isWinner = pvpState.state === 'finished' && pvpState.winner?.user_id === p.user_id;
+        const largeArc = (ea - sa) > Math.PI ? 1 : 0;
+        let pathD;
+
+        if (total === 1) {
+            pathD = `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`;
+        } else {
+            const x1 = cx + r * Math.cos(sa), y1 = cy + r * Math.sin(sa);
+            const x2 = cx + r * Math.cos(ea), y2 = cy + r * Math.sin(ea);
+            pathD = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+        }
+
+        if (isWinner) {
+            const filterId = `pvp-glow-${p.user_id}`;
+            const filt = document.createElementNS(svgNS, 'filter');
+            filt.setAttribute('id', filterId);
+            filt.setAttribute('x', '-20%'); filt.setAttribute('y', '-20%');
+            filt.setAttribute('width', '140%'); filt.setAttribute('height', '140%');
+            const blur = document.createElementNS(svgNS, 'feGaussianBlur');
+            blur.setAttribute('stdDeviation', '6'); blur.setAttribute('result', 'blur');
+            filt.appendChild(blur);
+            defs.appendChild(filt);
+        }
+
+        const path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('d', pathD);
+        path.setAttribute('fill', isWinner ? p.color : p.color + 'bb');
+        path.setAttribute('stroke', 'rgba(0,0,0,0.25)');
+        path.setAttribute('stroke-width', total > 1 ? '1.5' : '0');
+        if (isWinner) path.setAttribute('filter', `url(#pvp-glow-${p.user_id})`);
+        svg.appendChild(path);
+    });
+
+    container.appendChild(svg);
+
+    // Avatar + label overlay centered in each segment
+    segments.forEach(({ p, midAngle, pct }) => {
+        const isWinner = pvpState.state === 'finished' && pvpState.winner?.user_id === p.user_id;
+        const dist     = r * 0.55;
+        const ax       = (cx + dist * Math.cos(midAngle)) / SIZE * 100;
+        const ay       = (cy + dist * Math.sin(midAngle)) / SIZE * 100;
+        const imgSize  = Math.max(28, Math.min(50, 28 + pct * 44));
 
         const wrapper = document.createElement('div');
         wrapper.style.cssText = `
             position:absolute;
-            left:${px}%;top:${py}%;
+            left:${ax}%;top:${ay}%;
             transform:translate(-50%,-50%);
             display:flex;flex-direction:column;align-items:center;
-            z-index:5;
+            z-index:5;pointer-events:none;
         `;
 
         const ring = document.createElement('div');
         ring.style.cssText = `
-            width:${size}px;height:${size}px;
+            width:${imgSize}px;height:${imgSize}px;
             border-radius:50%;
-            background: radial-gradient(circle, ${p.color}44 0%, ${p.color}22 60%, transparent 100%);
             border:2.5px solid ${p.color};
-            box-shadow: 0 0 ${12 + pct * 0.4}px ${p.color}88, inset 0 0 8px ${p.color}33;
-            display:flex;align-items:center;justify-content:center;
-            transition: all 0.3s ease;
-            position:relative;
+            box-shadow:0 0 ${8 + pct * 22}px ${p.color}cc;
             overflow:hidden;
+            background:${p.color}44;
+            display:flex;align-items:center;justify-content:center;
         `;
-
-        if (pvpState.state === 'finished' && pvpState.winner?.user_id === p.user_id) {
-            ring.style.boxShadow = `0 0 30px ${p.color}, 0 0 60px ${p.color}88`;
-            ring.style.border    = `3px solid ${p.color}`;
+        if (isWinner) {
+            ring.style.boxShadow = `0 0 28px ${p.color}, 0 0 56px ${p.color}88`;
             ring.classList.add('pvp-winner-pulse');
         }
 
-        const imgSize = size * 0.72;
         if (p.avatar) {
             const img = document.createElement('img');
-            img.src    = p.avatar;
-            img.style.cssText = `width:${imgSize}px;height:${imgSize}px;border-radius:50%;object-fit:cover;`;
-            img.onerror = () => { img.replaceWith(makePvpAvatarFallback(p.name, imgSize, p.color)); };
+            img.src = p.avatar;
+            img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+            img.onerror = () => img.replaceWith(makePvpAvatarFallback(p.name, imgSize, p.color));
             ring.appendChild(img);
         } else {
             ring.appendChild(makePvpAvatarFallback(p.name, imgSize, p.color));
         }
 
-        // Win% badge
         const badge = document.createElement('div');
         badge.style.cssText = `
-            position:absolute;bottom:-2px;right:-2px;
+            margin-top:3px;
             background:${p.color};
             color:#000;font-size:8px;font-weight:900;
-            padding:1px 4px;border-radius:6px;
+            padding:1px 5px;border-radius:6px;
             white-space:nowrap;border:1px solid rgba(0,0,0,0.3);
         `;
-        badge.textContent = pct.toFixed(1) + '%';
-        ring.appendChild(badge);
+        badge.textContent = p.win_chance.toFixed(1) + '%';
 
-        // Name label
         const label = document.createElement('div');
         label.style.cssText = `
-            margin-top:4px;font-size:9px;color:rgba(255,255,255,0.8);
-            font-weight:700;text-align:center;max-width:60px;
-            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+            margin-top:2px;font-size:9px;
+            color:rgba(255,255,255,0.92);
+            font-weight:700;text-align:center;
+            max-width:60px;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap;
+            text-shadow:0 1px 4px rgba(0,0,0,0.9);
         `;
         label.textContent = p.name;
 
         wrapper.appendChild(ring);
+        wrapper.appendChild(badge);
         wrapper.appendChild(label);
         container.appendChild(wrapper);
     });
@@ -329,6 +418,13 @@ function makePvpAvatarFallback(name, size, color) {
 
 // ─── Top bar (best/last game) ──────────────────────────────────
 
+function _formatGameStars(game) {
+    if (!game) return '';
+    // total_value_stars already includes donuts+gifts converted by backend
+    const val = game.total_value_stars || game.total_stars || 0;
+    return val > 0 ? `+${val}⭐` : '';
+}
+
 function renderPvpTopBar() {
     const last = pvpState.last_game;
     const best = pvpState.best_game;
@@ -338,6 +434,7 @@ function renderPvpTopBar() {
 
     if (lastEl) {
         if (last) {
+            const valStr = _formatGameStars(last);
             lastEl.innerHTML = `
                 <div class="flex items-center gap-1.5">
                     <span class="text-white/40 text-[9px] font-bold uppercase tracking-wide">Последняя</span>
@@ -345,7 +442,7 @@ function renderPvpTopBar() {
                 <div class="flex items-center gap-1.5 mt-0.5">
                     ${last.avatar ? `<img src="${last.avatar}" class="w-5 h-5 rounded-full object-cover" onerror="this.style.display='none'">` : ''}
                     <span class="text-white/80 text-[10px] font-bold truncate max-w-[70px]">${escHtml(last.name)}</span>
-                    ${last.total_stars > 0 ? `<span class="text-yellow-300 text-[10px] font-black">+${last.total_stars}⭐</span>` : ''}
+                    ${valStr ? `<span class="text-yellow-300 text-[10px] font-black">${valStr}</span>` : ''}
                 </div>
             `;
         } else {
@@ -355,6 +452,7 @@ function renderPvpTopBar() {
 
     if (bestEl) {
         if (best) {
+            const valStr = _formatGameStars(best);
             bestEl.innerHTML = `
                 <div class="flex items-center gap-1.5">
                     <span class="text-amber-400/60 text-[9px] font-bold uppercase tracking-wide">🏆 Лучшая</span>
@@ -362,7 +460,7 @@ function renderPvpTopBar() {
                 <div class="flex items-center gap-1.5 mt-0.5">
                     ${best.avatar ? `<img src="${best.avatar}" class="w-5 h-5 rounded-full object-cover" onerror="this.style.display='none'">` : ''}
                     <span class="text-white/80 text-[10px] font-bold truncate max-w-[70px]">${escHtml(best.name)}</span>
-                    ${best.total_stars > 0 ? `<span class="text-amber-300 text-[10px] font-black">+${best.total_stars}⭐</span>` : ''}
+                    ${valStr ? `<span class="text-amber-300 text-[10px] font-black">${valStr}</span>` : ''}
                 </div>
             `;
         } else {
@@ -492,15 +590,33 @@ function renderPvpInventory() {
         return;
     }
 
-    grid.innerHTML = pvpInventory.map(g => `
+    grid.innerHTML = pvpInventory.map(g => {
+        // Show the exchange-rate star value (pre-computed by server using same formula)
+        const starsLabel = g.exchange_stars > 0 ? g.exchange_stars : g.value_stars;
+        return `
         <div onclick="placePvpGiftBet(${g.gift_id})"
              class="glass rounded-xl p-2 flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform border border-white/10 hover:border-purple-500/40 relative">
             <img src="${g.photo}" class="w-10 h-10 object-contain drop-shadow-md" onerror="this.src='/gifts/dount.png'">
             <div class="text-[9px] text-white/70 text-center leading-tight max-w-[56px] truncate">${escHtml(g.name || 'Gift')}</div>
-            <div class="text-[9px] text-yellow-300 font-bold">${g.value_stars}⭐</div>
+            <div class="text-[9px] text-yellow-300 font-bold">~${starsLabel}⭐</div>
             ${g.amount > 1 ? `<div class="absolute top-1 right-1 bg-purple-500 rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black text-white">${g.amount}</div>` : ''}
         </div>
-    `).join('');
+    `}).join('');
+}
+
+// ─── Balance + inventory sync ─────────────────────────────────
+
+async function pvpRefreshUserData() {
+    try {
+        const res  = await fetch('/api/pvp/user_balance', { headers: getApiHeaders() });
+        const data = await res.json();
+        if (data.balance !== undefined) myBalance = data.balance;
+        if (data.stars   !== undefined) myStars   = data.stars;
+        if (data.gifts   !== undefined) myGifts   = data.gifts;
+        if (typeof updateUI      === 'function') updateUI();
+        if (typeof renderProfile === 'function') renderProfile();
+    } catch (_) {}
+    await loadPvpInventory();
 }
 
 // ─── Placing bets ─────────────────────────────────────────────
@@ -557,8 +673,12 @@ async function sendPvpBet(url, body) {
             return;
         }
         if (typeof showNotify === 'function') showNotify('Ставка принята! 🎯', 'success');
-        // Update balances
-        if (typeof updateBalanceDisplay === 'function') updateBalanceDisplay(data);
+        // Update balances immediately from response
+        if (data.balance !== undefined) myBalance = data.balance;
+        if (data.stars   !== undefined) myStars   = data.stars;
+        if (data.gifts   !== undefined) myGifts   = data.gifts;
+        if (typeof updateUI      === 'function') updateUI();
+        if (typeof renderProfile === 'function') renderProfile();
     } catch (e) {
         if (typeof showNotify === 'function') showNotify('Ошибка сети', 'error');
     } finally {
@@ -569,10 +689,9 @@ async function sendPvpBet(url, body) {
 function setPvpStarsBet(preset) {
     const inp = document.getElementById('pvp-stars-input');
     if (!inp) return;
-    const userData = window._userData || {};
-    const balance  = userData.stars || 0;
+    const balance = (typeof myStars !== 'undefined' ? myStars : 0);
     if (preset === 'min')       inp.value = 50;
-    else if (preset === 'x2')   inp.value = Math.min(balance, Math.max(50, parseInt(inp.value || 50) * 2));
+    else if (preset === 'x2')   inp.value = Math.min(balance, Math.max(50, parseInt(inp.value || '50') * 2));
     else if (preset === 'max')  inp.value = balance;
     else                        inp.value = preset;
 }
@@ -580,10 +699,9 @@ function setPvpStarsBet(preset) {
 function setPvpDonutsBet(preset) {
     const inp = document.getElementById('pvp-donuts-input');
     if (!inp) return;
-    const userData = window._userData || {};
-    const balance  = userData.balance || 0;
+    const balance = (typeof myBalance !== 'undefined' ? myBalance : 0);
     if (preset === 'min')      inp.value = 0.1;
-    else if (preset === 'x2')  inp.value = Math.min(balance, Math.max(0.1, parseFloat(inp.value || 0.1) * 2));
+    else if (preset === 'x2')  inp.value = Math.min(balance, Math.max(0.1, parseFloat(inp.value || '0.1') * 2));
     else if (preset === 'max') inp.value = balance;
     else                       inp.value = preset;
 }
@@ -657,4 +775,4 @@ function spawnPvpConfetti() {
 
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      }
+}
