@@ -15,6 +15,17 @@ import config
 import database
 from handlers.security import get_current_user
 
+# Live exchange-rate helpers shared with gifts router
+try:
+    from routers.gifts import (
+        _fetch_portal_floor_price_async,
+        _fetch_ton_to_stars_rate,
+        _apply_exchange_bonus,
+    )
+    _live_exchange_available = True
+except Exception:
+    _live_exchange_available = False
+
 router = APIRouter(prefix="/pvp", tags=["pvp"])
 
 # ─────────────────────────────────────────────────────────────
@@ -342,6 +353,9 @@ async def bet_stars(data: BetStarsRequest, current_user: dict = Depends(get_curr
     updated = await database.get_user_data(tg_id)
     return {"status": "ok", "balance": updated["balance"], "stars": updated["stars"],
             "gifts": await database.get_user_gifts(tg_id)}
+
+
+@router.post("/bet/donuts")
 async def bet_donuts(data: BetDonutsRequest, current_user: dict = Depends(get_current_user)):
     tg_id  = current_user["id"]
     amount = round(data.amount, 2)
@@ -411,34 +425,75 @@ async def bet_gift(data: BetGiftRequest, current_user: dict = Depends(get_curren
 
 @router.get("/inventory")
 async def get_inventory(current_user: dict = Depends(get_current_user)):
-    """Инвентарь пользователя для выбора подарков в PvP с ценами в звёздах по курсу обмена."""
-    tg_id  = current_user["id"]
+    """Инвентарь пользователя для выбора подарков в PvP с ценами в звёздах по курсу обмена.
+    Использует живой курс Portal Market (тот же, что /api/exchange-preview в профиле)."""
+    tg_id  = current_user[\"id\"]
     gifts  = await database.get_user_gifts(tg_id)
+
+    # Fetch live rate once for all non-TG gifts
+    ton_to_stars = None
+    if _live_exchange_available:
+        try:
+            ton_to_stars = await _fetch_ton_to_stars_rate()
+        except Exception:
+            ton_to_stars = None
+
     result = []
     for gift_id, amount in gifts.items():
         info = _get_gift_info(gift_id)
-        if info:
-            raw_value = _get_gift_value_stars(gift_id)
-            # Mirror the exchange-for-stars fallback formula so the displayed price
-            # matches what the player would actually receive when exchanging the gift.
-            # BASE_GIFTS  → stored value / 0.80  ≈ portal floor, then ×1.1
-            # MAIN_GIFTS  → required_value / 1.20 ≈ portal floor, then ×1.1
-            # TG_GIFTS    → required_value + 10 (fixed TG exchange bonus)
-            if gift_id in config.TG_GIFTS:
-                exchange_stars = raw_value + 10
-            elif gift_id in config.BASE_GIFTS:
+        if not info:
+            continue
+
+        raw_value = _get_gift_value_stars(gift_id)
+
+        # TG gifts: fixed bonus formula (same as exchange handler)
+        if gift_id in config.TG_GIFTS:
+            exchange_stars = raw_value + 10
+
+        elif _live_exchange_available and gift_id not in config.TG_GIFTS:
+            # Try live Portal Market price — mirrors /api/exchange-preview exactly
+            gift_name = info.get(\"name\", \"\")
+            try:
+                ton_price = await _fetch_portal_floor_price_async(gift_name) if gift_name else None
+            except Exception:
+                ton_price = None
+
+            if not ton_price or ton_price <= 0:
+                # Fallback formula (same as exchange-preview fallback)
+                stored = info.get(\"value\") or info.get(\"required_value\") or 0
+                if gift_id in config.BASE_GIFTS:
+                    ton_price = stored / 0.80 if stored > 0 else 0
+                else:
+                    ton_price = stored / 1.20 if stored > 0 else 0
+
+            if ton_price and ton_price > 0 and ton_to_stars:
+                base_stars = max(1, int(ton_price * ton_to_stars))
+                try:
+                    exchange_stars = await _apply_exchange_bonus(base_stars)
+                except Exception:
+                    exchange_stars = base_stars
+            else:
+                # Last-resort static fallback
+                if gift_id in config.BASE_GIFTS:
+                    exchange_stars = max(1, int(raw_value / 0.80 * 1.1))
+                else:
+                    exchange_stars = max(1, int(raw_value / 1.20 * 1.1))
+        else:
+            # Static fallback when live exchange is unavailable
+            if gift_id in config.BASE_GIFTS:
                 exchange_stars = max(1, int(raw_value / 0.80 * 1.1))
-            else:  # MAIN_GIFTS
+            else:
                 exchange_stars = max(1, int(raw_value / 1.20 * 1.1))
-            result.append({
-                "gift_id":       gift_id,
-                "name":          info.get("name", ""),
-                "photo":         info.get("photo", ""),
-                "value_stars":   raw_value,
-                "exchange_stars": exchange_stars,
-                "amount":        amount,
-            })
-    return {"gifts": result}
+
+        result.append({
+            \"gift_id\":        gift_id,
+            \"name\":           info.get(\"name\", \"\"),
+            \"photo\":          info.get(\"photo\", \"\"),
+            \"value_stars\":    raw_value,
+            \"exchange_stars\": exchange_stars,
+            \"amount\":         amount,
+        })
+    return {\"gifts\": result}
 
 
 @router.get("/user_balance")
@@ -451,4 +506,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-    }
+}
