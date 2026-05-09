@@ -129,7 +129,9 @@ function applyPvpState(data) {
     if (data.state === 'finished' && !pvpWinnerRevealed && data.winner) {
         pvpWinnerRevealed = true;
         stopPvpBallAnimation();
-        showPvpWinnerReveal(data.winner);
+        // Guide ball to winner's segment, then show reveal
+        const target = getPvpWinnerSegmentCenter(data.winner.user_id);
+        animatePvpBallToTarget(target, () => showPvpWinnerReveal(data.winner));
     }
 
     pvpLastState = data.state;
@@ -591,14 +593,17 @@ function renderPvpInventory() {
     }
 
     grid.innerHTML = pvpInventory.map(g => {
-        // Show the exchange-rate star value (pre-computed by server using same formula)
-        const starsLabel = g.exchange_stars > 0 ? g.exchange_stars : g.value_stars;
+        // Live exchange_stars from backend — same calculation as profile's "Обменять на" button
+        const exchangeStars = g.exchange_stars > 0 ? g.exchange_stars : g.value_stars;
         return `
         <div onclick="placePvpGiftBet(${g.gift_id})"
              class="glass rounded-xl p-2 flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform border border-white/10 hover:border-purple-500/40 relative">
             <img src="${g.photo}" class="w-10 h-10 object-contain drop-shadow-md" onerror="this.src='/gifts/dount.png'">
             <div class="text-[9px] text-white/70 text-center leading-tight max-w-[56px] truncate">${escHtml(g.name || 'Gift')}</div>
-            <div class="text-[9px] text-yellow-300 font-bold">~${starsLabel}⭐</div>
+            <div class="flex items-center gap-0.5 text-[9px] text-amber-300 font-bold leading-tight">
+                <span>→ ${exchangeStars}</span>
+                <img src="/gifts/stars.png" class="w-3 h-3 object-contain inline-block" onerror="this.outerHTML='⭐'">
+            </div>
             ${g.amount > 1 ? `<div class="absolute top-1 right-1 bg-purple-500 rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black text-white">${g.amount}</div>` : ''}
         </div>
     `}).join('');
@@ -706,6 +711,62 @@ function setPvpDonutsBet(preset) {
     else                       inp.value = preset;
 }
 
+// ─── Ball guidance to winner segment ─────────────────────────
+
+/**
+ * Computes the % (x,y) position of the winner's pie segment center,
+ * mirroring the geometry in renderPvpArena().
+ */
+function getPvpWinnerSegmentCenter(winnerId) {
+    const players    = pvpState.players || [];
+    const total      = players.length;
+    if (total === 0) return { x: 50, y: 50 };
+
+    const totalValue = players.reduce((sum, p) => sum + (p.value_stars || 0), 0);
+    const SIZE = 300;
+    const cx   = SIZE / 2, cy = SIZE / 2;
+    const r    = SIZE / 2 - 2;
+
+    let startAngle = -Math.PI / 2;
+    for (const p of players) {
+        const pct      = totalValue > 0 ? (p.value_stars || 0) / totalValue : 1 / total;
+        const sweep    = pct * 2 * Math.PI;
+        const midAngle = startAngle + sweep / 2;
+
+        if (p.user_id === winnerId) {
+            const dist = r * 0.55;
+            return {
+                x: (cx + dist * Math.cos(midAngle)) / SIZE * 100,
+                y: (cy + dist * Math.sin(midAngle)) / SIZE * 100,
+            };
+        }
+        startAngle += sweep;
+    }
+    return { x: 50, y: 50 };
+}
+
+/**
+ * Smoothly moves the ball element to the target position,
+ * then calls callback when the transition finishes.
+ */
+function animatePvpBallToTarget(target, callback) {
+    const ball = document.getElementById('pvp-ball');
+    if (!ball) { if (callback) callback(); return; }
+
+    ball.style.opacity    = '1';
+    ball.style.transition = 'left 0.65s cubic-bezier(0.25,0.46,0.45,0.94), top 0.65s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.65s ease';
+    ball.style.transform  = 'translate(-50%,-50%) scale(1.5)';
+    ball.style.left       = target.x + '%';
+    ball.style.top        = target.y + '%';
+    pvpBallPos = { x: target.x, y: target.y };
+
+    setTimeout(() => {
+        ball.style.transition = '';
+        ball.style.transform  = 'translate(-50%,-50%) scale(1)';
+        if (callback) callback();
+    }, 750);
+}
+
 // ─── Winner reveal ────────────────────────────────────────────
 
 function showPvpWinnerReveal(winner) {
@@ -775,4 +836,4 @@ function spawnPvpConfetti() {
 
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+                           }
