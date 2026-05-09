@@ -60,10 +60,10 @@ function applyFeatureFlags(flags) {
         limitedBanner.style.display = flags.limited_gifts === false ? 'none' : '';
     }
 
-    // Мины — баннер в разделе Игры
-    const minesBanner = document.getElementById('game-banner-mines');
-    if (minesBanner) {
-        minesBanner.style.display = flags.mines === false ? 'none' : '';
+    // PvP Арена — баннер в разделе Игры
+    const pvpBanner = document.getElementById('game-banner-pvp');
+    if (pvpBanner) {
+        pvpBanner.style.display = flags.pvp === false ? 'none' : '';
     }
 
     // Отдельные кейсы — прячем конкретные карточки после рендера
@@ -200,4 +200,4 @@ if (window.partialsAreLoaded) {
     startApplication();
 } else {
     document.addEventListener('partialsLoaded', startApplication);
-}
+    }
