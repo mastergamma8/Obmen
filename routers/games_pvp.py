@@ -427,7 +427,7 @@ async def bet_gift(data: BetGiftRequest, current_user: dict = Depends(get_curren
 async def get_inventory(current_user: dict = Depends(get_current_user)):
     """Инвентарь пользователя для выбора подарков в PvP с ценами в звёздах по курсу обмена.
     Использует живой курс Portal Market (тот же, что /api/exchange-preview в профиле)."""
-    tg_id  = current_user[\"id\"]
+    tg_id  = current_user["id"]
     gifts  = await database.get_user_gifts(tg_id)
 
     # Fetch live rate once for all non-TG gifts
@@ -452,7 +452,7 @@ async def get_inventory(current_user: dict = Depends(get_current_user)):
 
         elif _live_exchange_available and gift_id not in config.TG_GIFTS:
             # Try live Portal Market price — mirrors /api/exchange-preview exactly
-            gift_name = info.get(\"name\", \"\")
+            gift_name = info.get("name", "")
             try:
                 ton_price = await _fetch_portal_floor_price_async(gift_name) if gift_name else None
             except Exception:
@@ -460,7 +460,7 @@ async def get_inventory(current_user: dict = Depends(get_current_user)):
 
             if not ton_price or ton_price <= 0:
                 # Fallback formula (same as exchange-preview fallback)
-                stored = info.get(\"value\") or info.get(\"required_value\") or 0
+                stored = info.get("value") or info.get("required_value") or 0
                 if gift_id in config.BASE_GIFTS:
                     ton_price = stored / 0.80 if stored > 0 else 0
                 else:
@@ -486,14 +486,14 @@ async def get_inventory(current_user: dict = Depends(get_current_user)):
                 exchange_stars = max(1, int(raw_value / 1.20 * 1.1))
 
         result.append({
-            \"gift_id\":        gift_id,
-            \"name\":           info.get(\"name\", \"\"),
-            \"photo\":          info.get(\"photo\", \"\"),
-            \"value_stars\":    raw_value,
-            \"exchange_stars\": exchange_stars,
-            \"amount\":         amount,
+            "gift_id":        gift_id,
+            "name":           info.get("name", ""),
+            "photo":          info.get("photo", ""),
+            "value_stars":    raw_value,
+            "exchange_stars": exchange_stars,
+            "amount":         amount,
         })
-    return {\"gifts\": result}
+    return {"gifts": result}
 
 
 @router.get("/user_balance")
@@ -506,4 +506,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-}
+                }
