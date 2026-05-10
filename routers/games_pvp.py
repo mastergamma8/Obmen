@@ -4,6 +4,7 @@
 # =====================================================
 
 import asyncio
+import json
 import random
 import time
 from typing import Any, Dict, List, Optional
@@ -257,11 +258,16 @@ async def _determine_winner() -> Optional[int]:
 
 
 async def _payout_winner(winner_id: int):
-    """Начисляет победителю весь банк минус комиссия и переносит подарки."""
+    """Начисляет победителю весь банк минус комиссия и переносит подарки.
+    Записывает историю ставок для ВСЕХ участников и историю выигрыша для победителя.
+    Сохраняет round_id, last_game и best_game в БД после завершения раунда."""
     try:
         players = pvp_round["players"]
         if winner_id not in players:
             return
+
+        round_id    = pvp_round["id"]
+        num_players = len(players)
 
         total_stars  = sum(
             sum(b["amount"] for b in p["bets"] if b["type"] == "stars")
@@ -279,26 +285,57 @@ async def _payout_winner(winner_id: int):
         payout_stars  = int(total_stars * (1 - COMMISSION_STARS))
         payout_donuts = round(total_donuts * (1 - COMMISSION_DONUTS), 4)
 
+        # ── Запись ставок для ВСЕХ игроков (для истории и лидерборда) ─────────
+        for uid, player in players.items():
+            stars_bet  = sum(b["amount"] for b in player["bets"] if b["type"] == "stars")
+            donuts_bet = round(sum(b["amount"] for b in player["bets"] if b["type"] == "donuts"), 4)
+            gift_bets  = [b for b in player["bets"] if b["type"] == "gift"]
+
+            if stars_bet > 0:
+                await database.add_history_entry(
+                    uid, "pvp_bet_stars",
+                    f"Ставка в Space PvP (раунд #{round_id}, {num_players} игр.)",
+                    -stars_bet,
+                )
+            if donuts_bet > 0:
+                await database.add_history_entry(
+                    uid, "pvp_bet_donuts",
+                    f"Ставка в Space PvP (раунд #{round_id}, {num_players} игр.)",
+                    -donuts_bet,
+                )
+            for gb in gift_bets:
+                await database.add_history_entry(
+                    uid, "pvp_bet_gift",
+                    f"Подарок в Space PvP (раунд #{round_id}) [gift_id:{gb['gift_id']}]",
+                    -gb.get("value_stars", 1),
+                )
+
+        # ── Выплата и история победы ──────────────────────────────────────────
         if payout_stars > 0:
             await database.add_stars_to_user(winner_id, payout_stars)
-            my_stars = sum(b["amount"] for b in players[winner_id]["bets"] if b["type"] == "stars")
             await database.add_history_entry(
                 winner_id, "pvp_win_stars",
-                f"Space PvP победа ({len(players)} игр.)", payout_stars - my_stars
+                f"Победа в Space PvP (раунд #{round_id}, {num_players} игр.)",
+                payout_stars,
             )
 
         if payout_donuts > 0:
             await database.add_points_to_user(winner_id, payout_donuts)
-            my_donuts = sum(b["amount"] for b in players[winner_id]["bets"] if b["type"] == "donuts")
             await database.add_history_entry(
                 winner_id, "pvp_win_donuts",
-                f"Space PvP победа (пончики)", round(payout_donuts - my_donuts, 4)
+                f"Победа в Space PvP — пончики (раунд #{round_id})",
+                payout_donuts,
             )
 
         for gb in all_gift_bets:
             await database.add_gift_to_user(winner_id, gb["gift_id"], 1)
+            await database.add_history_entry(
+                winner_id, "pvp_win_gift",
+                f"Победа в Space PvP — подарок (раунд #{round_id}) [gift_id:{gb['gift_id']}]",
+                gb.get("value_stars", 1),
+            )
 
-        # Обновить статистику лучшей/последней игры
+        # ── Обновить статистику лучшей/последней игры ─────────────────────────
         gifts_value_stars = sum(b.get("value_stars", 1) for b in all_gift_bets)
         total_value_stars = (
             int(payout_stars)
@@ -306,19 +343,26 @@ async def _payout_winner(winner_id: int):
             + int(gifts_value_stars * (1 - COMMISSION_STARS))
         )
         game_info = {
-            "name":             players[winner_id]["name"],
-            "avatar":           players[winner_id]["avatar"],
-            "color":            players[winner_id]["color"],
-            "total_stars":      payout_stars,
-            "total_donuts":     payout_donuts,
-            "gifts_count":      len(all_gift_bets),
-            "player_count":     len(players),
+            "name":              players[winner_id]["name"],
+            "avatar":            players[winner_id]["avatar"],
+            "color":             players[winner_id]["color"],
+            "total_stars":       payout_stars,
+            "total_donuts":      payout_donuts,
+            "gifts_count":       len(all_gift_bets),
+            "player_count":      num_players,
             "total_value_stars": total_value_stars,
         }
         pvp_round["last_game"] = game_info
         if (pvp_round["best_game"] is None
                 or total_value_stars > pvp_round["best_game"].get("total_value_stars", 0)):
             pvp_round["best_game"] = game_info
+
+        # ── Сохранить состояние раунда в БД (переживёт деплой) ───────────────
+        await database.save_pvp_round_state(
+            pvp_round["id"],
+            pvp_round["last_game"],
+            pvp_round["best_game"],
+        )
 
     except Exception as e:
         print(f"[PvP] payout_winner error: {e}")
@@ -342,6 +386,16 @@ def _ensure_player(user_id: int, user_info: dict):
 # ─────────────────────────────────────────────────────────────
 
 async def pvp_round_manager():
+    # ── Восстанавливаем состояние из БД после деплоя ─────────────────────────
+    try:
+        state_data = await database.load_pvp_round_state()
+        pvp_round["id"]        = state_data["round_id"]
+        pvp_round["last_game"] = state_data["last_game"]
+        pvp_round["best_game"] = state_data["best_game"]
+        print(f"[PvP] Restored state from DB: round_id={pvp_round['id']}")
+    except Exception as e:
+        print(f"[PvP] Failed to restore state: {e}")
+
     while True:
         try:
             async with _lock:
@@ -671,4 +725,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-}
+        }
