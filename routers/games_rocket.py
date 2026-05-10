@@ -165,6 +165,15 @@ async def _process_auto_cashouts(current_mult: float):
 
 async def round_manager():
     global rocket_round
+    # ── Восстанавливаем round_id из БД после деплоя ──────────────────────────
+    try:
+        saved_id = await database.load_rocket_round_id()
+        if saved_id > 0:
+            rocket_round["id"] = saved_id
+            print(f"[Rocket] Restored round_id from DB: {saved_id}")
+    except Exception as e:
+        print(f"[Rocket] Failed to restore round_id: {e}")
+
     while True:
         try:
             # ЖДЁМ СТАВКИ
@@ -176,6 +185,10 @@ async def round_manager():
                 rocket_round["phase_end"]    = time.time() + WAITING_DURATION
                 rocket_round["bets"]         = {}
                 rocket_round["_processing"]  = set()
+                _current_round_id = rocket_round["id"]
+
+            # Сохраняем новый round_id в БД асинхронно
+            asyncio.create_task(database.save_rocket_round_id(_current_round_id))
 
             await asyncio.sleep(WAITING_DURATION)
 
@@ -377,4 +390,4 @@ async def do_cashout(current_user: dict = Depends(get_current_user)):
         "multiplier": cashout_mult,
         "balance":    updated["balance"],
         "stars":      updated["stars"],
-    }
+                }
