@@ -26,7 +26,10 @@ let pvpLastState     = '';
 let pvpCountdownInterval = null;
 let pvpWinnerRevealed    = false;
 let pvpRollingStart      = 0;
+let pvpTrajectory        = [];   // Precomputed fixed-step trajectory (frame-rate independent)
+let pvpWinnerTarget      = null; // Winner avatar %coords, resolved lazily from DOM
 const PVP_ROLLING_DURATION = 6500; // ms
+const PVP_TRAJ_STEP_MS     = 16;   // Fixed step for trajectory precomputation (≈60 fps)
 
 // Player avatar cache
 const pvpAvatarCache = {};
@@ -97,24 +100,20 @@ function applyPvpState(data) {
 
     if (data.round_id !== prevRoundId) {
         pvpWinnerRevealed = false;
-        pvpBallTrail = [];
+        pvpBallTrail    = [];
+        pvpTrajectory   = [];
+        pvpWinnerTarget = null;
     }
 
-    // Transition: enter rolling — use server-provided seed + timestamp for sync
+    // Transition: enter rolling
     if (prevState !== 'rolling' && data.state === 'rolling') {
         const serverNow      = Date.now() / 1000;
         const elapsedSeconds = data.rolling_start_ts > 0
             ? Math.max(0, serverNow - data.rolling_start_ts)
             : 0;
-        
+        // Offset pvpRollingStart so trajectory index is already correct for late-joiners
         pvpRollingStart = performance.now() - elapsedSeconds * 1000;
         pvpInitBallFromSeed(data.ball_seed || 1);
-
-        // ИСПРАВЛЕНИЕ БАГА: Быстрая перемотка физики для тех, кто зашел с опозданием
-        if (elapsedSeconds > 0 && elapsedSeconds < (PVP_ROLLING_DURATION/1000)) {
-            fastForwardBallPhysics(elapsedSeconds);
-        }
-
         startPvpBallAnimation();
     }
 
@@ -134,13 +133,17 @@ function applyPvpState(data) {
         }
     }
 
-    // Show winner reveal
+    // Finished: fallback reveal if animation already ended or state arrived before animation
     if (data.state === 'finished' && !pvpWinnerRevealed && data.winner) {
         pvpWinnerRevealed = true;
         stopPvpBallAnimation();
-        // Guide diamond to winner's avatar
-        const target = getPvpWinnerSegmentCenter(data.winner.user_id);
-        animatePvpBallToTarget(target, () => showPvpWinnerReveal(data.winner));
+        if (pvpWinnerTarget) {
+            // Ball was already guided to winner by animation — just show reveal
+            showPvpWinnerReveal(data.winner);
+        } else {
+            const target = getPvpWinnerSegmentCenter(data.winner.user_id);
+            animatePvpBallToTarget(target, () => showPvpWinnerReveal(data.winner));
+        }
     }
 
     pvpLastState = data.state;
@@ -194,6 +197,7 @@ function stopPvpBallAnimation() {
 let _pvpRng = () => Math.random();
 
 function pvpInitBallFromSeed(seed) {
+    // Mulberry32 PRNG — identical seed → identical sequence on every client
     let s = seed >>> 0;
     _pvpRng = () => {
         s += 0x6D2B79F5;
@@ -201,29 +205,31 @@ function pvpInitBallFromSeed(seed) {
         t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
-    pvpBallPos = { x: 50, y: 50 };
-    pvpBallVel = {
-        x: (_pvpRng() > 0.5 ? 1 : -1) * (1.2 + _pvpRng() * 0.8),
-        y: (_pvpRng() > 0.5 ? 1 : -1) * (0.9 + _pvpRng() * 0.6),
-    };
-}
 
-// Быстрая перемотка физики шарика, чтобы синхронизировать экран опоздавшего игрока
-function fastForwardBallPhysics(elapsedSec) {
-    const steps = Math.floor(elapsedSec * 60);
-    const stepTime = 1000 / 60;
-    
-    for (let i = 0; i < steps; i++) {
-        let progress = Math.min((i * stepTime) / PVP_ROLLING_DURATION, 1);
-        let speedFactor = 1 - Math.pow(progress, 2) * 0.85;
-        
-        pvpBallPos.x += pvpBallVel.x * speedFactor;
-        pvpBallPos.y += pvpBallVel.y * speedFactor;
+    let px = 50, py = 50;
+    let vx = (_pvpRng() > 0.5 ? 1 : -1) * (1.2 + _pvpRng() * 0.8);
+    let vy = (_pvpRng() > 0.5 ? 1 : -1) * (0.9 + _pvpRng() * 0.6);
 
-        if (pvpBallPos.x < 10) { pvpBallPos.x = 10; pvpBallVel.x =  Math.abs(pvpBallVel.x); }
-        if (pvpBallPos.x > 90) { pvpBallPos.x = 90; pvpBallVel.x = -Math.abs(pvpBallVel.x); }
-        if (pvpBallPos.y < 10) { pvpBallPos.y = 10; pvpBallVel.y =  Math.abs(pvpBallVel.y); }
-        if (pvpBallPos.y > 90) { pvpBallPos.y = 90; pvpBallVel.y = -Math.abs(pvpBallVel.y); }
+    pvpBallPos  = { x: px, y: py };
+    pvpBallVel  = { x: vx, y: vy };
+    pvpWinnerTarget = null;
+
+    // Precompute the FULL trajectory at fixed 16 ms steps.
+    // Because this is a pure function of seed, every client builds
+    // the identical array, and animation simply indexes into it by
+    // elapsed time — completely frame-rate independent.
+    pvpTrajectory = [];
+    const totalSteps = Math.ceil(PVP_ROLLING_DURATION / PVP_TRAJ_STEP_MS) + 4;
+    for (let i = 0; i < totalSteps; i++) {
+        pvpTrajectory.push({ x: px, y: py });
+        const progress     = (i * PVP_TRAJ_STEP_MS) / PVP_ROLLING_DURATION;
+        const speedFactor  = 1 - Math.pow(Math.min(progress, 1), 2) * 0.85;
+        px += vx * speedFactor;
+        py += vy * speedFactor;
+        if (px < 10) { px = 10; vx =  Math.abs(vx); }
+        if (px > 90) { px = 90; vx = -Math.abs(vx); }
+        if (py < 10) { py = 10; vy =  Math.abs(vy); }
+        if (py > 90) { py = 90; vy = -Math.abs(vy); }
     }
 }
 
@@ -231,35 +237,38 @@ function animatePvpBall() {
     const elapsed  = performance.now() - pvpRollingStart;
     const progress = Math.min(elapsed / PVP_ROLLING_DURATION, 1);
 
-    const speedFactor = 1 - Math.pow(progress, 2) * 0.85;
-    pvpBallPos.x += pvpBallVel.x * speedFactor;
-    pvpBallPos.y += pvpBallVel.y * speedFactor;
+    // Look up position from precomputed trajectory — frame-rate independent
+    const stepIdx = Math.min(Math.floor(elapsed / PVP_TRAJ_STEP_MS), pvpTrajectory.length - 1);
+    const basePos = pvpTrajectory[stepIdx] || { x: 50, y: 50 };
 
-    // Стенки (чуть сужены, чтобы алмаз не вылетал за пределы)
-    if (pvpBallPos.x < 10) { pvpBallPos.x = 10; pvpBallVel.x =  Math.abs(pvpBallVel.x); }
-    if (pvpBallPos.x > 90) { pvpBallPos.x = 90; pvpBallVel.x = -Math.abs(pvpBallVel.x); }
-    if (pvpBallPos.y < 10) { pvpBallPos.y = 10; pvpBallVel.y =  Math.abs(pvpBallVel.y); }
-    if (pvpBallPos.y > 90) { pvpBallPos.y = 90; pvpBallVel.y = -Math.abs(pvpBallVel.y); }
+    // Last 20%: smoothly guide ball toward winner's avatar
+    const BLEND_START = 0.80;
+    if (progress >= BLEND_START && pvpState.winner) {
+        // Resolve winner DOM position once, lazily
+        if (!pvpWinnerTarget) {
+            pvpWinnerTarget = getPvpWinnerSegmentCenter(pvpState.winner.user_id);
+        }
+        const blendT = easeInOutCubic((progress - BLEND_START) / (1 - BLEND_START));
+        pvpBallPos.x = basePos.x + (pvpWinnerTarget.x - basePos.x) * blendT;
+        pvpBallPos.y = basePos.y + (pvpWinnerTarget.y - basePos.y) * blendT;
+    } else {
+        pvpBallPos.x = basePos.x;
+        pvpBallPos.y = basePos.y;
+    }
 
-    pvpBallTrail.push({ x: pvpBallPos.x, y: pvpBallPos.y, a: 1 });
-    if (pvpBallTrail.length > 18) pvpBallTrail.shift();
-
-    const ball = document.getElementById('pvp-ball');
+    const ball    = document.getElementById('pvp-ball');
     const diamond = document.getElementById('pvp-diamond-img');
-    
+
     if (ball) {
         ball.style.left    = pvpBallPos.x + '%';
         ball.style.top     = pvpBallPos.y + '%';
         ball.style.opacity = '1';
     }
-    
-    // Вращение алмаза во время полёта
     if (diamond) {
         diamond.style.transform = `rotate(${elapsed * 0.3}deg)`;
     }
 
-    // Contained zoom: scale only #pvp-arena-players (clipped by overflow:hidden parent)
-    // so the effect never escapes the arena border.
+    // Contained zoom on arena (clipped by overflow:hidden parent)
     const arenaPlayers = document.getElementById('pvp-arena-players');
     if (arenaPlayers) {
         if (progress > 0.80) {
@@ -280,10 +289,14 @@ function animatePvpBall() {
         pvpBallAnimFrame = requestAnimationFrame(animatePvpBall);
     } else {
         pvpBallAnimFrame = null;
-        // Smoothly reset zoom
         if (arenaPlayers) {
             arenaPlayers.style.transition = 'transform 0.5s ease-in-out';
             arenaPlayers.style.transform  = '';
+        }
+        // Ball reached winner — trigger reveal immediately without waiting for poll
+        if (pvpState.winner && !pvpWinnerRevealed) {
+            pvpWinnerRevealed = true;
+            showPvpWinnerReveal(pvpState.winner);
         }
     }
 }
@@ -307,6 +320,10 @@ function renderPvpTrail() {
         `;
         container.appendChild(dot);
     });
+}
+
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 // ─── Arena render — РАДИАЛЬНАЯ АРЕНА КАК НА ФОТО ──────────────
@@ -833,4 +850,4 @@ function spawnPvpConfetti() {
 
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        }
+    }
