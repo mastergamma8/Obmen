@@ -88,6 +88,8 @@ pvp_round: Dict[str, Any] = {
     "rolling_end":      0.0,
     "rolling_start_ts": 0.0,
     "ball_seed":        0,
+    "ball_target_x":    50.0,
+    "ball_target_y":    50.0,
     "finished_end":  0.0,
     "players":       {},          # {user_id: {name, avatar, color, bets: [...]}}
     "winner_id":     None,
@@ -95,6 +97,61 @@ pvp_round: Dict[str, Any] = {
     "best_game":     None,
     "_color_idx":    0,
 }
+
+
+# ─────────────────────────────────────────────────────────────
+# MULBERRY32 PRNG — ИДЕНТИЧЕН КЛИЕНТСКОЙ РЕАЛИЗАЦИИ (JS)
+# Позволяет серверу вычислить финальную точку шарика один раз,
+# чтобы все клиенты видели одинаковую анимацию независимо от
+# текущего курса пончиков.
+# ─────────────────────────────────────────────────────────────
+
+def _mulberry32(seed: int):
+    """Псевдослучайный генератор Mulberry32 (float 0..1).
+    Полностью совместим с реализацией в games-pvp.js."""
+    s = [seed & 0xFFFFFFFF]
+
+    def _imul32(a: int, b: int) -> int:
+        return (a * b) & 0xFFFFFFFF
+
+    def rng() -> float:
+        s[0] = (s[0] + 0x6D2B79F5) & 0xFFFFFFFF
+        t = _imul32(s[0] ^ (s[0] >> 15), 1 | s[0])
+        t = (t ^ ((t + _imul32(t ^ (t >> 7), 61 | t)) & 0xFFFFFFFF)) & 0xFFFFFFFF
+        return ((t ^ (t >> 14)) & 0xFFFFFFFF) / 4294967296
+
+    return rng
+
+
+def _compute_ball_target(seed: int, winner_id: int, players: list) -> dict:
+    """Вычисляет координаты финальной точки шарика, используя тот же
+    алгоритм и PRNG, что клиент (getPvpWinnerSectorTarget).
+    Потребляет ровно 2 вызова PRNG, чтобы последующая траектория
+    рикошетов была идентична на всех клиентах."""
+    import math
+    rng = _mulberry32(seed)
+
+    total_chance = sum(p["win_chance"] for p in players)
+    current_percent = 0.0
+
+    for p in players:
+        normalized_chance = (
+            (p["win_chance"] / total_chance * 100) if total_chance > 0
+            else (100 / len(players))
+        )
+        if str(p["user_id"]) == str(winner_id):
+            padding = max(2.0, normalized_chance * 0.1)
+            safe_chance = max(1.0, normalized_chance - padding * 2)
+            random_percent = current_percent + padding + (rng() * safe_chance)  # вызов 1
+            angle_rad = ((random_percent * 3.6) - 90) * (math.pi / 180)
+            r = 12 + rng() * 16  # вызов 2
+            return {
+                "x": round(50 + r * math.cos(angle_rad), 4),
+                "y": round(50 + r * math.sin(angle_rad), 4),
+            }
+        current_percent += normalized_chance
+
+    return {"x": 50.0, "y": 50.0}
 
 # ─────────────────────────────────────────────────────────────
 # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -260,7 +317,7 @@ async def _payout_winner(winner_id: int):
         }
         pvp_round["last_game"] = game_info
         if (pvp_round["best_game"] is None
-                or payout_stars > pvp_round["best_game"].get("total_stars", 0)):
+                or total_value_stars > pvp_round["best_game"].get("total_value_stars", 0)):
             pvp_round["best_game"] = game_info
 
     except Exception as e:
@@ -301,13 +358,27 @@ async def pvp_round_manager():
                 if time.time() >= pvp_round["countdown_end"]:
                     async with _lock:
                         if pvp_round["state"] == "countdown":
+                            live_rate = await _get_live_donuts_to_stars_rate()
                             winner_id = await _determine_winner()
+                            ball_seed = random.randint(1, 999999)
+
+                            # Вычисляем финальную точку шарика на сервере один раз,
+                            # используя живой курс в момент старта раунда.
+                            # Все клиенты получат одинаковые координаты и увидят
+                            # идентичную анимацию независимо от своего текущего курса.
+                            players_snap = _build_player_list(live_rate)
+                            if winner_id and players_snap:
+                                target = _compute_ball_target(ball_seed, winner_id, players_snap)
+                            else:
+                                target = {"x": 50.0, "y": 50.0}
+
                             pvp_round["winner_id"]        = winner_id
                             pvp_round["state"]            = "rolling"
                             pvp_round["rolling_end"]      = time.time() + ROLLING_DURATION
                             pvp_round["rolling_start_ts"] = time.time()
-                            # Shared seed so all clients run identical ball trajectory
-                            pvp_round["ball_seed"]        = random.randint(1, 999999)
+                            pvp_round["ball_seed"]        = ball_seed
+                            pvp_round["ball_target_x"]    = target["x"]
+                            pvp_round["ball_target_y"]    = target["y"]
                 await asyncio.sleep(0.2)
 
             elif state == "rolling":
@@ -328,7 +399,11 @@ async def pvp_round_manager():
                             pvp_round["state"]         = "waiting"
                             pvp_round["countdown_end"] = 0.0
                             pvp_round["rolling_end"]   = 0.0
+                            pvp_round["rolling_start_ts"] = 0.0
                             pvp_round["finished_end"]  = 0.0
+                            pvp_round["ball_seed"]     = 0
+                            pvp_round["ball_target_x"] = 50.0
+                            pvp_round["ball_target_y"] = 50.0
                             pvp_round["players"]       = {}
                             pvp_round["winner_id"]     = None
                             pvp_round["_color_idx"]    = 0
@@ -397,6 +472,8 @@ async def get_pvp_state(current_user: dict = Depends(get_current_user)):
         "time_left":       round(time_left, 2),
         "rolling_start_ts": pvp_round.get("rolling_start_ts", 0),
         "ball_seed":        pvp_round.get("ball_seed", 0),
+        "ball_target_x":   pvp_round.get("ball_target_x", 50.0),
+        "ball_target_y":   pvp_round.get("ball_target_y", 50.0),
         "players":         players,
         "winner":          winner_data,
         "pot":             {"stars": total_stars, "donuts": total_donuts, "gifts": total_gifts, "gift_previews": gift_previews},
