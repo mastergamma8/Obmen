@@ -710,8 +710,8 @@ function renderPvpParticipants() {
 
     list.innerHTML = players.map(p => {
         const betParts = [];
-        if (p.stars_bet  > 0) betParts.push(`<span class="text-yellow-300 font-bold flex items-center gap-0.5">${p.stars_bet}${_pvpStarIcon(11)}</span>`);
-        if (p.donuts_bet > 0) betParts.push(`<span class="text-orange-300 font-bold flex items-center gap-0.5">${p.donuts_bet}${_pvpDonutIcon(11)}</span>`);
+        if (p.stars_bet  > 0) betParts.push(`<span class="inline-flex items-center gap-1 text-yellow-300 font-bold text-xs">${p.stars_bet}${_pvpStarIcon(13)}</span>`);
+        if (p.donuts_bet > 0) betParts.push(`<span class="inline-flex items-center gap-1 text-orange-300 font-bold text-xs">${p.donuts_bet}${_pvpDonutIcon(13)}</span>`);
 
         // Render each gift with photo + value_stars
         if (p.gift_bets?.length > 0) {
@@ -721,12 +721,12 @@ function renderPvpParticipants() {
                 const giftName = escHtml(gb.gift_name || gb.name || 'Gift');
                 if (photo) {
                     betParts.push(`
-                        <span class="inline-flex items-center gap-0.5 text-purple-300 font-bold">
-                            <img src="${photo}" title="${giftName}" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;border-radius:3px;" onerror="this.style.display='none'">
-                            ${stars > 0 ? `<span class="text-[9px] text-yellow-300 font-bold">${stars}${_pvpStarIcon(9)}</span>` : ''}
+                        <span class="inline-flex items-center gap-1 text-purple-300 font-bold text-xs">
+                            <img src="${photo}" title="${giftName}" style="width:13px;height:13px;object-fit:contain;vertical-align:middle;border-radius:3px;" onerror="this.style.display='none'">
+                            ${stars > 0 ? `<span class="inline-flex items-center gap-0.5 text-yellow-300 font-bold text-xs">${stars}${_pvpStarIcon(12)}</span>` : ''}
                         </span>`);
                 } else {
-                    betParts.push(`<span class="inline-flex items-center gap-0.5 text-purple-300 font-bold">${_pvpGiftIcon(13)}${stars > 0 ? `<span class="text-[9px] text-yellow-300">${stars}${_pvpStarIcon(9)}</span>` : ''}</span>`);
+                    betParts.push(`<span class="inline-flex items-center gap-1 text-purple-300 font-bold text-xs">${_pvpGiftIcon(13)}${stars > 0 ? `<span class="inline-flex items-center gap-0.5 text-yellow-300 text-xs">${stars}${_pvpStarIcon(12)}</span>` : ''}</span>`);
                 }
             });
         }
