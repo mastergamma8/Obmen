@@ -364,10 +364,11 @@ async def open_free_case(current_user: dict = Depends(get_current_user)):
     if not hasattr(config, "FREE_CASE_CONFIG"):
         raise HTTPException(status_code=503, detail="Free case is not configured")
 
-    now       = int(time.time())
+    now  = int(time.time())
+
+    # Сначала проверяем кулдаун для красивого сообщения (без атомарности — только UI).
     last      = await database.get_last_free_case(tg_id)
     remaining = FREE_CASE_COOLDOWN - (now - last)
-
     if remaining > 0:
         hours   = remaining // 3600
         minutes = (remaining % 3600) // 60
@@ -379,7 +380,11 @@ async def open_free_case(current_user: dict = Depends(get_current_user)):
     case     = config.FREE_CASE_CONFIG
     win_item = _roll_item(case["items"])  # без пити для бесплатного кейса
 
-    await database.update_last_free_case(tg_id, now)
+    # Атомарный UPDATE с WHERE-условием на кулдаун.
+    # Если два запроса пришли одновременно — только один получит rowcount=1.
+    claimed = await database.claim_free_case_atomic(tg_id, now, FREE_CASE_COOLDOWN)
+    if not claimed:
+        raise HTTPException(status_code=429, detail="Free case cooldown not elapsed")
     await database.add_history_entry(tg_id, "case_free_open",
         f"Free case opened: '{case['name']}' [case_id:free]", 0)
     await _apply_win(tg_id, win_item, case, price=0, case_id="free")
@@ -394,4 +399,4 @@ async def open_free_case(current_user: dict = Depends(get_current_user)):
         "stars":        updated_user["stars"],
         "user_gifts":   updated_gifts,
         "next_free_in": FREE_CASE_COOLDOWN,
-        }
+    }
