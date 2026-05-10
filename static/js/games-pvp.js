@@ -412,7 +412,36 @@ function renderPvpArena() {
     const players = pvpState.players || [];
 
     if (players.length === 0) {
-        bg.style.background = 'radial-gradient(ellipse at center, rgba(244,63,94,0.08) 0%, #020617 70%)';
+        bg.style.background = 'radial-gradient(ellipse at center, rgba(244,63,94,0.07) 0%, #020617 70%)';
+        container.innerHTML = `
+            <div class="pvp-waiting-anim">
+                <!-- Orbit ring 1 -->
+                <div class="pvp-orbit-ring pvp-orbit-ring-1">
+                    <div class="pvp-orbit-dot pvp-orbit-dot-rose"></div>
+                    <div class="pvp-orbit-dot pvp-orbit-dot-rose pvp-orbit-dot-b"></div>
+                </div>
+                <!-- Orbit ring 2 -->
+                <div class="pvp-orbit-ring pvp-orbit-ring-2">
+                    <div class="pvp-orbit-dot pvp-orbit-dot-violet"></div>
+                    <div class="pvp-orbit-dot pvp-orbit-dot-violet pvp-orbit-dot-b" style="top:auto;bottom:-4px;left:50%;transform:translateX(-50%);"></div>
+                </div>
+                <!-- Orbit ring 3 -->
+                <div class="pvp-orbit-ring pvp-orbit-ring-3">
+                    <div class="pvp-orbit-dot pvp-orbit-dot-blue"></div>
+                </div>
+                <!-- Central icon -->
+                <div class="pvp-waiting-icon-wrap">
+                    <img src="/gifts/pvp.png" style="width:72px;height:72px;object-fit:contain;"
+                         onerror="this.outerHTML='<span style=\\'font-size:52px;line-height:1;\\'>⚔️</span>'">
+                </div>
+                <!-- Label -->
+                <div class="pvp-waiting-label" data-i18n="pvp_waiting">Ожидание ставок</div>
+                <!-- Bouncing dots -->
+                <div class="pvp-dots-loader">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        `;
         return;
     }
 
@@ -580,30 +609,30 @@ function updatePvpStatus() {
     if (potEl) {
         const p = pvpState.pot;
         let html = '';
-        if (p.stars  > 0) html += `<span class="font-black text-yellow-300 flex items-center gap-0.5">${p.stars}${_pvpStarIcon(13)}</span>`;
-        if (p.donuts > 0) {
-            if (html) html += `<span class="text-white/40 mx-1">+</span>`;
-            const dn = typeof formatDonut === 'function' ? formatDonut(p.donuts) : p.donuts;
-            html += `<span class="font-black text-orange-300 flex items-center gap-0.5">${dn}${_pvpDonutIcon(13)}</span>`;
+
+        if (p.stars > 0) {
+            html += `<span class="pvp-pot-badge pvp-pot-badge-stars">${p.stars}<img src="/gifts/stars.png" onerror="this.outerHTML='★'"></span>`;
         }
+        if (p.donuts > 0) {
+            if (html) html += `<span class="text-white/30 text-xs font-black self-center">+</span>`;
+            const dn = typeof formatDonut === 'function' ? formatDonut(p.donuts) : p.donuts;
+            html += `<span class="pvp-pot-badge pvp-pot-badge-donuts">${dn}<img src="/gifts/dount.png" onerror="this.outerHTML='🍩'"></span>`;
+        }
+
         const previews = p.gift_previews || [];
         if (previews.length > 0) {
-            if (html) html += `<span class="text-white/40 mx-1">+</span>`;
+            if (html) html += `<span class="text-white/30 text-xs font-black self-center">+</span>`;
             previews.slice(0, 3).forEach(g => {
                 const starVal = g.value_stars || g.exchange_stars || 0;
-                const valHtml = starVal > 0
-                    ? `<span style="font-size:9px;color:#fde047;font-weight:900;margin-left:1px;">${starVal}${_pvpStarIcon(9)}</span>`
-                    : '';
-                if (g.photo) {
-                    html += `<span class="inline-flex items-center gap-0.5"><img src="${g.photo}" title="${escHtml(g.name)}" style="width:16px;height:16px;object-fit:contain;display:inline-block;vertical-align:middle;border-radius:3px;" onerror="this.outerHTML='🎁'">${valHtml}</span>`;
-                } else {
-                    html += `<span class="inline-flex items-center gap-0.5">${_pvpGiftIcon(16)}${valHtml}</span>`;
-                }
+                const imgHtml = g.photo
+                    ? `<img src="${escHtml(g.photo)}" title="${escHtml(g.name)}" style="width:14px;height:14px;object-fit:contain;border-radius:3px;" onerror="this.outerHTML='🎁'">`
+                    : `<span style="font-size:13px;line-height:1;">🎁</span>`;
+                html += `<span class="pvp-pot-badge pvp-pot-badge-gift">${imgHtml}${starVal > 0 ? `<span style="font-size:11px;color:#fde047;font-weight:900;">${starVal}</span>` : ''}</span>`;
             });
-            if (p.gifts > 3) html += `<span class="text-purple-300 font-bold text-[9px]">+${p.gifts - 3}</span>`;
+            if (p.gifts > 3) html += `<span class="pvp-pot-badge pvp-pot-badge-gift" style="font-size:10px;">+${p.gifts - 3}</span>`;
         } else if (p.gifts > 0) {
-            if (html) html += `<span class="text-white/40 mx-1">+</span>`;
-            html += `<span class="font-black text-purple-300 flex items-center gap-0.5">${p.gifts}${_pvpGiftIcon(13)}</span>`;
+            if (html) html += `<span class="text-white/30 text-xs font-black self-center">+</span>`;
+            html += `<span class="pvp-pot-badge pvp-pot-badge-gift">🎁 ${p.gifts}</span>`;
         }
 
         potEl.innerHTML = html
@@ -921,4 +950,4 @@ function spawnPvpConfetti() {
 
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+            }
