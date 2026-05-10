@@ -107,16 +107,15 @@ async def spin_roulette(data: SpinData, current_user: dict = Depends(get_current
         return {"status": "error", "detail": "not_subscribed"}
 
     user_data = await database.get_user_data(tg_id)
-    last_spin = user_data.get("last_free_spin", 0)
-    now       = int(time.time())
-    can_free  = (now - last_spin) >= 86400
-
+    now      = int(time.time())
     currency = config.ROULETTE_CONFIG.get("currency", "donuts")
     cost     = config.ROULETTE_CONFIG["cost"]
 
-    if can_free:
-        await database.update_last_free_spin(tg_id, now)
-    else:
+    # Атомарная попытка занять бесплатный спин (UPDATE с WHERE-условием на кулдаун).
+    # Исключает race condition: два одновременных запроса не могут оба получить free spin.
+    can_free = await database.claim_free_spin_atomic(tg_id, now)
+
+    if not can_free:
         result = await database.deduct_and_deposit_atomic(
             user_id   = tg_id,
             gross_bet = cost,
@@ -238,4 +237,4 @@ def _build_spin_response(win_index, win_item, updated_user, updated_gifts):
         "stars":        updated_user["stars"],
         "user_gifts":   updated_gifts,
         "can_free_now": False,
-                                       }
+                }
