@@ -242,10 +242,8 @@
             <!-- Слой для следа шарика -->
             <div id="pvp-ball-trail" class="absolute inset-0 z-15 pointer-events-none"></div>
 
-            <!-- Центральный объект (Алмаз) -->
-            <div id="pvp-ball" class="absolute z-20 pointer-events-none flex items-center justify-center w-20 h-20" style="left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;transition:opacity 0.3s">
-                <img src="/gifts/diamond.png" onerror="this.src='https://cdn3.emoji.gg/emojis/8468-diamond.png'; this.style.width='50px';" id="pvp-diamond-img" class="w-full h-full object-contain drop-shadow-[0_0_25px_rgba(255,255,255,0.9)] transition-transform">
-            </div>
+            <!-- Белый шарик -->
+            <div id="pvp-ball" class="absolute z-20 pointer-events-none" style="left:50%;top:50%;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);opacity:0;transition:opacity 0.3s;background:#fff;box-shadow:0 0 16px 4px rgba(255,255,255,0.85),0 0 32px 8px rgba(255,255,255,0.35);"></div>
 
             <!-- Winner overlay -->
             <div id="pvp-winner-overlay" class="hidden absolute inset-0 z-30 flex items-center justify-center" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(8px)"></div>
