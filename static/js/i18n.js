@@ -224,6 +224,7 @@ const i18n = {
             pvp_bets_closed: 'Ставки сейчас не принимаются',
             pvp_min_stars_warn: 'Минимум 50 ⭐',
             pvp_min_donuts_warn: 'Минимум 0.1 🍩',
+            pvp_bet_accepted: 'Ставка принята! 🎯',
 
             // TG МАГАЗИН
             tg_shop_title: 'Лимитированные подарки',
@@ -459,6 +460,7 @@ const i18n = {
             pvp_bets_closed: 'Bets are not accepted right now',
             pvp_min_stars_warn: 'Minimum 50 ⭐',
             pvp_min_donuts_warn: 'Minimum 0.1 🍩',
+            pvp_bet_accepted: 'Bet accepted! 🎯',
 
             // TG SHOP
             tg_shop_title: 'Limited gifts',
