@@ -216,9 +216,12 @@ const i18n = {
             pvp_inventory_empty: 'Инвентарь пуст',
             pvp_winner_takes: 'забирает весь банк!',
             pvp_participants_label: 'Участники',
-            pvp_min_stars: 'Ставка (мин. 50',
-            pvp_min_donuts: 'Ставка (мин. 0.1',
+            pvp_min_stars: 'Ставка (мин. 50 ⭐)',
+            pvp_min_donuts: 'Ставка (мин. 0.1 🍩)',
             pvp_select_gift: 'Выберите подарок из инвентаря',
+            pvp_bets_closed: 'Ставки сейчас не принимаются',
+            pvp_min_stars_warn: 'Минимум 50 ⭐',
+            pvp_min_donuts_warn: 'Минимум 0.1 🍩',
 
             // TG МАГАЗИН
             tg_shop_title: 'Лимитированные подарки',
@@ -446,9 +449,12 @@ const i18n = {
             pvp_inventory_empty: 'Inventory is empty',
             pvp_winner_takes: 'takes the entire bank!',
             pvp_participants_label: 'Participants',
-            pvp_min_stars: 'Bet (min. 50',
-            pvp_min_donuts: 'Bet (min. 0.1',
+            pvp_min_stars: 'Bet (min. 50 ⭐)',
+            pvp_min_donuts: 'Bet (min. 0.1 🍩)',
             pvp_select_gift: 'Select a gift from inventory',
+            pvp_bets_closed: 'Bets are not accepted right now',
+            pvp_min_stars_warn: 'Minimum 50 ⭐',
+            pvp_min_donuts_warn: 'Minimum 0.1 🍩',
 
             // TG SHOP
             tg_shop_title: 'Limited gifts',
