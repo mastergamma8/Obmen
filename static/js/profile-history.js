@@ -47,6 +47,14 @@ const HISTORY_ICONS = {
     rocket_lose_donuts:   { icon: '💥', color: 'red',    sign: '-' },
     rocket_lose_stars:    { icon: '💥', color: 'red',    sign: '-' },
 
+    // ── Space PvP ────────────────────────────────────────────────────────────
+    pvp_bet_stars:        { icon: '⚔️', color: 'red',    sign: '-' },
+    pvp_bet_donuts:       { icon: '⚔️', color: 'red',    sign: '-' },
+    pvp_bet_gift:         { icon: '⚔️', color: 'red',    sign: null },
+    pvp_win_stars:        { icon: '🏆', color: 'green',  sign: '+' },
+    pvp_win_donuts:       { icon: '🏆', color: 'green',  sign: '+' },
+    pvp_win_gift:         { icon: '🏆', color: 'green',  sign: null },
+
     // ── Promo codes ───────────────────────────────────────────────────────────
     promo_donuts:         { icon: '🎟️', color: 'green',  sign: '+' },
     promo_stars:          { icon: '🎟️', color: 'green',  sign: '+' },
@@ -69,7 +77,7 @@ const HISTORY_ICONS = {
 /** Action types that are internal / should never surface in the UI. */
 const HISTORY_HIDDEN_TYPES = new Set(['case_lucky_ratio', 'rocket_win_fake']);
 
-/** Action types whose amount is denominated in stars (uses star icon). */
+/** Action types denominated in stars (uses star icon). */
 const STAR_AMOUNT_TYPES = new Set([
     'topup_stars', 'admin_add_stars',
     'roulette_win_stars', 'roulette_paid_stars',
@@ -78,6 +86,8 @@ const STAR_AMOUNT_TYPES = new Set([
     'exchange_tg_gift', 'exchange_gift_stars',
     'task_reward_stars', 'referral_bonus_stars',
     'tg_shop_buy',
+    // PvP — star-denominated bets and wins
+    'pvp_bet_stars', 'pvp_win_stars',
 ]);
 
 // ── Localised labels ──────────────────────────────────────────────────────────
@@ -107,6 +117,13 @@ const HISTORY_LABELS = {
         rocket_win_stars:     'Выигрыш в ракете',
         rocket_lose_donuts:   'Проигрыш в ракете',
         rocket_lose_stars:    'Проигрыш в ракете',
+
+        pvp_bet_stars:        'Ставка в Space PvP',
+        pvp_bet_donuts:       'Ставка в Space PvP',
+        pvp_bet_gift:         'Подарок в Space PvP',
+        pvp_win_stars:        'Победа в Space PvP',
+        pvp_win_donuts:       'Победа в Space PvP',
+        pvp_win_gift:         'Победа в Space PvP — подарок',
 
         promo_donuts:         'Промокод — пончики',
         promo_stars:          'Промокод — звёзды',
@@ -145,6 +162,13 @@ const HISTORY_LABELS = {
         rocket_win_stars:     'Rocket win',
         rocket_lose_donuts:   'Rocket loss',
         rocket_lose_stars:    'Rocket loss',
+
+        pvp_bet_stars:        'Space PvP bet',
+        pvp_bet_donuts:       'Space PvP bet',
+        pvp_bet_gift:         'Space PvP gift bet',
+        pvp_win_stars:        'Space PvP win',
+        pvp_win_donuts:       'Space PvP win',
+        pvp_win_gift:         'Space PvP win — gift',
 
         promo_donuts:         'Promo code — donuts',
         promo_stars:          'Promo code — stars',
@@ -191,6 +215,21 @@ function getHistoryGiftPhoto(entry) {
 
     // Admin star grant — use the stars icon asset
     if (entry.action_type === 'admin_add_stars') return '/gifts/stars.png';
+
+    // PvP general events (non-gift) — use pvp.png banner image
+    const pvpBannerTypes = new Set(['pvp_bet_stars', 'pvp_bet_donuts', 'pvp_win_stars', 'pvp_win_donuts']);
+    if (pvpBannerTypes.has(entry.action_type)) return '/gifts/pvp.png';
+
+    // PvP gift events — resolve the actual gift photo via [gift_id:...] tag
+    const pvpGiftTypes = new Set(['pvp_bet_gift', 'pvp_win_gift']);
+    if (pvpGiftTypes.has(entry.action_type) && entry.description) {
+        const pvpMatch = entry.description.match(/\[gift_id:([^\]]+)\]/);
+        if (pvpMatch) {
+            const giftDef = getGiftDefinitionById(pvpMatch[1]);
+            if (giftDef) return giftDef.photo;
+        }
+        return '/gifts/pvp.png';
+    }
 
     // Case entries that show the case artwork (not the won prize)
     const caseAssetTypes = new Set([
@@ -308,6 +347,21 @@ function _buildEntryTitle(entry) {
             } else {
                 title = currentLang === 'ru' ? `Кейс: ${caseName}` : `Case: ${caseName}`;
             }
+        }
+    }
+
+    // PvP entries — append round number and player count from description
+    const pvpTypes = new Set([
+        'pvp_bet_stars', 'pvp_bet_donuts', 'pvp_bet_gift',
+        'pvp_win_stars', 'pvp_win_donuts', 'pvp_win_gift',
+    ]);
+    if (pvpTypes.has(entry.action_type) && entry.description) {
+        const roundMatch   = entry.description.match(/раунд #(\d+)/);
+        const playersMatch = entry.description.match(/(\d+) игр\./);
+        if (roundMatch) {
+            const roundNum   = roundMatch[1];
+            const playersPart = playersMatch ? (currentLang === 'ru' ? `, ${playersMatch[1]} игр.` : `, ${playersMatch[1]} players`) : '';
+            title = `${title} #${roundNum}${playersPart}`;
         }
     }
 
