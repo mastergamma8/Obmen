@@ -166,6 +166,21 @@ async def init_db():
             )
         """)
 
+        # ── Состояние раундов игр (PvP, Ракета) ─────────────────────────────────
+        # Хранит round_id, last_game и best_game между деплоями.
+        # game: 'pvp' | 'rocket'
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS game_round_state (
+                game       TEXT    PRIMARY KEY,
+                round_id   INTEGER NOT NULL DEFAULT 0,
+                last_game  TEXT    DEFAULT NULL,
+                best_game  TEXT    DEFAULT NULL,
+                updated_at INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        await db.execute("ALTER TABLE game_round_state ADD COLUMN IF NOT EXISTS last_game TEXT DEFAULT NULL")
+        await db.execute("ALTER TABLE game_round_state ADD COLUMN IF NOT EXISTS best_game TEXT DEFAULT NULL")
+
         await db.commit()
 
 
