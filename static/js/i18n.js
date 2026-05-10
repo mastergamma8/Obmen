@@ -196,6 +196,8 @@ const i18n = {
             limit_reached: 'Лимит достигнут. Попробуйте позже.',
 
             // PVP АРЕНА
+            pvp_arena_title: 'PvP Арена',
+            pvp_arena_desc: 'Ставь против других — победитель забирает всё!',
             pvp_waiting: 'Ожидание игроков',
             pvp_accepting_bets: 'Приём ставок',
             pvp_rolling: 'Выбираем победителя...',
@@ -429,6 +431,8 @@ const i18n = {
             limit_reached: 'Limit reached. Please try again later.',
 
             // PVP ARENA
+            pvp_arena_title: 'PvP Arena',
+            pvp_arena_desc: 'Bet against others — the winner takes it all!',
             pvp_waiting: 'Waiting for Players',
             pvp_accepting_bets: 'Accepting Bets',
             pvp_rolling: 'Choosing winner...',
