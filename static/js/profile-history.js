@@ -54,6 +54,9 @@ const HISTORY_ICONS = {
     pvp_win_stars:        { icon: '🏆', color: 'green',  sign: '+' },
     pvp_win_donuts:       { icon: '🏆', color: 'green',  sign: '+' },
     pvp_win_gift:         { icon: '🏆', color: 'green',  sign: null },
+    pvp_refund_stars:     { icon: '↩️', color: 'amber',  sign: '+' },
+    pvp_refund_donuts:    { icon: '↩️', color: 'amber',  sign: '+' },
+    pvp_refund_gift:      { icon: '↩️', color: 'amber',  sign: null },
 
     // ── Promo codes ───────────────────────────────────────────────────────────
     promo_donuts:         { icon: '🎟️', color: 'green',  sign: '+' },
@@ -86,8 +89,8 @@ const STAR_AMOUNT_TYPES = new Set([
     'exchange_tg_gift', 'exchange_gift_stars',
     'task_reward_stars', 'referral_bonus_stars',
     'tg_shop_buy',
-    // PvP — star-denominated bets and wins
-    'pvp_bet_stars', 'pvp_win_stars',
+    // PvP — star-denominated bets, wins and refunds
+    'pvp_bet_stars', 'pvp_win_stars', 'pvp_refund_stars',
 ]);
 
 // ── Localised labels ──────────────────────────────────────────────────────────
@@ -124,6 +127,9 @@ const HISTORY_LABELS = {
         pvp_win_stars:        'Победа в Space PvP',
         pvp_win_donuts:       'Победа в Space PvP',
         pvp_win_gift:         'Победа в Space PvP — подарок',
+        pvp_refund_stars:     'Возврат ставки PvP — звёзды',
+        pvp_refund_donuts:    'Возврат ставки PvP — пончики',
+        pvp_refund_gift:      'Возврат подарка PvP',
 
         promo_donuts:         'Промокод — пончики',
         promo_stars:          'Промокод — звёзды',
@@ -169,6 +175,9 @@ const HISTORY_LABELS = {
         pvp_win_stars:        'Space PvP win',
         pvp_win_donuts:       'Space PvP win',
         pvp_win_gift:         'Space PvP win — gift',
+        pvp_refund_stars:     'PvP bet refunded — stars',
+        pvp_refund_donuts:    'PvP bet refunded — donuts',
+        pvp_refund_gift:      'PvP gift refunded',
 
         promo_donuts:         'Promo code — donuts',
         promo_stars:          'Promo code — stars',
@@ -217,11 +226,12 @@ function getHistoryGiftPhoto(entry) {
     if (entry.action_type === 'admin_add_stars') return '/gifts/stars.png';
 
     // PvP general events (non-gift) — use pvp.png banner image
-    const pvpBannerTypes = new Set(['pvp_bet_stars', 'pvp_bet_donuts', 'pvp_win_stars', 'pvp_win_donuts']);
+    const pvpBannerTypes = new Set(['pvp_bet_stars', 'pvp_bet_donuts', 'pvp_win_stars', 'pvp_win_donuts',
+                                    'pvp_refund_stars', 'pvp_refund_donuts']);
     if (pvpBannerTypes.has(entry.action_type)) return '/gifts/pvp.png';
 
     // PvP gift events — resolve the actual gift photo via [gift_id:...] tag
-    const pvpGiftTypes = new Set(['pvp_bet_gift', 'pvp_win_gift']);
+    const pvpGiftTypes = new Set(['pvp_bet_gift', 'pvp_win_gift', 'pvp_refund_gift']);
     if (pvpGiftTypes.has(entry.action_type) && entry.description) {
         const pvpMatch = entry.description.match(/\[gift_id:([^\]]+)\]/);
         if (pvpMatch) {
@@ -354,6 +364,7 @@ function _buildEntryTitle(entry) {
     const pvpTypes = new Set([
         'pvp_bet_stars', 'pvp_bet_donuts', 'pvp_bet_gift',
         'pvp_win_stars', 'pvp_win_donuts', 'pvp_win_gift',
+        'pvp_refund_stars', 'pvp_refund_donuts', 'pvp_refund_gift',
     ]);
     if (pvpTypes.has(entry.action_type) && entry.description) {
         const roundMatch   = entry.description.match(/раунд #(\d+)/);
