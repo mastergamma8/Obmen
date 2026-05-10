@@ -88,6 +88,38 @@ def _get_gift_info(gift_id: int) -> dict:
     return {}
 
 
+async def _get_live_gift_value_stars(gift_id: int, gift_info: dict) -> int:
+    """Fetch live exchange value for a gift using Portal Market pricing.
+    Mirrors the /pvp/inventory endpoint exactly so win-chance weights
+    reflect the real market value the player sees in the UI."""
+    if not _live_exchange_available:
+        return _get_gift_value_stars(gift_id)
+    try:
+        ton_to_stars = await _fetch_ton_to_stars_rate()
+
+        # TG gifts: fixed bonus formula (same as inventory + exchange handler)
+        if gift_id in config.TG_GIFTS:
+            return _get_gift_value_stars(gift_id) + 10
+
+        gift_name = gift_info.get("name", "")
+        ton_price = await _fetch_portal_floor_price_async(gift_name) if gift_name else None
+
+        if not ton_price or ton_price <= 0:
+            stored = gift_info.get("value") or gift_info.get("required_value") or 0
+            if gift_id in config.BASE_GIFTS:
+                ton_price = stored / 0.80 if stored > 0 else 0
+            else:
+                ton_price = stored / 1.20 if stored > 0 else 0
+
+        if ton_price and ton_price > 0 and ton_to_stars:
+            base_stars = max(1, int(ton_price * ton_to_stars))
+            return await _apply_exchange_bonus(base_stars)
+    except Exception as e:
+        print(f"[PvP] live gift value error for gift {gift_id}: {e}")
+
+    return _get_gift_value_stars(gift_id)
+
+
 def _player_total_stars(player: dict, donuts_rate: float = 0) -> float:
     """Суммарная стоимость ставок игрока в эквиваленте звёзд.
     donuts_rate: живой курс пончик→звёзды (1 пончик = 1 TON в звёздах);
@@ -293,7 +325,7 @@ async def get_pvp_state(current_user: dict = Depends(get_current_user)):
         state        = pvp_round["state"]
         round_id     = pvp_round["id"]
         countdown_end = pvp_round["countdown_end"]
-        winner_id    = pvp_round["winner_id"] if state == "finished" else None
+        winner_id    = pvp_round["winner_id"] if state in ("finished", "rolling") else None
         last_game    = pvp_round["last_game"]
         best_game    = pvp_round["best_game"]
         players      = _build_player_list()
@@ -318,7 +350,7 @@ async def get_pvp_state(current_user: dict = Depends(get_current_user)):
                 })
 
     winner_data = None
-    if winner_id and state == "finished":
+    if winner_id and state in ("rolling", "finished"):
         wp = pvp_round["players"].get(winner_id, {})
         winner_data = {
             "user_id": winner_id,
@@ -421,7 +453,7 @@ async def bet_gift(data: BetGiftRequest, current_user: dict = Depends(get_curren
     if not gift_info:
         raise HTTPException(400, "Подарок не найден")
 
-    value_stars = _get_gift_value_stars(gift_id)
+    value_stars = await _get_live_gift_value_stars(gift_id, gift_info)
 
     ok = await database.remove_gift_from_user(tg_id, gift_id)
     if not ok:
