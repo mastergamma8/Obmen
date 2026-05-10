@@ -364,6 +364,21 @@ async def _payout_winner(winner_id: int):
             pvp_round["best_game"],
         )
 
+        # ── Записать статистику PvP в банк (для /bankstatus) ─────────────────
+        # В PvP банк не является контрагентом — деньги движутся между игроками.
+        # Банк фиксирует объём ставок, выплат и удержанную комиссию (5%) для
+        # корректного отображения RTP, house edge и общего числа игр в /bankstatus.
+        gifts_value_stars_int = int(gifts_value_stars)
+        payout_gift_value     = int(gifts_value_stars * (1 - COMMISSION_STARS))
+        await database.bank_record_pvp_game(
+            total_stars=total_stars,
+            total_donuts=total_donuts,
+            total_gift_value=gifts_value_stars_int,
+            payout_stars=payout_stars,
+            payout_donuts=payout_donuts,
+            payout_gift_value=payout_gift_value,
+        )
+
     except Exception as e:
         print(f"[PvP] payout_winner error: {e}")
 
@@ -725,4 +740,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-    }
+        }
