@@ -256,10 +256,10 @@ function pvpInitBallFromSeed(seed, winnerId) {
         lastWall = wallIdx;
 
         let px, py;
-        if (wallIdx === 0) { px = 10 + _pvpRng()*80; py = 10; } 
-        else if (wallIdx === 1) { px = 90; py = 10 + _pvpRng()*80; } 
-        else if (wallIdx === 2) { px = 10 + _pvpRng()*80; py = 90; } 
-        else { px = 10; py = 10 + _pvpRng()*80; } 
+        if (wallIdx === 0) { px = 4 + _pvpRng()*92; py = 4; } 
+        else if (wallIdx === 1) { px = 96; py = 4 + _pvpRng()*92; } 
+        else if (wallIdx === 2) { px = 4 + _pvpRng()*92; py = 96; } 
+        else { px = 4; py = 4 + _pvpRng()*92; } 
 
         wpts.push({x: px, y: py});
     }
