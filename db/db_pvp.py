@@ -31,14 +31,19 @@ async def load_pvp_round_state() -> dict:
 
 
 async def save_pvp_round_state(round_id: int, last_game, best_game) -> None:
-    """Сохраняет состояние PvP-раунда в БД (upsert)."""
+    """Сохраняет состояние PvP-раунда в БД (upsert).
+
+    ИСПРАВЛЕНО: заменены $1/$2/$3/$4 на ? — db_async._translate_sql
+    конвертирует ? в %s (psycopg3-формат). Синтаксис $N не поддерживается
+    адаптером и вызывал ошибку «0 placeholders, 4 parameters».
+    """
     try:
         last_json = json.dumps(last_game) if last_game is not None else None
         best_json = json.dumps(best_game) if best_game is not None else None
         async with aiosqlite.connect(DB_NAME) as db:
             await db.execute("""
                 INSERT INTO game_round_state (game, round_id, last_game, best_game, updated_at)
-                VALUES ('pvp', $1, $2, $3, $4)
+                VALUES ('pvp', ?, ?, ?, ?)
                 ON CONFLICT (game) DO UPDATE SET
                     round_id   = EXCLUDED.round_id,
                     last_game  = EXCLUDED.last_game,
@@ -67,12 +72,18 @@ async def load_rocket_round_id() -> int:
 
 
 async def save_rocket_round_id(round_id: int) -> None:
-    """Сохраняет текущий round_id ракеты в БД (upsert)."""
+    """Сохраняет текущий round_id ракеты в БД (upsert).
+
+    ИСПРАВЛЕНО: заменены $1/$2 на ? — корень ошибки
+    «the query has 0 placeholders but 2 parameters were passed».
+    db_async._translate_sql конвертирует ? → %s для psycopg3,
+    но $N — нет, поэтому psycopg3 видел 0 плейсхолдеров при 2 параметрах.
+    """
     try:
         async with aiosqlite.connect(DB_NAME) as db:
             await db.execute("""
                 INSERT INTO game_round_state (game, round_id, updated_at)
-                VALUES ('rocket', $1, $2)
+                VALUES ('rocket', ?, ?)
                 ON CONFLICT (game) DO UPDATE SET
                     round_id   = EXCLUDED.round_id,
                     updated_at = EXCLUDED.updated_at
