@@ -214,48 +214,45 @@
             </div>
         </div>
 
-        <!-- Arena -->
-        <div id="pvp-arena-wrap" class="relative w-full rounded-3xl overflow-hidden border border-rose-500/30 shadow-[0_0_40px_rgba(244,63,94,0.15)]" style="height:260px;background:radial-gradient(ellipse at 60% 40%, rgba(244,63,94,0.08) 0%, #020617 70%)">
+        <!-- Arena (Квадратная область с динамическим фоном) -->
+        <div id="pvp-arena-wrap" class="relative w-full rounded-3xl overflow-hidden border-2 border-white/20 shadow-[0_0_40px_rgba(244,63,94,0.15)] aspect-square max-h-[350px] mx-auto bg-[#020617]">
+            
+            <!-- Динамический фон (Сектора) -->
+            <div id="pvp-dynamic-bg" class="absolute inset-0 transition-all duration-700 ease-out" style="background:radial-gradient(ellipse at center, rgba(244,63,94,0.08) 0%, #020617 70%)"></div>
 
-            <!-- Starfield -->
-            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 pointer-events-none"></div>
-            <!-- Grid lines -->
-            <div class="absolute inset-0 pointer-events-none" style="background:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:40px 40px"></div>
+            <!-- Звезды поверх фона -->
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 pointer-events-none z-0"></div>
 
             <!-- Pot display -->
             <div class="absolute top-3 left-0 right-0 flex justify-center z-20 pointer-events-none">
-                <div id="pvp-pot-display" class="text-xs font-black text-white/70 bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">Банк пуст</div>
+                <div id="pvp-pot-display" class="text-xs font-black text-white/80 bg-black/50 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/20 shadow-lg">Банк пуст</div>
             </div>
 
             <!-- Countdown overlay -->
-            <div id="pvp-countdown-overlay" class="hidden absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-                <div class="flex flex-col items-center">
-                    <div class="text-[9px] font-bold text-white/60 tracking-widest uppercase mb-1">До старта</div>
-                    <div id="pvp-countdown-val" class="text-7xl font-black text-transparent bg-clip-text" style="background-image:linear-gradient(135deg,#ff6b6b,#ffeaa7)">15</div>
+            <div id="pvp-countdown-overlay" class="hidden absolute inset-0 z-20 flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm">
+                <div class="flex flex-col items-center p-6 rounded-3xl border border-white/10 bg-black/60">
+                    <div class="text-xs font-bold text-white/80 tracking-widest uppercase mb-2">До старта</div>
+                    <div id="pvp-countdown-val" class="text-7xl font-black text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.6)]">15</div>
                 </div>
             </div>
 
-            <!-- Player avatars layer -->
-            <div id="pvp-arena-players" class="absolute inset-0 z-10"></div>
+            <!-- Слой для аватарок (Размещаются по кругу) -->
+            <div id="pvp-arena-players" class="absolute inset-0 z-10 pointer-events-none"></div>
 
-            <!-- Ball trail layer -->
+            <!-- Слой для следа шарика -->
             <div id="pvp-ball-trail" class="absolute inset-0 z-15 pointer-events-none"></div>
 
-            <!-- Ball -->
-            <div id="pvp-ball" class="absolute z-20 pointer-events-none" style="left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;transition:opacity 0.3s">
-                <div class="relative">
-                    <div class="w-7 h-7 rounded-full border-2 border-white" style="background:radial-gradient(circle at 35% 35%, #fff 0%, #e0e0e0 40%, #888 100%);box-shadow:0 0 18px rgba(255,255,255,0.9),0 0 40px rgba(255,255,255,0.4)"></div>
-                    <div class="absolute inset-0 rounded-full animate-spin" style="background:conic-gradient(rgba(255,255,255,0.3) 0deg, transparent 120deg, rgba(255,255,255,0.2) 240deg);animation-duration:0.4s"></div>
-                </div>
+            <!-- Центральный объект (Алмаз) -->
+            <div id="pvp-ball" class="absolute z-20 pointer-events-none flex items-center justify-center w-20 h-20" style="left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;transition:opacity 0.3s">
+                <img src="/gifts/diamond.png" onerror="this.src='https://cdn3.emoji.gg/emojis/8468-diamond.png'; this.style.width='50px';" id="pvp-diamond-img" class="w-full h-full object-contain drop-shadow-[0_0_25px_rgba(255,255,255,0.9)] transition-transform">
             </div>
 
             <!-- Winner overlay -->
-            <div id="pvp-winner-overlay" class="hidden absolute inset-0 z-30 flex items-center justify-center" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(8px)">
-            </div>
+            <div id="pvp-winner-overlay" class="hidden absolute inset-0 z-30 flex items-center justify-center" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(8px)"></div>
         </div>
 
         <!-- Bet panel -->
-        <div id="pvp-bet-panel" class="glass rounded-3xl border border-white/10 overflow-hidden">
+        <div id="pvp-bet-panel" class="glass rounded-3xl border border-white/10 overflow-hidden mt-2">
             <!-- Tabs -->
             <div class="flex border-b border-white/5">
                 <button id="pvp-tab-stars"  onclick="pvpSwitchBetTab('stars')"  class="pvp-tab-active flex-1 py-2.5 text-xs font-black text-white tracking-wide transition-colors">⭐ Звёзды</button>
@@ -343,4 +340,4 @@
             <!-- Рендерится через JS -->
         </div>
     </div>
-    </div>
+</div>
