@@ -414,7 +414,7 @@ function _pvpAvatarSize(normalizedChance, numPlayers) {
     // Single player → large centered avatar
     if (numPlayers <= 1) return 86;
     // Scale linearly: 0% bet → minPx, 100% of all bets → maxPx
-    const minPx = 18, maxPx = 86;
+    const minPx = 15, maxPx = 92;
     const size = minPx + (normalizedChance / 100) * (maxPx - minPx);
     return Math.max(minPx, Math.min(maxPx, Math.round(size)));
 }
