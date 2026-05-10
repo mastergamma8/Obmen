@@ -256,30 +256,27 @@ function animatePvpBall() {
         pvpBallPos.y = basePos.y;
     }
 
-    const ball    = document.getElementById('pvp-ball');
-    const diamond = document.getElementById('pvp-diamond-img');
+    const ball = document.getElementById('pvp-ball');
 
     if (ball) {
         ball.style.left    = pvpBallPos.x + '%';
         ball.style.top     = pvpBallPos.y + '%';
         ball.style.opacity = '1';
     }
-    if (diamond) {
-        diamond.style.transform = `rotate(${elapsed * 0.3}deg)`;
-    }
 
-    // Contained zoom on arena (clipped by overflow:hidden parent)
-    const arenaPlayers = document.getElementById('pvp-arena-players');
-    if (arenaPlayers) {
+    // Zoom the entire arena (wrap) so background + avatars + ball all scale together,
+    // centred on the ball's current position.
+    const arenaWrap = document.getElementById('pvp-arena-wrap');
+    if (arenaWrap) {
         if (progress > 0.80) {
             const zoomT = (progress - 0.80) / 0.20;
-            const scale = 1 + zoomT * 0.40;
-            arenaPlayers.style.transform       = `scale(${scale.toFixed(3)})`;
-            arenaPlayers.style.transformOrigin = `${pvpBallPos.x}% ${pvpBallPos.y}%`;
-            arenaPlayers.style.transition      = 'transform 0.12s ease-out';
+            const scale = 1 + zoomT * 0.45;
+            arenaWrap.style.transform       = `scale(${scale.toFixed(3)})`;
+            arenaWrap.style.transformOrigin = `${pvpBallPos.x}% ${pvpBallPos.y}%`;
+            arenaWrap.style.transition      = 'transform 0.12s ease-out';
         } else {
-            arenaPlayers.style.transform  = '';
-            arenaPlayers.style.transition = '';
+            arenaWrap.style.transform  = '';
+            arenaWrap.style.transition = '';
         }
     }
 
@@ -289,9 +286,10 @@ function animatePvpBall() {
         pvpBallAnimFrame = requestAnimationFrame(animatePvpBall);
     } else {
         pvpBallAnimFrame = null;
-        if (arenaPlayers) {
-            arenaPlayers.style.transition = 'transform 0.5s ease-in-out';
-            arenaPlayers.style.transform  = '';
+        const arenaWrap = document.getElementById('pvp-arena-wrap');
+        if (arenaWrap) {
+            arenaWrap.style.transition = 'transform 0.5s ease-in-out';
+            arenaWrap.style.transform  = '';
         }
         // Ball reached winner — trigger reveal immediately without waiting for poll
         if (pvpState.winner && !pvpWinnerRevealed) {
@@ -748,7 +746,6 @@ function getPvpWinnerSegmentCenter(winnerId) {
 
 function animatePvpBallToTarget(target, callback) {
     const ball = document.getElementById('pvp-ball');
-    const diamond = document.getElementById('pvp-diamond-img');
     if (!ball) { if (callback) callback(); return; }
 
     ball.style.opacity = '1';
@@ -762,12 +759,6 @@ function animatePvpBallToTarget(target, callback) {
     ball.style.top        = midY + '%';
 
     setTimeout(() => {
-        // Остановка вращения алмаза и прицеливание
-        if (diamond) {
-            diamond.style.transition = 'transform 0.4s cubic-bezier(0.22,1,0.36,1)';
-            diamond.style.transform = 'rotate(0deg) scale(1.1)';
-        }
-
         ball.style.transition = 'left 0.55s cubic-bezier(0.22,1,0.36,1), top 0.55s cubic-bezier(0.22,1,0.36,1), transform 0.4s ease';
         ball.style.transform  = 'translate(-50%,-50%) scale(0.9)'; // Чуть уменьшается на аватарке
         ball.style.left       = target.x + '%';
@@ -850,4 +841,4 @@ function spawnPvpConfetti() {
 
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
+                }
