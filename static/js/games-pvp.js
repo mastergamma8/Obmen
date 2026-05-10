@@ -30,6 +30,17 @@ const PVP_ROLLING_DURATION = 6500;
 
 const pvpAvatarCache = {};
 
+// ─── Render-hash guards ───────────────────────────────────────
+// Each render function stores a "content hash" of its input data.
+// If the hash hasn't changed since the last render, the function
+// skips the innerHTML rebuild entirely — CSS animations on existing
+// DOM elements are therefore never reset by polling, which was the
+// root cause of the "everything pulses/restarts every 600ms" bug.
+let _pvpArenaHash     = '';
+let _pvpStatusHash    = '';
+let _pvpTopBarHash    = '';
+let _pvpPartsHash     = '';
+
 // ─── i18n helper ──────────────────────────────────────────────
 function _pvpT(key, fallback) {
     const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
@@ -122,6 +133,11 @@ function applyPvpState(data) {
         pvpWinnerRevealed = false;
         pvpBallTrail      = [];
         pvpTrajectorySegments = [];
+        // New round — force all render functions to rebuild their DOM
+        _pvpArenaHash  = '';
+        _pvpStatusHash = '';
+        _pvpTopBarHash = '';
+        _pvpPartsHash  = '';
     }
 
     if (data.state === 'rolling' && (prevState !== 'rolling' || !pvpBallAnimFrame)) {
@@ -407,6 +423,16 @@ function renderPvpArena() {
     const container = document.getElementById('pvp-arena-players');
     const bg = document.getElementById('pvp-dynamic-bg');
     if (!container || !bg) return;
+
+    // Skip DOM rebuild if nothing relevant has changed — prevents CSS
+    // animations (orbit rings, waiting dots) from restarting every poll.
+    const players = pvpState.players || [];
+    const arenaHash = pvpState.state + '|' + pvpState.round_id + '|' +
+        players.map(p => p.user_id + ':' + p.win_chance.toFixed(2) + ':' + p.color).join(',') +
+        '|winner:' + (pvpState.winner?.user_id ?? 'none');
+    if (arenaHash === _pvpArenaHash) return;
+    _pvpArenaHash = arenaHash;
+
     container.innerHTML = '';
 
     const players = pvpState.players || [];
@@ -519,6 +545,11 @@ function renderPvpTopBar() {
     const last = pvpState.last_game;
     const best = pvpState.best_game;
 
+    // Skip DOM rebuild when last/best game data hasn't changed
+    const topBarHash = JSON.stringify({ l: last, b: best });
+    if (topBarHash === _pvpTopBarHash) return;
+    _pvpTopBarHash = topBarHash;
+
     const lastEl = document.getElementById('pvp-last-game');
     const bestEl = document.getElementById('pvp-best-game');
     const starIco = _pvpStarIcon(10);
@@ -571,7 +602,18 @@ function updatePvpStatus() {
     const starIco  = _pvpStarIcon(14);
     const donutIco = _pvpDonutIcon(14);
 
-    if (statusEl) {
+    // Skip status + pot rebuild when nothing has changed.
+    // This is the primary fix for the "animate-pulse dot restarts every 600ms" bug:
+    // the dot element was being recreated on every poll even when state didn't change.
+    const p = pvpState.pot;
+    const statusHash = pvpState.state + '|' + (p?.stars||0) + '|' + (p?.donuts||0) + '|' + (p?.gifts||0) + '|' +
+        JSON.stringify(p?.gift_previews||[]) + '|winner:' + (pvpState.winner?.user_id ?? 'none');
+    const skipStatusRebuild = (statusHash === _pvpStatusHash);
+    if (!skipStatusRebuild) {
+        _pvpStatusHash = statusHash;
+    }
+
+    if (statusEl && !skipStatusRebuild) {
         const s = pvpState.state;
         if (s === 'waiting') {
             // Compact "waiting" indicator — small to fit in the header
@@ -606,7 +648,7 @@ function updatePvpStatus() {
         }
     }
 
-    if (potEl) {
+    if (potEl && !skipStatusRebuild) {
         const p = pvpState.pot;
         let html = '';
 
@@ -653,6 +695,14 @@ function renderPvpParticipants() {
     if (!list) return;
 
     const players = pvpState.players || [];
+
+    // Skip rebuild if player list + winner state unchanged
+    const partsHash = pvpState.state + '|' + pvpState.round_id + '|' +
+        players.map(p => p.user_id + ':' + p.win_chance.toFixed(2) + ':' + (p.stars_bet||0) + ':' + (p.donuts_bet||0)).join(',') +
+        '|winner:' + (pvpState.winner?.user_id ?? 'none');
+    if (partsHash === _pvpPartsHash) return;
+    _pvpPartsHash = partsHash;
+
     if (cnt) cnt.textContent = players.length;
 
     if (players.length === 0) {
