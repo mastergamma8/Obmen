@@ -53,6 +53,34 @@ PLAYER_COLORS = [
 
 _lock = asyncio.Lock()
 
+# ─────────────────────────────────────────────────────────────
+# КЭШИРОВАННЫЙ ЖИВОЙ КУРС ПОНЧИК → ЗВЁЗДЫ
+# ─────────────────────────────────────────────────────────────
+
+_cached_live_donuts_rate: float = 0.0
+_cached_rate_timestamp: float = 0.0
+DONUTS_RATE_CACHE_TTL: float = 30.0  # обновляем каждые 30 секунд
+
+
+async def _get_live_donuts_to_stars_rate() -> float:
+    """Возвращает актуальный курс 1 TON (= 1 пончик) → звёзды.
+    Данные берутся из того же API, что и в разделе обмена.
+    При недоступности API возвращает config.DONUTS_TO_STARS_RATE."""
+    global _cached_live_donuts_rate, _cached_rate_timestamp
+    now = time.time()
+    if _live_exchange_available and (
+        now - _cached_rate_timestamp > DONUTS_RATE_CACHE_TTL
+        or _cached_live_donuts_rate <= 0
+    ):
+        try:
+            rate = await _fetch_ton_to_stars_rate()
+            if rate and rate > 0:
+                _cached_live_donuts_rate = float(rate)
+                _cached_rate_timestamp = now
+        except Exception as e:
+            print(f"[PvP] failed to fetch live donut rate: {e}")
+    return _cached_live_donuts_rate if _cached_live_donuts_rate > 0 else config.DONUTS_TO_STARS_RATE
+
 pvp_round: Dict[str, Any] = {
     "id":            0,
     "state":         "waiting",   # waiting | countdown | rolling | finished
@@ -136,11 +164,11 @@ def _player_total_stars(player: dict, donuts_rate: float = 0) -> float:
     return total
 
 
-def _build_player_list() -> list:
-    total_pot = sum(_player_total_stars(p) for p in pvp_round["players"].values())
+def _build_player_list(donuts_rate: float = 0.0) -> list:
+    total_pot = sum(_player_total_stars(p, donuts_rate) for p in pvp_round["players"].values())
     result = []
     for uid, player in pvp_round["players"].items():
-        ps = _player_total_stars(player)
+        ps = _player_total_stars(player, donuts_rate)
         win_chance = (ps / total_pot * 100) if total_pot > 0 else 0
         result.append({
             "user_id":    uid,
@@ -157,9 +185,10 @@ def _build_player_list() -> list:
 
 
 async def _determine_winner() -> Optional[int]:
-    """Случайный выбор победителя с весами по стоимости ставок."""
+    """Случайный выбор победителя с весами по стоимости ставок (живой курс пончиков)."""
+    live_rate = await _get_live_donuts_to_stars_rate()
     weights = {
-        uid: _player_total_stars(player)
+        uid: _player_total_stars(player, live_rate)
         for uid, player in pvp_round["players"].items()
     }
     valid = {k: v for k, v in weights.items() if v > 0}
@@ -321,6 +350,9 @@ async def pvp_round_manager():
 
 @router.get("/state")
 async def get_pvp_state(current_user: dict = Depends(get_current_user)):
+    # Fetch live donut→stars rate BEFORE acquiring the lock (network call)
+    live_rate = await _get_live_donuts_to_stars_rate()
+
     async with _lock:
         state        = pvp_round["state"]
         round_id     = pvp_round["id"]
@@ -328,7 +360,7 @@ async def get_pvp_state(current_user: dict = Depends(get_current_user)):
         winner_id    = pvp_round["winner_id"] if state in ("finished", "rolling") else None
         last_game    = pvp_round["last_game"]
         best_game    = pvp_round["best_game"]
-        players      = _build_player_list()
+        players      = _build_player_list(live_rate)
 
     time_left = max(0.0, countdown_end - time.time()) if countdown_end > 0 else 0.0
     total_stars  = sum(p.get("stars_bet", 0) for p in players)
