@@ -101,6 +101,24 @@ async def deduct_balance(user_id: int, amount: float) -> bool:
 # РУЛЕТКА — ТАЙМЕР И УВЕДОМЛЕНИЯ
 # ==========================================
 
+async def claim_free_spin_atomic(user_id: int, timestamp: int, cooldown: int = 86400) -> bool:
+    """Атомарно резервирует бесплатный спин рулетки.
+
+    Делает UPDATE с условием WHERE (? - last_free_spin) >= cooldown.
+    Возвращает True если строка обновлена (кулдаун прошёл),
+    False если кулдаун ещё не истёк или UPDATE ничего не затронул.
+    Это исключает race condition: два одновременных запроса не могут
+    оба пройти проверку, т.к. UPDATE атомарен на уровне БД.
+    """
+    async with aiosqlite.connect(DB_NAME) as db:
+        cur = await db.execute(
+            "UPDATE users SET last_free_spin = ?, notified_free_spin = 0, last_notified_free_spin = ? "
+            "WHERE tg_id = ? AND (? - last_free_spin) >= ?",
+            (timestamp, timestamp, user_id, timestamp, cooldown)
+        )
+        await db.commit()
+        return cur.rowcount == 1
+
 async def update_last_free_spin(user_id: int, timestamp: int):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
@@ -145,6 +163,22 @@ async def get_last_free_case(user_id: int) -> int:
         ) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else 0
+
+async def claim_free_case_atomic(user_id: int, timestamp: int, cooldown: int) -> bool:
+    """Атомарно резервирует бесплатный кейс.
+
+    Делает UPDATE с условием WHERE (? - last_free_case) >= cooldown.
+    Возвращает True если строка обновлена (кулдаун прошёл), иначе False.
+    Исключает race condition двойного открытия.
+    """
+    async with aiosqlite.connect(DB_NAME) as db:
+        cur = await db.execute(
+            "UPDATE users SET last_free_case = ?, notified_free_case = 0, last_notified_free_case = ? "
+            "WHERE tg_id = ? AND (? - last_free_case) >= ?",
+            (timestamp, timestamp, user_id, timestamp, cooldown)
+        )
+        await db.commit()
+        return cur.rowcount == 1
 
 async def update_last_free_case(user_id: int, timestamp: int):
     async with aiosqlite.connect(DB_NAME) as db:
