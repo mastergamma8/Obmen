@@ -412,7 +412,7 @@ function renderPvpTrail() {
 
 function _pvpAvatarSize(normalizedChance, numPlayers) {
     // Single player → large centered avatar
-    if (numPlayers <= 1) return 86;
+    if (numPlayers <= 1) return 92;
     // Scale linearly: 0% bet → minPx, 100% of all bets → maxPx
     const minPx = 15, maxPx = 92;
     const size = minPx + (normalizedChance / 100) * (maxPx - minPx);
