@@ -27,7 +27,15 @@ _SPEND_ACTION_TYPES = (
     'roulette_paid_donuts', 'roulette_paid_stars',
     'rocket_lose_donuts', 'rocket_lose_stars',
     'claim_gift',
+    # PvP: ставки (списываются в момент входа в раунд)
+    'pvp_bet_donuts', 'pvp_bet_stars', 'pvp_bet_gift',
 )
+
+# Типы ставок PvP, номинированные в звёздах (для разбивки donuts/stars)
+_STAR_SPEND_TYPES = frozenset({
+    'case_paid_stars', 'roulette_paid_stars', 'rocket_lose_stars',
+    'pvp_bet_stars', 'pvp_bet_gift',
+})
 
 _SPEND_TYPES_PLACEHOLDER = ','.join('?' * len(_SPEND_ACTION_TYPES))
 
@@ -40,6 +48,8 @@ async def get_leaderboard():
     """Транжиры: топ по суммарным тратам за текущую неделю.
     Включает всех пользователей, даже с нулевыми тратами."""
     week_start = _get_week_start_ts()
+    _star_types_placeholder = ','.join('?' * len(_STAR_SPEND_TYPES))
+    star_types_list = list(_STAR_SPEND_TYPES)
     async with aiosqlite.connect(DB_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(f"""
@@ -49,10 +59,10 @@ async def get_leaderboard():
                 u.first_name,
                 u.photo_url,
                 COALESCE(ABS(SUM(CASE
-                    WHEN h.action_type NOT IN ('case_paid_stars','roulette_paid_stars','rocket_lose_stars')
+                    WHEN h.action_type NOT IN ({_star_types_placeholder})
                     THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
                 COALESCE(ABS(SUM(CASE
-                    WHEN h.action_type IN ('case_paid_stars','roulette_paid_stars','rocket_lose_stars')
+                    WHEN h.action_type IN ({_star_types_placeholder})
                     THEN h.amount ELSE 0 END)), 0) AS stars_spent
             FROM users u
             LEFT JOIN user_history h
@@ -63,7 +73,7 @@ async def get_leaderboard():
             GROUP BY u.tg_id
             ORDER BY COALESCE(ABS(SUM(h.amount)), 0) DESC
             LIMIT 50
-        """, (week_start, *_SPEND_ACTION_TYPES)) as cursor:
+        """, (*star_types_list, *star_types_list, week_start, *_SPEND_ACTION_TYPES)) as cursor:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
@@ -140,16 +150,18 @@ async def get_user_rich_rank(tg_id: int) -> dict:
             rank = (cnt_row["cnt"] + 1) if cnt_row else 1
 
         # Разбивка по пончикам и звёздам
+        _star_types_placeholder = ','.join('?' * len(_STAR_SPEND_TYPES))
+        star_types_list = list(_STAR_SPEND_TYPES)
         async with db.execute(f"""
             SELECT
-                COALESCE(ABS(SUM(CASE WHEN action_type NOT IN ('case_paid_stars','roulette_paid_stars','rocket_lose_stars')
+                COALESCE(ABS(SUM(CASE WHEN action_type NOT IN ({_star_types_placeholder})
                              THEN amount ELSE 0 END)), 0) AS donuts_spent,
-                COALESCE(ABS(SUM(CASE WHEN action_type IN ('case_paid_stars','roulette_paid_stars','rocket_lose_stars')
+                COALESCE(ABS(SUM(CASE WHEN action_type IN ({_star_types_placeholder})
                              THEN amount ELSE 0 END)), 0) AS stars_spent
             FROM user_history
             WHERE user_id = ? AND created_at >= ? AND amount < 0
               AND action_type IN ({_SPEND_TYPES_PLACEHOLDER})
-        """, (tg_id, week_start, *_SPEND_ACTION_TYPES)) as cursor:
+        """, (*star_types_list, *star_types_list, tg_id, week_start, *_SPEND_ACTION_TYPES)) as cursor:
             spend_row = await cursor.fetchone()
 
     return {
