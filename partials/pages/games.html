@@ -217,12 +217,25 @@
         <!-- Arena (Квадратная область с динамическим фоном) -->
         <div id="pvp-arena-wrap" class="relative w-full rounded-3xl overflow-hidden border-2 border-white/20 shadow-[0_0_40px_rgba(244,63,94,0.15)] aspect-square max-h-[350px] mx-auto bg-[#020617]">
             
+        <!-- ── Всё, что должно масштабироваться при зуме, — внутри этого контейнера ── -->
+            <div id="pvp-arena-inner" class="absolute inset-0" style="z-index:0;">
             <!-- Динамический фон (Сектора) -->
             <div id="pvp-dynamic-bg" class="absolute inset-0 transition-all duration-700 ease-out" style="background:radial-gradient(ellipse at center, rgba(244,63,94,0.08) 0%, #020617 70%)"></div>
 
             <!-- Звезды поверх фона -->
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 pointer-events-none z-0"></div>
 
+            <!-- Слой для аватарок (Размещаются по кругу) -->
+            <div id="pvp-arena-players" class="absolute inset-0 z-10 pointer-events-none"></div>
+
+            <!-- Слой для следа шарика -->
+            <div id="pvp-ball-trail" class="absolute inset-0 z-[15] pointer-events-none"></div>
+
+            <!-- Белый шарик -->
+            <div id="pvp-ball" class="absolute z-20 pointer-events-none" style="left:50%;top:50%;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);opacity:0;transition:opacity 0.3s;background:#fff;box-shadow:0 0 16px 4px rgba(255,255,255,0.85),0 0 32px 8px rgba(255,255,255,0.35);"></div>
+            </div><!-- /pvp-arena-inner -->
+
+            <!-- ── UI-слои поверх зумированного контента (не масштабируются) ── -->
             <!-- Pot display -->
             <div class="absolute top-3 left-0 right-0 flex justify-center z-20 pointer-events-none">
                 <div id="pvp-pot-display" class="text-xs font-black text-white/80 bg-black/50 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/20 shadow-lg">Банк пуст</div>
@@ -235,15 +248,6 @@
                     <div id="pvp-countdown-val" class="text-7xl font-black text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.6)]">15</div>
                 </div>
             </div>
-
-            <!-- Слой для аватарок (Размещаются по кругу) -->
-            <div id="pvp-arena-players" class="absolute inset-0 z-10 pointer-events-none"></div>
-
-            <!-- Слой для следа шарика -->
-            <div id="pvp-ball-trail" class="absolute inset-0 z-15 pointer-events-none"></div>
-
-            <!-- Белый шарик -->
-            <div id="pvp-ball" class="absolute z-20 pointer-events-none" style="left:50%;top:50%;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);opacity:0;transition:opacity 0.3s;background:#fff;box-shadow:0 0 16px 4px rgba(255,255,255,0.85),0 0 32px 8px rgba(255,255,255,0.35);"></div>
 
             <!-- Winner overlay -->
             <div id="pvp-winner-overlay" class="hidden absolute inset-0 z-30 flex items-center justify-center" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(8px)"></div>
