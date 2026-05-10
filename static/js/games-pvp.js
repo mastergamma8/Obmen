@@ -412,9 +412,9 @@ function renderPvpTrail() {
 
 function _pvpAvatarSize(normalizedChance, numPlayers) {
     // Single player → large centered avatar
-    if (numPlayers <= 1) return 68;
+    if (numPlayers <= 1) return 86;
     // Scale linearly: 0% bet → minPx, 100% of all bets → maxPx
-    const minPx = 26, maxPx = 62;
+    const minPx = 18, maxPx = 86;
     const size = minPx + (normalizedChance / 100) * (maxPx - minPx);
     return Math.max(minPx, Math.min(maxPx, Math.round(size)));
 }
@@ -998,4 +998,4 @@ function spawnPvpConfetti() {
 
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-            }
+        }
