@@ -97,6 +97,13 @@ from db.db_rocket import (  # noqa: F401
     rocket_end_game,
 )
 
+from db.db_pvp import (  # noqa: F401
+    load_pvp_round_state,
+    save_pvp_round_state,
+    load_rocket_round_id,
+    save_rocket_round_id,
+)
+
 from db.db_promos import (  # noqa: F401
     create_promo_code,
     delete_promo_code,
