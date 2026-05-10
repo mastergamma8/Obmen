@@ -499,7 +499,7 @@ function renderPvpTopBar() {
             const valStr = _formatGameStars(last);
             lastEl.innerHTML = `
                 <div class="flex items-center gap-1.5">
-                    <span class="text-white/40 text-[9px] font-bold uppercase tracking-wide" data-i18n="pvp_last_game">Последняя</span>
+                    <span class="text-white/40 text-[9px] font-bold uppercase tracking-wide" data-i18n="pvp_last_game">${_pvpT('pvp_last_game','Last')}</span>
                 </div>
                 <div class="flex items-center gap-1.5 mt-0.5">
                     ${last.avatar ? `<img src="${last.avatar}" class="w-5 h-5 rounded-full object-cover" onerror="this.style.display='none'">` : ''}
@@ -508,7 +508,7 @@ function renderPvpTopBar() {
                 </div>
             `;
         } else {
-            lastEl.innerHTML = `<span class="text-white/20 text-[9px]" data-i18n="pvp_no_data">Нет данных</span>`;
+            lastEl.innerHTML = `<span class="text-white/20 text-[9px]" data-i18n="pvp_no_data">${_pvpT('pvp_no_data','No data')}</span>`;
         }
     }
 
@@ -517,7 +517,7 @@ function renderPvpTopBar() {
             const valStr = _formatGameStars(best);
             bestEl.innerHTML = `
                 <div class="flex items-center gap-1.5">
-                    ${_pvpTrophyIcon(12)} <span class="text-amber-400/60 text-[9px] font-bold uppercase tracking-wide" data-i18n="pvp_best_game">Лучшая</span>
+                    ${_pvpTrophyIcon(12)} <span class="text-amber-400/60 text-[9px] font-bold uppercase tracking-wide" data-i18n="pvp_best_game">${_pvpT('pvp_best_game','Best')}</span>
                 </div>
                 <div class="flex items-center gap-1.5 mt-0.5">
                     ${best.avatar ? `<img src="${best.avatar}" class="w-5 h-5 rounded-full object-cover" onerror="this.style.display='none'">` : ''}
@@ -526,7 +526,7 @@ function renderPvpTopBar() {
                 </div>
             `;
         } else {
-            bestEl.innerHTML = `<span class="text-white/20 text-[9px]" data-i18n="pvp_no_data">Нет данных</span>`;
+            bestEl.innerHTML = `<span class="text-white/20 text-[9px]" data-i18n="pvp_no_data">${_pvpT('pvp_no_data','No data')}</span>`;
         }
     }
 }
@@ -554,17 +554,17 @@ function updatePvpStatus() {
                 </span>`;
             statusEl.className = 'flex items-center mt-0.5';
         } else if (s === 'countdown') {
-            statusEl.innerHTML = `<span class="text-green-300 font-bold text-xs tracking-wide" data-i18n="pvp_accepting_bets">Приём ставок</span>`;
+            statusEl.innerHTML = `<span class="text-green-300 font-bold text-xs tracking-wide" data-i18n="pvp_accepting_bets">${_pvpT('pvp_accepting_bets','Accepting Bets')}</span>`;
             statusEl.className = 'text-[10px] text-white/50 font-bold tracking-wide mt-1';
         } else if (s === 'rolling') {
             statusEl.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#a78bfa" style="display:inline-block;vertical-align:middle">
                     <path d="M12 2L9 9H2l5.5 4-2 7L12 16l6.5 4-2-7L22 9h-7z"/>
                 </svg>
-                <span class="text-purple-300 font-bold text-xs ml-1" data-i18n="pvp_rolling">Выбираем победителя...</span>`;
+                <span class="text-purple-300 font-bold text-xs ml-1" data-i18n="pvp_rolling">${_pvpT('pvp_rolling','Choosing winner...')}</span>`;
             statusEl.className = 'text-[10px] text-white/50 font-bold tracking-wide mt-1 flex items-center';
         } else if (s === 'finished') {
-            statusEl.innerHTML = `${_pvpTrophyIcon(12)} <span class="text-amber-300 font-bold text-xs ml-1" data-i18n="pvp_winner_found">Победитель определён!</span>`;
+            statusEl.innerHTML = `${_pvpTrophyIcon(12)} <span class="text-amber-300 font-bold text-xs ml-1" data-i18n="pvp_winner_found">${_pvpT('pvp_winner_found','Winner found!')}</span>`;
             statusEl.className = 'text-[10px] text-white/50 font-bold tracking-wide mt-1 flex items-center';
         }
     }
@@ -623,7 +623,7 @@ function renderPvpParticipants() {
     if (cnt) cnt.textContent = players.length;
 
     if (players.length === 0) {
-        list.innerHTML = `<p class="text-center text-white/30 text-xs py-3" data-i18n="pvp_no_participants">Пока нет участников</p>`;
+        list.innerHTML = `<p class="text-center text-white/30 text-xs py-3" data-i18n="pvp_no_participants">${_pvpT('pvp_no_participants','No participants yet')}</p>`;
         return;
     }
 
@@ -669,7 +669,7 @@ function renderPvpParticipants() {
                 </div>
                 <div class="text-right flex-shrink-0">
                     <div class="text-xs font-black" style="color:${p.color}">${p.win_chance.toFixed(1)}%</div>
-                    <div class="text-[9px] text-white/40" data-i18n="pvp_chance">шанс</div>
+                    <div class="text-[9px] text-white/40" data-i18n="pvp_chance">${_pvpT('pvp_chance','chance')}</div>
                 </div>
             </div>
         `;
@@ -707,7 +707,7 @@ function renderPvpInventory() {
     if (!grid) return;
 
     if (pvpInventory.length === 0) {
-        grid.innerHTML = `<p class="col-span-3 text-center text-white/30 text-xs py-4" data-i18n="pvp_inventory_empty">Инвентарь пуст</p>`;
+        grid.innerHTML = `<p class="col-span-3 text-center text-white/30 text-xs py-4" data-i18n="pvp_inventory_empty">${_pvpT('pvp_inventory_empty','Inventory is empty')}</p>`;
         return;
     }
 
@@ -871,7 +871,7 @@ function showPvpWinnerReveal(winner) {
                 }
             </div>
             <div class="text-xl font-black text-white">${escHtml(winner.name)}</div>
-            <div class="text-sm text-white/60" data-i18n="pvp_winner_takes">забирает весь банк!</div>
+            <div class="text-sm text-white/60" data-i18n="pvp_winner_takes">${_pvpT('pvp_winner_takes','takes the entire bank!')}</div>
             <div class="flex gap-2 flex-wrap justify-center mt-1">
                 ${potStr.map(s => `<span class="px-3 py-1 rounded-full text-sm font-black border border-white/20 bg-white/10 text-white flex items-center gap-1">${s}</span>`).join('')}
             </div>
