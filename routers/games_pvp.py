@@ -43,6 +43,8 @@ MIN_BET_DONUTS  = 0.1
 COMMISSION_STARS  = 0.05    # 5% комиссия на звёзды
 COMMISSION_DONUTS = 0.05    # 5% комиссия на пончики
 
+SOLO_TIMEOUT = 300.0        # 5 минут ожидания соперника, затем возврат ставок
+
 PLAYER_COLORS = [
     "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4",
     "#FFEAA7", "#DDA0DD", "#98D8C8", "#F0A500",
@@ -97,6 +99,7 @@ pvp_round: Dict[str, Any] = {
     "last_game":     None,
     "best_game":     None,
     "_color_idx":    0,
+    "first_bet_at":  0.0,         # unix timestamp первой ставки; 0 = раунд пустой
 }
 
 
@@ -386,6 +389,9 @@ async def _payout_winner(winner_id: int):
 def _ensure_player(user_id: int, user_info: dict):
     """Добавляет игрока в раунд если ещё не участвует (вызывать под локом)."""
     if user_id not in pvp_round["players"]:
+        # Фиксируем время первой ставки в раунде для отсчёта таймаута.
+        if not pvp_round["players"]:
+            pvp_round["first_bet_at"] = time.time()
         idx = pvp_round["_color_idx"] % len(PLAYER_COLORS)
         pvp_round["_color_idx"] += 1
         pvp_round["players"][user_id] = {
@@ -394,6 +400,43 @@ def _ensure_player(user_id: int, user_info: dict):
             "color":  PLAYER_COLORS[idx],
             "bets":   [],
         }
+
+
+# ─────────────────────────────────────────────────────────────
+# ВОЗВРАТ СТАВОК ПРИ ТАЙМАУТЕ
+# ─────────────────────────────────────────────────────────────
+
+async def _cancel_and_refund(players_snapshot: dict, round_id: int):
+    """Возвращает все ставки игрокам если раунд отменён по таймауту.
+    Принимает снимок players на момент отмены, чтобы не зависеть от
+    состояния pvp_round после сброса (вызывается через create_task)."""
+    try:
+        for uid, player in players_snapshot.items():
+            for bet in player["bets"]:
+                if bet["type"] == "stars":
+                    await database.add_stars_to_user(uid, bet["amount"])
+                    await database.add_history_entry(
+                        uid, "pvp_refund_stars",
+                        f"Возврат ставки Space PvP (раунд #{round_id}, нет соперников)",
+                        bet["amount"],
+                    )
+                elif bet["type"] == "donuts":
+                    await database.add_points_to_user(uid, bet["amount"])
+                    await database.add_history_entry(
+                        uid, "pvp_refund_donuts",
+                        f"Возврат ставки Space PvP — пончики (раунд #{round_id}, нет соперников)",
+                        bet["amount"],
+                    )
+                elif bet["type"] == "gift":
+                    await database.add_gift_to_user(uid, bet["gift_id"], 1)
+                    await database.add_history_entry(
+                        uid, "pvp_refund_gift",
+                        f"Возврат подарка Space PvP (раунд #{round_id}) [gift_id:{bet['gift_id']}]",
+                        bet.get("value_stars", 1),
+                    )
+        print(f"[PvP] Раунд #{round_id} отменён по таймауту, ставки возвращены.")
+    except Exception as e:
+        print(f"[PvP] _cancel_and_refund error: {e}")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -421,6 +464,24 @@ async def pvp_round_manager():
                     if len(pvp_round["players"]) >= 2 and pvp_round["state"] == "waiting":
                         pvp_round["state"]        = "countdown"
                         pvp_round["countdown_end"] = time.time() + COUNTDOWN_DURATION
+
+                    # Таймаут одиночного игрока: никто не присоединился за 5 минут —
+                    # отменяем раунд и возвращаем все ставки.
+                    elif (
+                        pvp_round["players"]
+                        and pvp_round["first_bet_at"] > 0
+                        and time.time() - pvp_round["first_bet_at"] >= SOLO_TIMEOUT
+                        and pvp_round["state"] == "waiting"
+                    ):
+                        players_snapshot = dict(pvp_round["players"])
+                        round_id         = pvp_round["id"]
+                        # Сбрасываем раунд до запуска возврата, чтобы
+                        # новые ставки не смешались с возвращаемыми.
+                        pvp_round["id"]           += 1
+                        pvp_round["players"]       = {}
+                        pvp_round["first_bet_at"]  = 0.0
+                        pvp_round["_color_idx"]    = 0
+                        asyncio.create_task(_cancel_and_refund(players_snapshot, round_id))
                 await asyncio.sleep(0.5)
 
             elif state == "countdown":
@@ -475,6 +536,7 @@ async def pvp_round_manager():
                             pvp_round["ball_target_y"] = 50.0
                             pvp_round["players"]       = {}
                             pvp_round["winner_id"]     = None
+                            pvp_round["first_bet_at"]  = 0.0
                             pvp_round["_color_idx"]    = 0
                 await asyncio.sleep(0.5)
 
@@ -740,4 +802,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-        }
+                  }
