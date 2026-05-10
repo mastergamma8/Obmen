@@ -481,6 +481,13 @@ async def pvp_round_manager():
                         pvp_round["players"]       = {}
                         pvp_round["first_bet_at"]  = 0.0
                         pvp_round["_color_idx"]    = 0
+                        # Сохраняем новый round_id немедленно — при деплое
+                        # восстановится актуальный номер, а не старый.
+                        await database.save_pvp_round_state(
+                            pvp_round["id"],
+                            pvp_round["last_game"],
+                            pvp_round["best_game"],
+                        )
                         asyncio.create_task(_cancel_and_refund(players_snapshot, round_id))
                 await asyncio.sleep(0.5)
 
@@ -538,6 +545,15 @@ async def pvp_round_manager():
                             pvp_round["winner_id"]     = None
                             pvp_round["first_bet_at"]  = 0.0
                             pvp_round["_color_idx"]    = 0
+                            # ИСПРАВЛЕНИЕ: сохраняем инкрементированный round_id сразу
+                            # после перехода finished→waiting, иначе после деплоя
+                            # восстанавливается старый id из _payout_winner и раунд
+                            # повторяется заново.
+                            await database.save_pvp_round_state(
+                                pvp_round["id"],
+                                pvp_round["last_game"],
+                                pvp_round["best_game"],
+                            )
                 await asyncio.sleep(0.5)
 
             else:
@@ -802,4 +818,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-    }
+        }
