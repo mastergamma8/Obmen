@@ -30,6 +30,13 @@ const PVP_ROLLING_DURATION = 6500;
 
 const pvpAvatarCache = {};
 
+// ─── i18n helper ──────────────────────────────────────────────
+function _pvpT(key, fallback) {
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+    return (typeof i18n !== 'undefined' && i18n[lang] && i18n[lang][key])
+        ? i18n[lang][key] : (fallback || key);
+}
+
 // ─── Icon helpers ──────────────────────────────────────────────
 function _pvpStarIcon(size) {
     return `<img src="/gifts/stars.png" class="inline-block object-contain" style="width:${size}px;height:${size}px;vertical-align:middle;" onerror="this.outerHTML='★'">`;
@@ -538,14 +545,14 @@ function updatePvpStatus() {
     if (statusEl) {
         const s = pvpState.state;
         if (s === 'waiting') {
-            // Large, prominent "waiting" indicator
+            // Compact "waiting" indicator — small to fit in the header
             statusEl.innerHTML = `
-                <span class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-white font-black text-base tracking-wide shadow-lg"
-                      style="background:linear-gradient(135deg,rgba(244,63,94,0.25),rgba(168,85,247,0.2));border:1px solid rgba(244,63,94,0.4);">
-                    <span class="w-2.5 h-2.5 rounded-full bg-rose-400 animate-pulse inline-block"></span>
-                    <span data-i18n="pvp_waiting">Ожидание игроков</span>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white/80 font-bold text-[10px] tracking-wide"
+                      style="background:linear-gradient(135deg,rgba(244,63,94,0.20),rgba(168,85,247,0.15));border:1px solid rgba(244,63,94,0.35);">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse inline-block"></span>
+                    <span data-i18n="pvp_waiting">${_pvpT('pvp_waiting','Waiting for Players')}</span>
                 </span>`;
-            statusEl.className = 'flex items-center justify-center mt-1';
+            statusEl.className = 'flex items-center mt-0.5';
         } else if (s === 'countdown') {
             statusEl.innerHTML = `<span class="text-green-300 font-bold text-xs tracking-wide" data-i18n="pvp_accepting_bets">Приём ставок</span>`;
             statusEl.className = 'text-[10px] text-white/50 font-bold tracking-wide mt-1';
@@ -595,12 +602,9 @@ function updatePvpStatus() {
             html += `<span class="font-black text-purple-300 flex items-center gap-0.5">${p.gifts}${_pvpGiftIcon(13)}</span>`;
         }
 
-        if (html) {
-            potEl.innerHTML = `<span class="text-white/50 mr-1" data-i18n="pvp_bank">Банк:</span>` + html;
-        } else {
-            potEl.setAttribute('data-i18n', 'pvp_bank_empty');
-            potEl.textContent = 'Банк пуст';
-        }
+        potEl.innerHTML = html
+            ? html
+            : `<span class="text-white/30 text-xs" data-i18n="pvp_bank_empty">${_pvpT('pvp_bank_empty','Bank empty')}</span>`;
     }
 
     if (ball) {
@@ -743,14 +747,14 @@ async function pvpRefreshUserData() {
 async function placePvpBet() {
     const state = pvpState.state;
     if (state !== 'waiting' && state !== 'countdown') {
-        if (typeof showNotify === 'function') showNotify('Ставки сейчас не принимаются', 'warning');
+        if (typeof showNotify === 'function') showNotify(_pvpT('pvp_bets_closed', 'Bets are not accepted right now'), 'warning');
         return;
     }
 
     if (pvpBetTab === 'stars') {
         const amount = parseInt(document.getElementById('pvp-stars-input')?.value || '0');
         if (!amount || amount < 50) {
-            if (typeof showNotify === 'function') showNotify('Минимум 50 ⭐', 'warning');
+            if (typeof showNotify === 'function') showNotify(_pvpT('pvp_min_stars_warn', 'Minimum 50 ⭐'), 'warning');
             return;
         }
         await sendPvpBet('/api/pvp/bet/stars', { amount });
@@ -758,7 +762,7 @@ async function placePvpBet() {
     } else if (pvpBetTab === 'donuts') {
         const amount = parseFloat(document.getElementById('pvp-donuts-input')?.value || '0');
         if (!amount || amount < 0.1) {
-            if (typeof showNotify === 'function') showNotify('Минимум 0.1 🍩', 'warning');
+            if (typeof showNotify === 'function') showNotify(_pvpT('pvp_min_donuts_warn', 'Minimum 0.1 🍩'), 'warning');
             return;
         }
         await sendPvpBet('/api/pvp/bet/donuts', { amount });
@@ -768,7 +772,7 @@ async function placePvpBet() {
 async function placePvpGiftBet(gift_id) {
     const state = pvpState.state;
     if (state !== 'waiting' && state !== 'countdown') {
-        if (typeof showNotify === 'function') showNotify('Ставки сейчас не принимаются', 'warning');
+        if (typeof showNotify === 'function') showNotify(_pvpT('pvp_bets_closed', 'Bets are not accepted right now'), 'warning');
         return;
     }
     if (typeof vibrate === 'function') vibrate('light');
@@ -788,17 +792,17 @@ async function sendPvpBet(url, body) {
         });
         const data = await res.json();
         if (!res.ok) {
-            if (typeof showNotify === 'function') showNotify(data.detail || 'Ошибка', 'error');
+            if (typeof showNotify === 'function') showNotify(data.detail || _pvpT('notify_error', 'Error'), 'error');
             return;
         }
-        if (typeof showNotify === 'function') showNotify('Ставка принята! 🎯', 'success');
+        if (typeof showNotify === 'function') showNotify(_pvpT('pvp_bet_accepted', 'Bet accepted! 🎯'), 'success');
         if (data.balance !== undefined) myBalance = data.balance;
         if (data.stars   !== undefined) myStars   = data.stars;
         if (data.gifts   !== undefined) myGifts   = data.gifts;
         if (typeof updateUI      === 'function') updateUI();
         if (typeof renderProfile === 'function') renderProfile();
     } catch (e) {
-        if (typeof showNotify === 'function') showNotify('Ошибка сети', 'error');
+        if (typeof showNotify === 'function') showNotify(_pvpT('err_conn', 'Connection error'), 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
     }
@@ -837,7 +841,25 @@ function showPvpWinnerReveal(winner) {
     const potStr = [];
     if (pot.stars  > 0) potStr.push(`${Math.floor(pot.stars  * 0.95)}${_pvpStarIcon(16)}`);
     if (pot.donuts > 0) potStr.push(`${(pot.donuts * 0.95).toFixed(2)}${_pvpDonutIcon(16)}`);
-    if (pot.gifts  > 0) potStr.push(`${pot.gifts}${_pvpGiftIcon(16)}`);
+
+    // Show actual gift images with their star value
+    const previews = pot.gift_previews || [];
+    if (previews.length > 0) {
+        previews.slice(0, 4).forEach(g => {
+            const starVal = g.value_stars || g.exchange_stars || 0;
+            let gHtml = '';
+            if (g.photo) {
+                gHtml += `<img src="${g.photo}" title="${escHtml(g.name)}" style="width:22px;height:22px;object-fit:contain;display:inline-block;vertical-align:middle;border-radius:4px;" onerror="this.outerHTML='🎁'">`;
+            } else {
+                gHtml += '🎁';
+            }
+            if (starVal > 0) gHtml += `<span style="font-size:10px;color:#fde047;font-weight:900;margin-left:2px;">${starVal}${_pvpStarIcon(10)}</span>`;
+            potStr.push(gHtml);
+        });
+        if (pot.gifts > 4) potStr.push(`<span style="font-size:11px;color:#c4b5fd;font-weight:700;">+${pot.gifts - 4}</span>`);
+    } else if (pot.gifts > 0) {
+        potStr.push(`${pot.gifts}🎁`);
+    }
 
     overlay.innerHTML = `
         <div class="pvp-winner-card flex flex-col items-center gap-3 p-6 text-center animate-pvp-winner-pop">
