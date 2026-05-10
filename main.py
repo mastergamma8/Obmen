@@ -79,7 +79,12 @@ async def _check_rate_limit_db(ip: str, path: str) -> bool:
     """
     Скользящее окно через SQLite.
     Возвращает True если запрос разрешён, False если лимит превышен.
-    Атомарность обеспечивается через BEGIN IMMEDIATE на запись.
+
+    ИСПРАВЛЕНИЕ race condition: INSERT вставляется первым (безусловно),
+    затем в той же транзакции считается итоговое число записей в окне.
+    Если лимит превышен — транзакция откатывается, запись не сохраняется.
+    Это гарантирует атомарность: два одновременных запроса не могут оба
+    пройти проверку прежде чем один из них зафиксирует свою запись.
     """
     now = int(time.time())
     for prefix, max_req, window in RATE_LIMITS:
@@ -88,27 +93,25 @@ async def _check_rate_limit_db(ip: str, path: str) -> bool:
 
         cutoff = now - window
         async with aiosqlite.connect(DB_NAME) as db:
-            # Транзакция открывается psycopg автоматически (autocommit=False).
-            # BEGIN IMMEDIATE убран: он SQLite-специфичен и не нужен в PostgreSQL.
-
-            # Считаем актуальные запросы в окне
+            # Шаг 1: вставляем запись ДО проверки счётчика.
+            await db.execute(
+                "INSERT INTO rate_limit_log (ip, path_prefix, ts) VALUES (?, ?, ?)",
+                (ip, prefix, now),
+            )
+            # Шаг 2: считаем все записи в окне, включая только что вставленную.
             async with db.execute(
                 "SELECT COUNT(*) FROM rate_limit_log WHERE ip = ? AND path_prefix = ? AND ts > ?",
                 (ip, prefix, cutoff),
             ) as cur:
                 row = await cur.fetchone()
-            count = row[0] if row else 0
+            count = row[0] if row else 1
 
-            if count >= max_req:
+            if count > max_req:
+                # Лимит превышен — откат, вставка не фиксируется.
                 await db.rollback()
                 return False
 
-            # Записываем текущий запрос
-            await db.execute(
-                "INSERT INTO rate_limit_log (ip, path_prefix, ts) VALUES (?, ?, ?)",
-                (ip, prefix, now),
-            )
-            # Чистим устаревшие записи этого ключа (не блокирует других)
+            # Чистим устаревшие записи этого ключа, фиксируем вставку.
             await db.execute(
                 "DELETE FROM rate_limit_log WHERE ip = ? AND path_prefix = ? AND ts <= ?",
                 (ip, prefix, cutoff),
