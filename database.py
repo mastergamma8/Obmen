@@ -88,6 +88,8 @@ from db.db_bank import (  # noqa: F401
     get_bank_day_history,
     get_top_active_today,
     get_bank_earnings_summary,
+    # PvP — запись статистики в банк
+    bank_record_pvp_game,
 )
 
 from db.db_rocket import (  # noqa: F401
