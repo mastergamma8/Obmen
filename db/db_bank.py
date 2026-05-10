@@ -206,6 +206,9 @@ _GAME_ACTION_TYPES = (
     "roulette_paid_donuts", "roulette_paid_stars",
     "rocket_lose_donuts", "rocket_lose_stars",
     "rocket_win_donuts", "rocket_win_stars",
+    # PvP — ставки и победы
+    "pvp_bet_stars", "pvp_bet_donuts", "pvp_bet_gift",
+    "pvp_win_stars", "pvp_win_donuts", "pvp_win_gift",
 )
 _GAME_TYPES_PH = ",".join("?" * len(_GAME_ACTION_TYPES))
 
@@ -651,4 +654,98 @@ async def bank_add_donuts(amount: int):
                 updated_at            = ?
             WHERE id = 1
         """, (amount, amount, value, int(time.time())))
+        await db.commit()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PvP — статистика банка (игроки платят друг другу, банк берёт комиссию)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def bank_record_pvp_game(
+    total_stars: int,
+    total_donuts: float,
+    total_gift_value: int,
+    payout_stars: int,
+    payout_donuts: float,
+    payout_gift_value: int,
+    rate: float = None,
+) -> None:
+    """Записывает статистику завершённой PvP-игры в system_bank и bank_day_stats.
+
+    PvP — игрок против игрока: банк не держит ликвидность, но учитывает
+    объём ставок (deposited_value), выплат (paid_out_value) и комиссию
+    (house_edge_value) для корректного отображения в /bankstatus и /bankday.
+
+    Параметры:
+        total_stars      — суммарные звёздные ставки всех игроков
+        total_donuts     — суммарные пончиковые ставки (в пончиках)
+        total_gift_value — стоимость всех подарков-ставок в stars-value
+        payout_stars     — выплачено победителю звёздами
+        payout_donuts    — выплачено победителю пончиками
+        payout_gift_value— стоимость подарков, переданных победителю, в stars-value
+        rate             — курс пончик→звёзды; по умолчанию config.DONUTS_TO_STARS_RATE
+    """
+    import config as _cfg
+    if rate is None or rate <= 0:
+        rate = _cfg.DONUTS_TO_STARS_RATE
+
+    # Конвертируем всё в универсальные единицы (stars-value)
+    gross_v = total_stars + int(total_donuts * rate) + total_gift_value
+    paid_v  = payout_stars + int(payout_donuts * rate) + payout_gift_value
+    edge_v  = max(0, gross_v - paid_v)   # комиссия банка
+
+    today   = _today_utc()
+    now     = int(time.time())
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        # Обновляем агрегированную статистику (system_bank).
+        # Балансы (stars_balance / donuts_balance) не трогаем: в PvP банк
+        # не является контрагентом — деньги перемещаются между игроками.
+        await db.execute("""
+            UPDATE system_bank SET
+                stars_deposited        = stars_deposited        + ?,
+                stars_paid_out         = stars_paid_out         + ?,
+                donuts_deposited       = donuts_deposited       + ?,
+                donuts_paid_out        = donuts_paid_out        + ?,
+                total_deposited_value  = total_deposited_value  + ?,
+                total_paid_out_value   = total_paid_out_value   + ?,
+                total_house_edge_value = total_house_edge_value + ?,
+                games_count            = games_count + 1,
+                updated_at             = ?
+            WHERE id = 1
+        """, (
+            total_stars,       payout_stars,
+            int(total_donuts), int(payout_donuts),
+            gross_v,           paid_v,            edge_v,
+            now,
+        ))
+
+        # Обновляем дневную разбивку (bank_day_stats).
+        await db.execute("""
+            INSERT INTO bank_day_stats
+                (day_date,
+                 deposited_value, paid_out_value, house_edge_value, games_count,
+                 stars_deposited, stars_paid_out,
+                 donuts_deposited, donuts_paid_out,
+                 gift_value_deposited, gift_value_paid_out)
+            VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(day_date) DO UPDATE SET
+                deposited_value      = bank_day_stats.deposited_value      + excluded.deposited_value,
+                paid_out_value       = bank_day_stats.paid_out_value       + excluded.paid_out_value,
+                house_edge_value     = bank_day_stats.house_edge_value     + excluded.house_edge_value,
+                games_count          = bank_day_stats.games_count + 1,
+                stars_deposited      = bank_day_stats.stars_deposited      + excluded.stars_deposited,
+                stars_paid_out       = bank_day_stats.stars_paid_out       + excluded.stars_paid_out,
+                donuts_deposited     = bank_day_stats.donuts_deposited     + excluded.donuts_deposited,
+                donuts_paid_out      = bank_day_stats.donuts_paid_out      + excluded.donuts_paid_out,
+                gift_value_deposited = bank_day_stats.gift_value_deposited + excluded.gift_value_deposited,
+                gift_value_paid_out  = bank_day_stats.gift_value_paid_out  + excluded.gift_value_paid_out
+        """, (
+            today,
+            gross_v,           paid_v,            edge_v,
+            total_stars,       payout_stars,
+            int(total_donuts), int(payout_donuts),
+            total_gift_value,  payout_gift_value,
+        ))
+
         await db.commit()
