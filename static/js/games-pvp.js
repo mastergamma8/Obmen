@@ -435,8 +435,6 @@ function renderPvpArena() {
 
     container.innerHTML = '';
 
-    const players = pvpState.players || [];
-
     if (players.length === 0) {
         bg.style.background = 'radial-gradient(ellipse at center, rgba(244,63,94,0.07) 0%, #020617 70%)';
         container.innerHTML = `
