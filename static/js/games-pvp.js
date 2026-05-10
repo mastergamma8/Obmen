@@ -101,8 +101,8 @@ function applyPvpState(data) {
         pvpTrajectorySegments = [];
     }
 
-    // Transition: enter rolling
-    if (prevState !== 'rolling' && data.state === 'rolling') {
+    // Transition: enter rolling (also restart if view was closed/reopened during rolling)
+    if (data.state === 'rolling' && (prevState !== 'rolling' || !pvpBallAnimFrame)) {
         const serverNow      = Date.now() / 1000;
         const elapsedSeconds = data.rolling_start_ts > 0
             ? Math.max(0, serverNow - data.rolling_start_ts)
@@ -110,9 +110,12 @@ function applyPvpState(data) {
         // Offset pvpRollingStart so trajectory index is already correct for late-joiners
         pvpRollingStart = performance.now() - elapsedSeconds * 1000;
         
-        // Pass the winner ID immediately to calculate natural stopping point
         const wId = data.winner ? data.winner.user_id : null;
-        pvpInitBallFromSeed(data.ball_seed || 1, wId);
+        // Use server-computed target if available (fixes animation inconsistency across clients)
+        const serverTarget = (data.ball_target_x != null && data.ball_target_y != null)
+            ? { x: data.ball_target_x, y: data.ball_target_y }
+            : null;
+        pvpInitBallFromSeed(data.ball_seed != null ? data.ball_seed : 1, wId, serverTarget);
         startPvpBallAnimation();
     }
 
@@ -228,7 +231,7 @@ function getPvpWinnerSectorTarget(winnerId) {
     return { x: 50, y: 50 };
 }
 
-function pvpInitBallFromSeed(seed, winnerId) {
+function pvpInitBallFromSeed(seed, winnerId, serverTarget = null) {
     // Mulberry32 PRNG — identical seed → identical sequence on every client
     let s = seed >>> 0;
     _pvpRng = () => {
@@ -238,9 +241,22 @@ function pvpInitBallFromSeed(seed, winnerId) {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
 
-    let targetP = { x: 50, y: 50 };
+    // Consume exactly the same number of PRNG calls that getPvpWinnerSectorTarget would,
+    // so the bounce sequence is always identical regardless of whether we use the
+    // server-provided target or compute it locally.
+    let targetP;
     if (winnerId) {
-        targetP = getPvpWinnerSectorTarget(winnerId);
+        if (serverTarget) {
+            // Server pre-computed the position — consume 2 PRNG calls to keep PRNG state in sync
+            _pvpRng(); // mirrors: randomPercent call
+            _pvpRng(); // mirrors: r (radius) call
+            targetP = serverTarget;
+        } else {
+            // Fallback: compute locally (may differ slightly across clients due to live rate)
+            targetP = getPvpWinnerSectorTarget(winnerId);
+        }
+    } else {
+        targetP = { x: 50, y: 50 };
     }
 
     // Генерируем точки рикошетов по стенам арены (от 7 до 10 отскоков)
@@ -298,6 +314,8 @@ function animatePvpBall() {
     const distProgress = 1 - Math.pow(1 - timeProgress, 3);
 
     // Находим текущий отрезок пути
+    // Guard: если сегменты не инициализированы — не падаем
+    if (!pvpTrajectorySegments.length) { pvpBallAnimFrame = null; return; }
     let currentPos = pvpTrajectorySegments[pvpTrajectorySegments.length - 1].p2;
     for(let seg of pvpTrajectorySegments) {
         if (distProgress >= seg.startT && distProgress <= seg.endT) {
@@ -623,7 +641,7 @@ function renderPvpParticipants() {
                     <div class="flex items-center gap-1.5 mt-0.5">${betParts.join('')}</div>
                 </div>
                 <div class="text-right flex-shrink-0">
-                    <div class="text-xs font-black" style="color:${p.color}">${p.win_chance}%</div>
+                    <div class="text-xs font-black" style="color:${p.color}">${p.win_chance.toFixed(1)}%</div>
                     <div class="text-[9px] text-white/40">шанс</div>
                 </div>
             </div>
