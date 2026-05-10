@@ -590,10 +590,14 @@ function updatePvpStatus() {
         if (previews.length > 0) {
             if (html) html += `<span class="text-white/40 mx-1">+</span>`;
             previews.slice(0, 3).forEach(g => {
+                const starVal = g.value_stars || g.exchange_stars || 0;
+                const valHtml = starVal > 0
+                    ? `<span style="font-size:9px;color:#fde047;font-weight:900;margin-left:1px;">${starVal}${_pvpStarIcon(9)}</span>`
+                    : '';
                 if (g.photo) {
-                    html += `<img src="${g.photo}" title="${escHtml(g.name)}" style="width:16px;height:16px;object-fit:contain;display:inline-block;vertical-align:middle;" onerror="this.outerHTML='${_pvpGiftIcon(16)}'">`;
+                    html += `<span class="inline-flex items-center gap-0.5"><img src="${g.photo}" title="${escHtml(g.name)}" style="width:16px;height:16px;object-fit:contain;display:inline-block;vertical-align:middle;border-radius:3px;" onerror="this.outerHTML='🎁'">${valHtml}</span>`;
                 } else {
-                    html += _pvpGiftIcon(16);
+                    html += `<span class="inline-flex items-center gap-0.5">${_pvpGiftIcon(16)}${valHtml}</span>`;
                 }
             });
             if (p.gifts > 3) html += `<span class="text-purple-300 font-bold text-[9px]">+${p.gifts - 3}</span>`;
