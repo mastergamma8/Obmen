@@ -27,7 +27,7 @@ let pvpCountdownInterval = null;
 let pvpWinnerRevealed    = false;
 let pvpRollingStart      = 0;
 let pvpTrajectory        = [];   // Precomputed fixed-step trajectory (frame-rate independent)
-let pvpWinnerTarget      = null; // Winner sector coords
+let pvpWinnerTarget      = null; // Random point within winner's colored sector
 const PVP_ROLLING_DURATION = 6500; // ms
 const PVP_TRAJ_STEP_MS     = 16;   // Fixed step for trajectory precomputation (≈60 fps)
 
@@ -111,16 +111,9 @@ function applyPvpState(data) {
         const elapsedSeconds = data.rolling_start_ts > 0
             ? Math.max(0, serverNow - data.rolling_start_ts)
             : 0;
-        
+        // Offset pvpRollingStart so trajectory index is already correct for late-joiners
         pvpRollingStart = performance.now() - elapsedSeconds * 1000;
-        
-        // Заранее находим целевую точку, куда должен приехать шарик
-        let target = null;
-        if (data.winner) {
-            target = getPvpWinnerSectorTarget(data.winner.user_id);
-        }
-        
-        pvpInitBallFromSeed(data.ball_seed || 1, target);
+        pvpInitBallFromSeed(data.ball_seed || 1);
         startPvpBallAnimation();
     }
 
@@ -140,20 +133,19 @@ function applyPvpState(data) {
         }
     }
 
-    // Finished: fallback reveal if animation already ended or state arrived before animation
+    // Finished: reveal winner if animation already ended before state arrived
     if (data.state === 'finished' && !pvpWinnerRevealed && data.winner) {
         pvpWinnerRevealed = true;
         stopPvpBallAnimation();
-        if (pvpWinnerTarget) {
-            showPvpWinnerReveal(data.winner);
-        } else {
-            const target = getPvpWinnerSectorTarget(data.winner.user_id);
-            animatePvpBallToTarget(target, () => showPvpWinnerReveal(data.winner));
+        // Use whatever target was precomputed, or compute a fresh one as fallback
+        if (!pvpWinnerTarget) {
+            pvpWinnerTarget = getPvpWinnerSectorRandomTarget(data.winner.user_id);
         }
+        animatePvpBallToTarget(pvpWinnerTarget, () => showPvpWinnerReveal(data.winner));
     }
 
     pvpLastState = data.state;
-    renderPvpArena(); 
+    renderPvpArena(); // Перерисовываем круговую арену
     renderPvpBetPanel();
     renderPvpParticipants();
     renderPvpTopBar();
@@ -198,16 +190,11 @@ function stopPvpBallAnimation() {
         cancelAnimationFrame(pvpBallAnimFrame);
         pvpBallAnimFrame = null;
     }
-    const arenaInner = document.getElementById('pvp-arena-inner');
-    if (arenaInner) {
-        arenaInner.style.transition = 'transform 0.4s ease-in-out';
-        arenaInner.style.transform  = '';
-    }
 }
 
 let _pvpRng = () => Math.random();
 
-function pvpInitBallFromSeed(seed, winnerTarget) {
+function pvpInitBallFromSeed(seed) {
     // Mulberry32 PRNG — identical seed → identical sequence on every client
     let s = seed >>> 0;
     _pvpRng = () => {
@@ -217,74 +204,76 @@ function pvpInitBallFromSeed(seed, winnerTarget) {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
 
+    // ── 1. Determine winner target FIRST (uses seeded RNG for consistency) ──
+    // The target is a RANDOM POINT anywhere on the winner's colored sector background,
+    // NOT the avatar position. This makes the ball appear to stop "naturally" on color.
+    const winnerTarget = pvpState.winner
+        ? getPvpWinnerSectorRandomTarget(pvpState.winner.user_id)
+        : null;
+    pvpWinnerTarget = winnerTarget;
+
+    // ── 2. Initial position and velocity — more energetic for better ricochets ──
     let px = 50, py = 50;
-    // Значительно увеличиваем скорость, чтобы шарик активно рикошетил
-    let vx = (_pvpRng() > 0.5 ? 1 : -1) * (3.0 + _pvpRng() * 2.5);
-    let vy = (_pvpRng() > 0.5 ? 1 : -1) * (3.0 + _pvpRng() * 2.5);
+    let vx = (_pvpRng() > 0.5 ? 1 : -1) * (2.0 + _pvpRng() * 1.2);
+    let vy = (_pvpRng() > 0.5 ? 1 : -1) * (1.6 + _pvpRng() * 1.0);
 
-    pvpBallPos  = { x: px, y: py };
-    pvpBallVel  = { x: vx, y: vy };
-    pvpWinnerTarget = winnerTarget || null;
+    pvpBallPos = { x: px, y: py };
+    pvpBallVel = { x: vx, y: vy };
 
+    // ── 3. Precompute full trajectory ──
+    // Deceleration: (1-progress)^2.5 — starts fast with many bounces,
+    // decelerates steeply so by ~85% the ball is nearly stopped.
+    // Gentle steering toward winner target begins at 55% progress.
+    // Since the ball is slow by then, the steering is invisible.
+    const totalSteps = Math.ceil(PVP_ROLLING_DURATION / PVP_TRAJ_STEP_MS) + 8;
     pvpTrajectory = [];
-    const totalSteps = Math.ceil(PVP_ROLLING_DURATION / PVP_TRAJ_STEP_MS) + 4;
-    
-    // Начинаем плавно "притягивать" шарик к цели после 40% времени анимации
-    const BLEND_START_STEP = Math.floor(totalSteps * 0.40); 
 
     for (let i = 0; i < totalSteps; i++) {
-        // 1. Физический шаг
-        px += vx;
-        py += vy;
+        pvpTrajectory.push({ x: px, y: py });
+        const progress = Math.min((i * PVP_TRAJ_STEP_MS) / PVP_ROLLING_DURATION, 1);
 
-        // 2. Круговая коллизия (отскок от краев рулетки)
-        // Центр (50,50), радиус арены примерно 45% (чтобы шарик не вылезал за границы визуального кольца)
-        let dx = px - 50;
-        let dy = py - 50;
-        let dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist > 45) {
-            // Нормаль вектора отскока
-            let nx = dx / dist;
-            let ny = dy / dist;
-            
-            // Отражение скорости по формуле: V = V - 2*(V.N)*N
-            let dot = vx * nx + vy * ny;
-            vx = vx - 2 * dot * nx;
-            vy = vy - 2 * dot * ny;
-            
-            // Выталкиваем обратно внутрь круга
-            px = 50 + nx * 45;
-            py = 50 + ny * 45;
-            
-            // Добавляем немного хаоса при отскоке
-            vx += (_pvpRng() - 0.5);
-            vy += (_pvpRng() - 0.5);
+        // Steep natural deceleration: fast start, nearly stopped by ~80%
+        const speedFactor = Math.pow(1 - progress, 2.5);
+
+        // Gentle steering toward winner — only in the back half when the ball
+        // is already slow, so the pull is imperceptible to the player.
+        if (winnerTarget && progress > 0.55) {
+            const steerT = (progress - 0.55) / 0.45; // 0 → 1
+            const steerForce = steerT * steerT * 0.005; // grows quadratically, stays small
+            vx += (winnerTarget.x - px) * steerForce;
+            vy += (winnerTarget.y - py) * steerForce;
+            // Clamp to prevent runaway velocity from the steering nudge
+            const maxV = 3.5 * (1 - progress);
+            const vel = Math.sqrt(vx * vx + vy * vy);
+            if (vel > maxV && maxV > 0) { vx *= maxV / vel; vy *= maxV / vel; }
         }
 
-        // 3. Имитация трения: шарик постепенно теряет скорость
-        vx *= 0.992;
-        vy *= 0.992;
+        px += vx * speedFactor;
+        py += vy * speedFactor;
 
-        let finalX = px;
-        let finalY = py;
+        // Wall bounces with slight randomness — makes each trajectory feel unique
+        if (px < 8)  { px = 8;  vx =  Math.abs(vx) * (0.88 + _pvpRng() * 0.12); }
+        if (px > 92) { px = 92; vx = -Math.abs(vx) * (0.88 + _pvpRng() * 0.12); }
+        if (py < 8)  { py = 8;  vy =  Math.abs(vy) * (0.88 + _pvpRng() * 0.12); }
+        if (py > 92) { py = 92; vy = -Math.abs(vy) * (0.88 + _pvpRng() * 0.12); }
+    }
 
-        // 4. Плавное доведение до сектора победителя
-        if (pvpWinnerTarget && i > BLEND_START_STEP) {
-            let blendProgress = (i - BLEND_START_STEP) / (totalSteps - BLEND_START_STEP);
-            
-            // Quartic ease-out: Начинает плавно и оооочень медленно останавливается в самом конце
-            let ease = 1 - Math.pow(1 - Math.min(blendProgress, 1), 4);
-
-            finalX = px * (1 - ease) + pvpWinnerTarget.x * ease;
-            finalY = py * (1 - ease) + pvpWinnerTarget.y * ease;
-
-            // Гасим "физическую" скорость сильнее, чтобы базовые скачки не мешали плавной остановке
-            vx *= 0.85;
-            vy *= 0.85;
+    // ── 4. Guarantee the final resting point equals the winner target ──
+    // Override the last 10% of frames with a very slow eased approach so the
+    // ball arrives exactly on the winner's sector and appears to stop there.
+    if (winnerTarget) {
+        const blendStart = Math.floor(totalSteps * 0.90);
+        const fromX = pvpTrajectory[blendStart].x;
+        const fromY = pvpTrajectory[blendStart].y;
+        const remaining = totalSteps - blendStart;
+        for (let i = blendStart; i < totalSteps; i++) {
+            const t = (i - blendStart) / Math.max(remaining - 1, 1);
+            const easedT = easeOutQuart(t);
+            pvpTrajectory[i] = {
+                x: fromX + (winnerTarget.x - fromX) * easedT,
+                y: fromY + (winnerTarget.y - fromY) * easedT,
+            };
         }
-
-        pvpTrajectory.push({ x: finalX, y: finalY });
     }
 }
 
@@ -292,36 +281,22 @@ function animatePvpBall() {
     const elapsed  = performance.now() - pvpRollingStart;
     const progress = Math.min(elapsed / PVP_ROLLING_DURATION, 1);
 
-    // Просто берем готовую предрассчитанную позицию. 
-    // Это гарантирует одинаковую анимацию у всех при любой частоте кадров.
+    // Look up position from precomputed trajectory — frame-rate independent
     const stepIdx = Math.min(Math.floor(elapsed / PVP_TRAJ_STEP_MS), pvpTrajectory.length - 1);
     const pos = pvpTrajectory[stepIdx] || { x: 50, y: 50 };
-
     pvpBallPos.x = pos.x;
     pvpBallPos.y = pos.y;
 
+    // Update trail (ring buffer of recent positions)
+    pvpBallTrail.push({ x: pos.x, y: pos.y });
+    if (pvpBallTrail.length > 14) pvpBallTrail.shift();
+
     const ball = document.getElementById('pvp-ball');
     if (ball) {
-        ball.style.left    = pvpBallPos.x + '%';
-        ball.style.top     = pvpBallPos.y + '%';
-        ball.style.opacity = '1';
-    }
-
-    // Легкий зум в конце на выигрышный сектор
-    const arenaInner = document.getElementById('pvp-arena-inner');
-    if (arenaInner) {
-        if (progress > 0.70) {
-            const zoomT = (progress - 0.70) / 0.30;
-            const smoothZoom = 1 - Math.pow(1 - zoomT, 3); // ease-out
-            const scale = 1 + smoothZoom * 0.35;
-            
-            arenaInner.style.transform       = `scale(${scale.toFixed(3)})`;
-            arenaInner.style.transformOrigin = `${pvpBallPos.x}% ${pvpBallPos.y}%`;
-            arenaInner.style.transition      = 'none'; // Управляем через requestAnimationFrame
-        } else {
-            arenaInner.style.transform  = '';
-            arenaInner.style.transition = '';
-        }
+        ball.style.left      = pos.x + '%';
+        ball.style.top       = pos.y + '%';
+        ball.style.opacity   = '1';
+        ball.style.transform = 'translate(-50%,-50%)';
     }
 
     renderPvpTrail();
@@ -330,11 +305,7 @@ function animatePvpBall() {
         pvpBallAnimFrame = requestAnimationFrame(animatePvpBall);
     } else {
         pvpBallAnimFrame = null;
-        const arenaInner = document.getElementById('pvp-arena-inner');
-        if (arenaInner) {
-            arenaInner.style.transition = 'transform 0.5s ease-in-out';
-            arenaInner.style.transform  = '';
-        }
+        // Ball has naturally stopped on winner's sector — trigger reveal
         if (pvpState.winner && !pvpWinnerRevealed) {
             pvpWinnerRevealed = true;
             showPvpWinnerReveal(pvpState.winner);
@@ -346,9 +317,6 @@ function renderPvpTrail() {
     const container = document.getElementById('pvp-ball-trail');
     if (!container) return;
     container.innerHTML = '';
-    pvpBallTrail.push({x: pvpBallPos.x, y: pvpBallPos.y});
-    if (pvpBallTrail.length > 15) pvpBallTrail.shift();
-    
     pvpBallTrail.forEach((pt, i) => {
         const alpha = (i / pvpBallTrail.length) * 0.4;
         const size  = 4 + (i / pvpBallTrail.length) * 6;
@@ -366,6 +334,14 @@ function renderPvpTrail() {
     });
 }
 
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function easeOutQuart(t) {
+    return 1 - Math.pow(1 - t, 4);
+}
+
 // ─── Arena render — РАДИАЛЬНАЯ АРЕНА КАК НА ФОТО ──────────────
 
 function renderPvpArena() {
@@ -381,8 +357,11 @@ function renderPvpArena() {
         return;
     }
 
+    // Собираем данные для градиента (Сектора зависят от win_chance)
     let gradientParts = [];
     let currentPercent = 0;
+    
+    // Суммируем шансы на всякий случай (должно быть ~100)
     let totalChance = players.reduce((sum, p) => sum + p.win_chance, 0);
 
     players.forEach((p) => {
@@ -391,18 +370,23 @@ function renderPvpArena() {
         let start = currentPercent;
         let end = currentPercent + normalizedChance;
         
+        // Добавляем жесткий переход цвета для стиля "кусочков пирога"
         gradientParts.push(`${p.color} ${start}% ${end}%`);
 
+        // Вычисляем угол, где должна стоять аватарка (середина сектора)
         let midPercent = start + (normalizedChance / 2);
+        // В CSS conic-gradient 0% начинается сверху (12 часов), что математически = -90 градусов
         let angleDeg = (midPercent * 3.6) - 90; 
         let angleRad = angleDeg * (Math.PI / 180);
 
+        // Радиус отдаления аватарок от центра (35% от контейнера)
         let radius = 33; 
         let x = 50 + radius * Math.cos(angleRad);
         let y = 50 + radius * Math.sin(angleRad);
 
         const isWinner = pvpState.state === 'finished' && pvpState.winner?.user_id === p.user_id;
 
+        // Создаем контейнер аватарки
         const avatarWrap = document.createElement('div');
         avatarWrap.id = `pvp-player-avatar-${p.user_id}`;
         avatarWrap.className = `absolute z-10 rounded-full flex flex-col items-center justify-center border-[3px] shadow-2xl transition-all duration-300 ${isWinner ? 'z-20 pvp-winner-pulse' : ''}`;
@@ -420,9 +404,12 @@ function renderPvpArena() {
             avatarWrap.innerHTML = `<div class="w-full h-full flex items-center justify-center font-black text-white">${(p.name||'?')[0]}</div>`;
         }
 
+        // Плашка с именем и процентами под аватаркой
         const infoLabel = document.createElement('div');
         infoLabel.className = "absolute -bottom-6 left-1/2 -translate-x-1/2 bg-black/70 px-2 py-0.5 rounded-lg text-[9px] font-black text-white whitespace-nowrap backdrop-blur-md border border-white/20 flex flex-col items-center leading-tight shadow-lg";
-        infoLabel.innerHTML = `<span>${p.win_chance.toFixed(1)}%</span>`;
+        infoLabel.innerHTML = `
+            <span>${p.win_chance.toFixed(1)}%</span>
+        `;
         avatarWrap.appendChild(infoLabel);
 
         container.appendChild(avatarWrap);
@@ -430,7 +417,19 @@ function renderPvpArena() {
         currentPercent = end;
     });
 
+    // Применяем фон
     bg.style.background = `conic-gradient(${gradientParts.join(', ')})`;
+}
+function makePvpAvatarFallback(name, size, color) {
+    const d = document.createElement('div');
+    d.style.cssText = `
+        width:${size}px;height:${size}px;border-radius:50%;
+        background: linear-gradient(135deg, ${color}88, ${color}33);
+        display:flex;align-items:center;justify-content:center;
+        font-size:${Math.round(size * 0.45)}px;font-weight:900;color:#fff;
+    `;
+    d.textContent = (name || '?')[0].toUpperCase();
+    return d;
 }
 
 // ─── Top bar (best/last game) ──────────────────────────────────
@@ -542,7 +541,13 @@ function updatePvpStatus() {
 
     const ball = document.getElementById('pvp-ball');
     if (ball) {
-        ball.style.opacity = pvpState.state === 'rolling' ? '1' : '0';
+        // Only forcibly hide the ball during waiting/countdown.
+        // During 'rolling' the animation controls opacity.
+        // During 'finished' the winner-reveal handler fades it out gracefully.
+        if (pvpState.state === 'waiting' || pvpState.state === 'countdown') {
+            ball.style.transition = 'opacity 0.4s ease';
+            ball.style.opacity    = '0';
+        }
     }
 }
 
@@ -745,10 +750,12 @@ function setPvpDonutsBet(preset) {
     else                       inp.value = preset;
 }
 
-// ─── Center target logic ───────────────────────────────────────────
+// ─── Ball guidance: random point WITHIN winner's COLOR SECTOR ─────────────────
+// Returns a point anywhere on the winner's conic-gradient colored background,
+// NOT on the avatar. Uses seeded _pvpRng() so all clients resolve the same point.
 
-function getPvpWinnerSectorTarget(winnerId) {
-    const players    = pvpState.players || [];
+function getPvpWinnerSectorRandomTarget(winnerId) {
+    const players     = pvpState.players || [];
     const totalChance = players.reduce((sum, p) => sum + p.win_chance, 0);
     let currentPercent = 0;
 
@@ -758,14 +765,27 @@ function getPvpWinnerSectorTarget(winnerId) {
             : (100 / players.length);
 
         if (String(p.user_id) === String(winnerId)) {
-            const midPercent = currentPercent + normalizedChance / 2;
-            const angleDeg   = (midPercent * 3.6) - 90;
-            const angleRad   = angleDeg * (Math.PI / 180);
-            
-            // Радиус 18 - это ровно середина фонового цвета, не доезжая до аватарки (она на 33)
-            const radius     = 18; 
-            const x = 50 + radius * Math.cos(angleRad);
-            const y = 50 + radius * Math.sin(angleRad);
+            const startPercent = currentPercent;
+            const endPercent   = currentPercent + normalizedChance;
+
+            // Stay 15% away from sector edges to avoid color boundary artifacts
+            const margin    = Math.min(normalizedChance * 0.15, 4);
+            const safeStart = startPercent + margin;
+            const safeEnd   = endPercent   - margin;
+
+            // Pick a random angle within the safe range of the sector
+            const randomPercent = safeStart + _pvpRng() * Math.max(0, safeEnd - safeStart);
+            const angleDeg = (randomPercent * 3.6) - 90;
+            const angleRad = angleDeg * (Math.PI / 180);
+
+            // Pick a random radius that avoids the avatar ring (~33%) and arena edges.
+            // Inner zone: 10–25% · Outer zone: 39–48%
+            const radius = _pvpRng() > 0.45
+                ? 39 + _pvpRng() * 9   // outer zone
+                : 10 + _pvpRng() * 15; // inner zone
+
+            const x = Math.max(8, Math.min(92, 50 + radius * Math.cos(angleRad)));
+            const y = Math.max(8, Math.min(92, 50 + radius * Math.sin(angleRad)));
             return { x, y };
         }
         currentPercent += normalizedChance;
@@ -773,22 +793,47 @@ function getPvpWinnerSectorTarget(winnerId) {
     return { x: 50, y: 50 };
 }
 
-// Fallback, если вдруг стейт пришел сразу готовый, а анимация не крутилась
+/** @deprecated Use getPvpWinnerSectorRandomTarget */
+function getPvpWinnerSectorTarget(winnerId) {
+    return getPvpWinnerSectorRandomTarget(winnerId);
+}
+
+/** @deprecated Use getPvpWinnerSectorRandomTarget */
+function getPvpWinnerSegmentCenter(winnerId) {
+    return getPvpWinnerSectorRandomTarget(winnerId);
+}
+
 function animatePvpBallToTarget(target, callback) {
     const ball = document.getElementById('pvp-ball');
     if (!ball) { if (callback) callback(); return; }
 
-    ball.style.opacity = '1';
+    ball.style.opacity    = '1';
+    ball.style.transition = '';
 
-    // Делаем плавный ease-out к нужной точке (имитация завершения анимации)
-    ball.style.transition = 'left 1.2s cubic-bezier(0.1, 1, 0.2, 1), top 1.2s cubic-bezier(0.1, 1, 0.2, 1), transform 1s ease';
-    ball.style.left       = target.x + '%';
-    ball.style.top        = target.y + '%';
-    pvpBallPos = { x: target.x, y: target.y };
+    const startX    = pvpBallPos.x;
+    const startY    = pvpBallPos.y;
+    const duration  = 2200; // ms — slow, graceful approach
+    const startTime = performance.now();
 
-    setTimeout(() => {
-        if (callback) callback();
-    }, 1250);
+    function step() {
+        const elapsed = performance.now() - startTime;
+        const t       = Math.min(elapsed / duration, 1);
+        const easedT  = easeOutQuart(t);
+
+        const x = startX + (target.x - startX) * easedT;
+        const y = startY + (target.y - startY) * easedT;
+
+        ball.style.left = x + '%';
+        ball.style.top  = y + '%';
+        pvpBallPos = { x, y };
+
+        if (t < 1) {
+            requestAnimationFrame(step);
+        } else {
+            if (callback) callback();
+        }
+    }
+    requestAnimationFrame(step);
 }
 
 // ─── Winner reveal ────────────────────────────────────────────
@@ -822,6 +867,17 @@ function showPvpWinnerReveal(winner) {
     `;
     overlay.classList.remove('hidden');
     spawnPvpConfetti();
+
+    // Fade ball out gradually — starts 1.2s after reveal, finishes smoothly
+    setTimeout(() => {
+        const ball = document.getElementById('pvp-ball');
+        if (ball) {
+            ball.style.transition = 'opacity 1.8s ease';
+            ball.style.opacity    = '0';
+        }
+        const trail = document.getElementById('pvp-ball-trail');
+        if (trail) trail.innerHTML = '';
+    }, 1200);
 
     if (window.Telegram?.WebApp?.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
@@ -859,4 +915,4 @@ function spawnPvpConfetti() {
 
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+                }
