@@ -138,10 +138,10 @@ function applyPvpState(data) {
         pvpWinnerRevealed = true;
         stopPvpBallAnimation();
         if (pvpWinnerTarget) {
-            // Ball was already guided to winner by animation — just show reveal
+            // Ball was already guided to winner sector by animation — just show reveal
             showPvpWinnerReveal(data.winner);
         } else {
-            const target = getPvpWinnerSegmentCenter(data.winner.user_id);
+            const target = getPvpWinnerSectorTarget(data.winner.user_id);
             animatePvpBallToTarget(target, () => showPvpWinnerReveal(data.winner));
         }
     }
@@ -192,6 +192,12 @@ function stopPvpBallAnimation() {
         cancelAnimationFrame(pvpBallAnimFrame);
         pvpBallAnimFrame = null;
     }
+    // Always reset inner zoom when animation stops (covers early-stop edge cases)
+    const arenaInner = document.getElementById('pvp-arena-inner');
+    if (arenaInner) {
+        arenaInner.style.transition = 'transform 0.4s ease-in-out';
+        arenaInner.style.transform  = '';
+    }
 }
 
 let _pvpRng = () => Math.random();
@@ -241,12 +247,12 @@ function animatePvpBall() {
     const stepIdx = Math.min(Math.floor(elapsed / PVP_TRAJ_STEP_MS), pvpTrajectory.length - 1);
     const basePos = pvpTrajectory[stepIdx] || { x: 50, y: 50 };
 
-    // Last 20%: smoothly guide ball toward winner's avatar
+    // Last 20%: smoothly guide ball toward winner's COLOR SECTOR (математически)
     const BLEND_START = 0.80;
     if (progress >= BLEND_START && pvpState.winner) {
-        // Resolve winner DOM position once, lazily
+        // Resolve winner sector position once, lazily
         if (!pvpWinnerTarget) {
-            pvpWinnerTarget = getPvpWinnerSegmentCenter(pvpState.winner.user_id);
+            pvpWinnerTarget = getPvpWinnerSectorTarget(pvpState.winner.user_id);
         }
         const blendT = easeInOutCubic((progress - BLEND_START) / (1 - BLEND_START));
         pvpBallPos.x = basePos.x + (pvpWinnerTarget.x - basePos.x) * blendT;
@@ -264,19 +270,19 @@ function animatePvpBall() {
         ball.style.opacity = '1';
     }
 
-    // Zoom the entire arena (wrap) so background + avatars + ball all scale together,
-    // centred on the ball's current position.
-    const arenaWrap = document.getElementById('pvp-arena-wrap');
-    if (arenaWrap) {
+    // Zoom only the INNER arena layer (pvp-arena-inner) so the border frame stays fixed.
+    // overflow-hidden on pvp-arena-wrap clips the scaled content cleanly.
+    const arenaInner = document.getElementById('pvp-arena-inner');
+    if (arenaInner) {
         if (progress > 0.80) {
             const zoomT = (progress - 0.80) / 0.20;
             const scale = 1 + zoomT * 0.45;
-            arenaWrap.style.transform       = `scale(${scale.toFixed(3)})`;
-            arenaWrap.style.transformOrigin = `${pvpBallPos.x}% ${pvpBallPos.y}%`;
-            arenaWrap.style.transition      = 'transform 0.12s ease-out';
+            arenaInner.style.transform       = `scale(${scale.toFixed(3)})`;
+            arenaInner.style.transformOrigin = `${pvpBallPos.x}% ${pvpBallPos.y}%`;
+            arenaInner.style.transition      = 'transform 0.12s ease-out';
         } else {
-            arenaWrap.style.transform  = '';
-            arenaWrap.style.transition = '';
+            arenaInner.style.transform  = '';
+            arenaInner.style.transition = '';
         }
     }
 
@@ -286,12 +292,12 @@ function animatePvpBall() {
         pvpBallAnimFrame = requestAnimationFrame(animatePvpBall);
     } else {
         pvpBallAnimFrame = null;
-        const arenaWrap = document.getElementById('pvp-arena-wrap');
-        if (arenaWrap) {
-            arenaWrap.style.transition = 'transform 0.5s ease-in-out';
-            arenaWrap.style.transform  = '';
+        const arenaInner = document.getElementById('pvp-arena-inner');
+        if (arenaInner) {
+            arenaInner.style.transition = 'transform 0.5s ease-in-out';
+            arenaInner.style.transform  = '';
         }
-        // Ball reached winner — trigger reveal immediately without waiting for poll
+        // Ball reached winner sector — trigger reveal immediately without waiting for poll
         if (pvpState.winner && !pvpWinnerRevealed) {
             pvpWinnerRevealed = true;
             showPvpWinnerReveal(pvpState.winner);
@@ -726,22 +732,38 @@ function setPvpDonutsBet(preset) {
     else                       inp.value = preset;
 }
 
-// ─── Ball guidance to winner avatar ───────────────────────────
+// ─── Ball guidance to winner COLOR SECTOR (математически, без DOM) ────────────
+// Вычисляем центр сектора победителя по той же формуле, что и renderPvpArena.
+// Это надёжнее DOM-поиска аватарки и работает на всех устройствах.
 
+function getPvpWinnerSectorTarget(winnerId) {
+    const players    = pvpState.players || [];
+    const totalChance = players.reduce((sum, p) => sum + p.win_chance, 0);
+    let currentPercent = 0;
+
+    for (const p of players) {
+        const normalizedChance = totalChance > 0
+            ? (p.win_chance / totalChance) * 100
+            : (100 / players.length);
+
+        if (String(p.user_id) === String(winnerId)) {
+            // Середина сектора — тот же угол, что в renderPvpArena (аватарка)
+            const midPercent = currentPercent + normalizedChance / 2;
+            const angleDeg   = (midPercent * 3.6) - 90;
+            const angleRad   = angleDeg * (Math.PI / 180);
+            const radius     = 33; // % от центра — тот же, что у аватарок
+            const x = 50 + radius * Math.cos(angleRad);
+            const y = 50 + radius * Math.sin(angleRad);
+            return { x, y };
+        }
+        currentPercent += normalizedChance;
+    }
+    return { x: 50, y: 50 };
+}
+
+/** @deprecated Используй getPvpWinnerSectorTarget */
 function getPvpWinnerSegmentCenter(winnerId) {
-    const arenaWrap = document.getElementById('pvp-arena-wrap');
-    const avatar = document.getElementById(`pvp-player-avatar-${winnerId}`);
-    
-    if (!arenaWrap || !avatar) return { x: 50, y: 50 };
-
-    const wrapRect = arenaWrap.getBoundingClientRect();
-    const avRect   = avatar.getBoundingClientRect();
-
-    // Находим % координаты аватарки относительно контейнера
-    const x = ((avRect.left - wrapRect.left) + avRect.width  / 2) / wrapRect.width  * 100;
-    const y = ((avRect.top  - wrapRect.top)  + avRect.height / 2) / wrapRect.height * 100;
-
-    return { x, y };
+    return getPvpWinnerSectorTarget(winnerId);
 }
 
 function animatePvpBallToTarget(target, callback) {
