@@ -57,7 +57,9 @@ pvp_round: Dict[str, Any] = {
     "id":            0,
     "state":         "waiting",   # waiting | countdown | rolling | finished
     "countdown_end": 0.0,
-    "rolling_end":   0.0,
+    "rolling_end":      0.0,
+    "rolling_start_ts": 0.0,
+    "ball_seed":        0,
     "finished_end":  0.0,
     "players":       {},          # {user_id: {name, avatar, color, bets: [...]}}
     "winner_id":     None,
@@ -239,9 +241,12 @@ async def pvp_round_manager():
                     async with _lock:
                         if pvp_round["state"] == "countdown":
                             winner_id = await _determine_winner()
-                            pvp_round["winner_id"]   = winner_id
-                            pvp_round["state"]       = "rolling"
-                            pvp_round["rolling_end"] = time.time() + ROLLING_DURATION
+                            pvp_round["winner_id"]        = winner_id
+                            pvp_round["state"]            = "rolling"
+                            pvp_round["rolling_end"]      = time.time() + ROLLING_DURATION
+                            pvp_round["rolling_start_ts"] = time.time()
+                            # Shared seed so all clients run identical ball trajectory
+                            pvp_round["ball_seed"]        = random.randint(1, 999999)
                 await asyncio.sleep(0.2)
 
             elif state == "rolling":
@@ -323,14 +328,16 @@ async def get_pvp_state(current_user: dict = Depends(get_current_user)):
         }
 
     return {
-        "round_id":   round_id,
-        "state":      state,
-        "time_left":  round(time_left, 2),
-        "players":    players,
-        "winner":     winner_data,
-        "pot":        {"stars": total_stars, "donuts": total_donuts, "gifts": total_gifts, "gift_previews": gift_previews},
-        "last_game":  last_game,
-        "best_game":  best_game,
+        "round_id":        round_id,
+        "state":           state,
+        "time_left":       round(time_left, 2),
+        "rolling_start_ts": pvp_round.get("rolling_start_ts", 0),
+        "ball_seed":        pvp_round.get("ball_seed", 0),
+        "players":         players,
+        "winner":          winner_data,
+        "pot":             {"stars": total_stars, "donuts": total_donuts, "gifts": total_gifts, "gift_previews": gift_previews},
+        "last_game":       last_game,
+        "best_game":       best_game,
     }
 
 
@@ -523,4 +530,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-        }
+}
