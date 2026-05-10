@@ -197,8 +197,17 @@
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
                 <div>
-                    <h3 class="text-lg font-black text-white">⚔️ Space PvP</h3>
-                    <div id="pvp-status-text" class="text-[10px] text-white/50 font-bold tracking-wide">Ожидаем игроков...</div>
+                    <h3 class="text-lg font-black text-white flex items-center gap-2">
+                        <img src="/gifts/pvp.png" class="w-6 h-6 object-contain" onerror="this.style.display='none'">
+                        Space PvP
+                    </h3>
+                    <div id="pvp-status-text" class="flex items-center mt-0.5">
+                        <span class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-white font-black text-base tracking-wide shadow-lg"
+                              style="background:linear-gradient(135deg,rgba(244,63,94,0.25),rgba(168,85,247,0.2));border:1px solid rgba(244,63,94,0.4);">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-400 animate-pulse inline-block"></span>
+                            <span data-i18n="pvp_waiting">Ожидание игроков</span>
+                        </span>
+                    </div>
                 </div>
             </div>
             <span id="pvp-round-badge" class="text-xs font-bold text-white/40 bg-white/5 px-3 py-1 rounded-full border border-white/10">Round #0</span>
@@ -241,11 +250,11 @@
                 <div id="pvp-pot-display" class="text-xs font-black text-white/80 bg-black/50 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/20 shadow-lg">Банк пуст</div>
             </div>
 
-            <!-- Countdown overlay -->
-            <div id="pvp-countdown-overlay" class="hidden absolute inset-0 z-20 flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm">
-                <div class="flex flex-col items-center p-6 rounded-3xl border border-white/10 bg-black/60">
-                    <div class="text-xs font-bold text-white/80 tracking-widest uppercase mb-2">До старта</div>
-                    <div id="pvp-countdown-val" class="text-7xl font-black text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.6)]">15</div>
+            <!-- Countdown overlay — small badge, no blur, arena stays visible -->
+            <div id="pvp-countdown-overlay" class="hidden absolute bottom-4 right-4 z-20 flex items-center justify-center pointer-events-none">
+                <div class="flex flex-col items-center px-4 py-2 rounded-2xl border border-white/20 bg-black/70 shadow-xl">
+                    <div class="text-[9px] font-bold text-white/70 tracking-widest uppercase" data-i18n="pvp_countdown_label">До старта</div>
+                    <div id="pvp-countdown-val" class="text-4xl font-black text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.6)] leading-none">15</div>
                 </div>
             </div>
 
@@ -257,9 +266,18 @@
         <div id="pvp-bet-panel" class="glass rounded-3xl border border-white/10 overflow-hidden mt-2">
             <!-- Tabs -->
             <div class="flex border-b border-white/5">
-                <button id="pvp-tab-stars"  onclick="pvpSwitchBetTab('stars')"  class="pvp-tab-active flex-1 py-2.5 text-xs font-black text-white tracking-wide transition-colors">⭐ Звёзды</button>
-                <button id="pvp-tab-donuts" onclick="pvpSwitchBetTab('donuts')" class="flex-1 py-2.5 text-xs font-black text-white/40 tracking-wide transition-colors">🍩 Пончики</button>
-                <button id="pvp-tab-gift"   onclick="pvpSwitchBetTab('gift')"   class="flex-1 py-2.5 text-xs font-black text-white/40 tracking-wide transition-colors">🎁 Подарок</button>
+                <button id="pvp-tab-stars"  onclick="pvpSwitchBetTab('stars')"  class="pvp-tab-active flex-1 py-2.5 text-xs font-black text-white tracking-wide transition-colors flex items-center justify-center gap-1.5">
+                    <img src="/gifts/stars.png" class="w-4 h-4 object-contain" onerror="this.style.display='none'">
+                    <span data-i18n="pvp_tab_stars">Звёзды</span>
+                </button>
+                <button id="pvp-tab-donuts" onclick="pvpSwitchBetTab('donuts')" class="flex-1 py-2.5 text-xs font-black text-white/40 tracking-wide transition-colors flex items-center justify-center gap-1.5">
+                    <img src="/gifts/dount.png" class="w-4 h-4 object-contain" onerror="this.style.display='none'">
+                    <span data-i18n="pvp_tab_donuts">Пончики</span>
+                </button>
+                <button id="pvp-tab-gift"   onclick="pvpSwitchBetTab('gift')"   class="flex-1 py-2.5 text-xs font-black text-white/40 tracking-wide transition-colors flex items-center justify-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="14" rx="2"/><path d="M12 8V22"/><path d="M19 8a3.5 3.5 0 1 0-7 0"/><path d="M5 8a3.5 3.5 0 1 1 7 0"/></svg>
+                    <span data-i18n="pvp_tab_gift">Подарок</span>
+                </button>
             </div>
 
             <!-- Stars pane -->
@@ -276,9 +294,10 @@
                     <button onclick="setPvpStarsBet('max')" class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white/80 active:scale-95">MAX</button>
                 </div>
                 <button id="pvp-bet-btn" onclick="placePvpBet()"
-                    class="w-full py-2.5 rounded-xl font-black text-sm text-white active:scale-[0.98] transition-all"
+                    class="w-full py-2.5 rounded-xl font-black text-sm text-white active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
                     style="background:linear-gradient(135deg,#e11d48,#be185d);box-shadow:0 4px 20px rgba(225,29,72,0.4)">
-                    Поставить ⭐
+                    <span data-i18n="pvp_bet_btn_stars">Поставить</span>
+                    <img src="/gifts/stars.png" class="w-4 h-4 object-contain" onerror="this.style.display='none'">
                 </button>
             </div>
 
@@ -296,9 +315,10 @@
                     <button onclick="setPvpDonutsBet('max')" class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white/80 active:scale-95">MAX</button>
                 </div>
                 <button onclick="placePvpBet()"
-                    class="w-full py-2.5 rounded-xl font-black text-sm text-white active:scale-[0.98] transition-all"
+                    class="w-full py-2.5 rounded-xl font-black text-sm text-white active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
                     style="background:linear-gradient(135deg,#f97316,#c2410c);box-shadow:0 4px 20px rgba(249,115,22,0.4)">
-                    Поставить 🍩
+                    <span data-i18n="pvp_bet_btn_donuts">Поставить</span>
+                    <img src="/gifts/dount.png" class="w-4 h-4 object-contain" onerror="this.style.display='none'">
                 </button>
             </div>
 
@@ -314,7 +334,7 @@
         <!-- Participants -->
         <div class="glass rounded-3xl border border-white/10 overflow-hidden">
             <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
-                <span class="text-xs font-bold text-white/60 uppercase tracking-wider">Участники</span>
+                <span class="text-xs font-bold text-white/60 uppercase tracking-wider" data-i18n="pvp_participants_label">Участники</span>
                 <span id="pvp-players-count" class="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded-full">0</span>
             </div>
             <div id="pvp-participants-list" class="flex flex-col gap-1.5 p-2 max-h-52 overflow-y-auto">
