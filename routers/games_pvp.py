@@ -417,21 +417,21 @@ async def _cancel_and_refund(players_snapshot: dict, round_id: int):
                     await database.add_stars_to_user(uid, bet["amount"])
                     await database.add_history_entry(
                         uid, "pvp_refund_stars",
-                        f"Возврат ставки Space PvP (раунд #{round_id}, нет соперников)",
+                        f"Возврат ставки Space PvP — звёзды (раунд #{round_id}, нет соперника, таймаут 5 мин)",
                         bet["amount"],
                     )
                 elif bet["type"] == "donuts":
                     await database.add_points_to_user(uid, bet["amount"])
                     await database.add_history_entry(
                         uid, "pvp_refund_donuts",
-                        f"Возврат ставки Space PvP — пончики (раунд #{round_id}, нет соперников)",
+                        f"Возврат ставки Space PvP — пончики (раунд #{round_id}, нет соперника, таймаут 5 мин)",
                         bet["amount"],
                     )
                 elif bet["type"] == "gift":
                     await database.add_gift_to_user(uid, bet["gift_id"], 1)
                     await database.add_history_entry(
                         uid, "pvp_refund_gift",
-                        f"Возврат подарка Space PvP (раунд #{round_id}) [gift_id:{bet['gift_id']}]",
+                        f"Возврат подарка Space PvP (раунд #{round_id}, нет соперника, таймаут 5 мин) [gift_id:{bet['gift_id']}]",
                         bet.get("value_stars", 1),
                     )
         print(f"[PvP] Раунд #{round_id} отменён по таймауту, ставки возвращены.")
@@ -802,4 +802,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-                  }
+    }
