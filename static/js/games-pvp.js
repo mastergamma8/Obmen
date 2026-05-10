@@ -100,13 +100,24 @@ function applyPvpState(data) {
         pvpBallTrail = [];
     }
 
-    // Transition: enter rolling
+    // Transition: enter rolling — use server-provided seed + timestamp for sync
     if (prevState !== 'rolling' && data.state === 'rolling') {
-        pvpRollingStart = performance.now();
-        pvpBallPos = { x: 50, y: 50 };
-        pvpBallVel = { x: (Math.random() > 0.5 ? 1 : -1) * (1.2 + Math.random() * 0.8),
-                       y: (Math.random() > 0.5 ? 1 : -1) * (0.9 + Math.random() * 0.6) };
+        // Server timestamp lets us compute how much of the animation has already elapsed,
+        // so a user who joins mid-round sees the ball in the correct position.
+        const serverNow      = Date.now() / 1000;
+        const elapsedSeconds = data.rolling_start_ts > 0
+            ? Math.max(0, serverNow - data.rolling_start_ts)
+            : 0;
+        pvpRollingStart = performance.now() - elapsedSeconds * 1000;
+
+        // Seeded PRNG so every client gets the same initial velocity
+        pvpInitBallFromSeed(data.ball_seed || 1);
         startPvpBallAnimation();
+    }
+
+    // Re-joining during rolling: keep animation in sync even without state transition
+    if (data.state === 'rolling' && prevState === 'rolling' && data.rolling_start_ts > 0) {
+        // No-op: animation frame loop already tracks elapsed from pvpRollingStart
     }
 
     if (data.state !== 'rolling' && prevState === 'rolling') {
@@ -184,16 +195,36 @@ function stopPvpBallAnimation() {
     }
 }
 
+// ─── Seeded PRNG (Mulberry32) ────────────────────────────────
+// Identical seed → identical sequence on every client.
+let _pvpRng = () => Math.random();
+
+function pvpInitBallFromSeed(seed) {
+    // Mulberry32 — fast, good distribution
+    let s = seed >>> 0;
+    _pvpRng = () => {
+        s += 0x6D2B79F5;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    pvpBallPos = { x: 50, y: 50 };
+    pvpBallVel = {
+        x: (_pvpRng() > 0.5 ? 1 : -1) * (1.2 + _pvpRng() * 0.8),
+        y: (_pvpRng() > 0.5 ? 1 : -1) * (0.9 + _pvpRng() * 0.6),
+    };
+}
+
 function animatePvpBall() {
     const elapsed  = performance.now() - pvpRollingStart;
     const progress = Math.min(elapsed / PVP_ROLLING_DURATION, 1);
 
-    // Slow down as we approach end
+    // Decelerate toward the end
     const speedFactor = 1 - Math.pow(progress, 2) * 0.85;
     pvpBallPos.x += pvpBallVel.x * speedFactor;
     pvpBallPos.y += pvpBallVel.y * speedFactor;
 
-    // Bounce off walls (0–100 range)
+    // Bounce off walls — stays within arena bounds
     if (pvpBallPos.x < 5)  { pvpBallPos.x = 5;  pvpBallVel.x =  Math.abs(pvpBallVel.x); }
     if (pvpBallPos.x > 95) { pvpBallPos.x = 95; pvpBallVel.x = -Math.abs(pvpBallVel.x); }
     if (pvpBallPos.y < 8)  { pvpBallPos.y = 8;  pvpBallVel.y =  Math.abs(pvpBallVel.y); }
@@ -205,24 +236,24 @@ function animatePvpBall() {
 
     const ball = document.getElementById('pvp-ball');
     if (ball) {
-        ball.style.left = pvpBallPos.x + '%';
-        ball.style.top  = pvpBallPos.y + '%';
+        ball.style.left    = pvpBallPos.x + '%';
+        ball.style.top     = pvpBallPos.y + '%';
         ball.style.opacity = '1';
     }
 
-    // Zoom-in effect: when ball slows down in the last 20% of animation,
-    // scale the arena around the ball position so the landing is dramatic
-    const arenaInner = document.querySelector('#pvp-arena-players')?.parentElement;
-    if (arenaInner) {
+    // Contained zoom: scale only #pvp-arena-players (clipped by overflow:hidden parent)
+    // so the effect never escapes the arena border.
+    const arenaPlayers = document.getElementById('pvp-arena-players');
+    if (arenaPlayers) {
         if (progress > 0.80) {
-            const zoomT = (progress - 0.80) / 0.20;            // 0→1 in last 20%
-            const scale = 1 + zoomT * 0.55;                    // zoom up to 1.55×
-            arenaInner.style.transform       = `scale(${scale.toFixed(3)})`;
-            arenaInner.style.transformOrigin = `${pvpBallPos.x}% ${pvpBallPos.y}%`;
-            arenaInner.style.transition      = 'transform 0.15s ease-out';
+            const zoomT = (progress - 0.80) / 0.20;
+            const scale = 1 + zoomT * 0.40;
+            arenaPlayers.style.transform       = `scale(${scale.toFixed(3)})`;
+            arenaPlayers.style.transformOrigin = `${pvpBallPos.x}% ${pvpBallPos.y}%`;
+            arenaPlayers.style.transition      = 'transform 0.12s ease-out';
         } else {
-            arenaInner.style.transform  = '';
-            arenaInner.style.transition = '';
+            arenaPlayers.style.transform  = '';
+            arenaPlayers.style.transition = '';
         }
     }
 
@@ -232,13 +263,11 @@ function animatePvpBall() {
         pvpBallAnimFrame = requestAnimationFrame(animatePvpBall);
     } else {
         pvpBallAnimFrame = null;
-        // Reset zoom after a short pause so the landing color is visible
-        setTimeout(() => {
-            if (arenaInner) {
-                arenaInner.style.transition = 'transform 0.6s ease-in-out';
-                arenaInner.style.transform  = '';
-            }
-        }, 800);
+        // Smoothly reset zoom
+        if (arenaPlayers) {
+            arenaPlayers.style.transition = 'transform 0.5s ease-in-out';
+            arenaPlayers.style.transform  = '';
+        }
     }
 }
 
@@ -409,30 +438,7 @@ function makePvpAvatarFallback(name, size, color) {
     return d;
 }
 
-// ─── Fullscreen arena toggle ───────────────────────────────────
-
-let pvpIsFullscreen = false;
-
-function togglePvpFullscreen() {
-    const arena  = document.getElementById('pvp-arena-wrap');
-    const btn    = document.getElementById('pvp-fullscreen-btn');
-    if (!arena) return;
-    pvpIsFullscreen = !pvpIsFullscreen;
-
-    if (pvpIsFullscreen) {
-        arena.style.cssText = `
-            position:fixed; inset:0; z-index:200;
-            height:100dvh !important; border-radius:0;
-            background:radial-gradient(ellipse at 60% 40%, rgba(244,63,94,0.10) 0%, #020617 70%);
-        `;
-        if (btn) btn.innerHTML = '⛶';
-    } else {
-        arena.style.cssText = '';
-        if (btn) btn.innerHTML = '⛶';
-    }
-    // Re-render cards at new size
-    renderPvpArena();
-}
+// Fullscreen removed — zoom is contained within arena border via overflow:hidden
 
 // ─── Top bar (best/last game) ──────────────────────────────────
 
@@ -878,4 +884,4 @@ function spawnPvpConfetti() {
 
 function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        }
+            }
