@@ -224,10 +224,19 @@
         </div>
 
         <!-- Bank display block -->
-        <div class="glass rounded-2xl border border-white/10 px-4 py-2.5 flex items-center gap-3">
-            <span class="text-[10px] font-bold text-white/40 uppercase tracking-wider flex-shrink-0" data-i18n="pvp_bank">Банк:</span>
-            <div id="pvp-pot-display" class="flex flex-wrap items-center gap-2 min-h-[20px]">
-                <span class="text-white/30 text-xs" data-i18n="pvp_bank_empty">Банк пуст</span>
+        <div class="glass rounded-2xl border border-rose-500/20 px-4 py-3 flex items-center gap-3" style="background:linear-gradient(135deg,rgba(244,63,94,0.07),rgba(168,85,247,0.05));">
+            <!-- Icon -->
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.25);">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="rgba(251,113,133,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+            </div>
+            <!-- Label + value -->
+            <div class="flex-1 min-w-0">
+                <div class="text-[9px] font-bold uppercase tracking-widest mb-1.5" style="color:rgba(255,255,255,0.35);" data-i18n="pvp_bank">Банк раунда</div>
+                <div id="pvp-pot-display" class="flex flex-wrap items-center gap-1.5 min-h-[22px]">
+                    <span class="text-white/30 text-xs" data-i18n="pvp_bank_empty">Банк пуст</span>
+                </div>
             </div>
         </div>
 
@@ -238,9 +247,6 @@
             <div id="pvp-arena-inner" class="absolute inset-0" style="z-index:0;">
             <!-- Динамический фон (Сектора) -->
             <div id="pvp-dynamic-bg" class="absolute inset-0 transition-all duration-700 ease-out" style="background:radial-gradient(ellipse at center, rgba(244,63,94,0.08) 0%, #020617 70%)"></div>
-
-            <!-- Звезды поверх фона -->
-            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 pointer-events-none z-0"></div>
 
             <!-- Слой для аватарок (Размещаются по кругу) -->
             <div id="pvp-arena-players" class="absolute inset-0 z-10 pointer-events-none"></div>
@@ -364,4 +370,4 @@
             <!-- Рендерится через JS -->
         </div>
     </div>
-</div>
+                    </div>
