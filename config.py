@@ -394,7 +394,7 @@ ROCKET_CONFIG = {
     "min_bet": 50,                  
     "max_bet": 10000,              
     "house_edge": 0.13,            
-    "max_multiplier": 1000.0,      
+    "max_multiplier": 100.0,      
     "growth_speed": 1.00006        
 }
 
