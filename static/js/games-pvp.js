@@ -919,44 +919,81 @@ function showPvpWinnerReveal(winner) {
     if (ball) ball.style.opacity = '0';
 
     const pot = pvpState.pot;
-    const potStr = [];
-    if (pot.stars  > 0) potStr.push(`${Math.floor(pot.stars  * 0.95)}${_pvpStarIcon(16)}`);
-    if (pot.donuts > 0) potStr.push(`${(pot.donuts * 0.95).toFixed(2)}${_pvpDonutIcon(16)}`);
 
-    // Show actual gift images with their star value
-    const previews = pot.gift_previews || [];
-    if (previews.length > 0) {
-        previews.slice(0, 4).forEach(g => {
-            const starVal = g.value_stars || g.exchange_stars || 0;
-            let gHtml = '';
-            if (g.photo) {
-                gHtml += `<img src="${g.photo}" title="${escHtml(g.name)}" style="width:22px;height:22px;object-fit:contain;display:inline-block;vertical-align:middle;border-radius:4px;" onerror="this.outerHTML='🎁'">`;
-            } else {
-                gHtml += '🎁';
-            }
-            if (starVal > 0) gHtml += `<span style="font-size:10px;color:#fde047;font-weight:900;margin-left:2px;">${starVal}${_pvpStarIcon(10)}</span>`;
-            potStr.push(gHtml);
-        });
-        if (pot.gifts > 4) potStr.push(`<span style="font-size:11px;color:#c4b5fd;font-weight:700;">+${pot.gifts - 4}</span>`);
-    } else if (pot.gifts > 0) {
-        potStr.push(`${pot.gifts}🎁`);
+    // ── Build the grid of won items ────────────────────────────
+    const allItems = [];
+
+    // Stars → one icon per ~5 stars, min 6, max 48 icons
+    if (pot.stars > 0) {
+        const earn  = Math.floor(pot.stars * 0.95);
+        const count = Math.min(48, Math.max(6, Math.ceil(earn / 5)));
+        for (let i = 0; i < count; i++) {
+            allItems.push(`<img src="/gifts/stars.png" style="width:100%;height:100%;object-fit:contain;" onerror="this.outerHTML='\u2b50'">`);
+        }
     }
 
+    // Donuts → one icon per unit, min 3, max 24
+    if (pot.donuts > 0) {
+        const earn  = pot.donuts * 0.95;
+        const count = Math.min(24, Math.max(3, Math.ceil(earn)));
+        for (let i = 0; i < count; i++) {
+            allItems.push(`<img src="/gifts/dount.png" style="width:100%;height:100%;object-fit:contain;" onerror="this.outerHTML='\ud83c\udf69'">`);
+        }
+    }
+
+    // Gifts → repeated by their quantity (max 12 each), using real photo
+    const previews = pot.gift_previews || [];
+    if (previews.length > 0) {
+        previews.forEach(g => {
+            const amount = Math.min(12, g.amount || 1);
+            for (let i = 0; i < amount; i++) {
+                const img = g.photo
+                    ? `<img src="${escHtml(g.photo)}" title="${escHtml(g.name)}" style="width:100%;height:100%;object-fit:contain;" onerror="this.outerHTML='\ud83c\udf81'">`
+                    : `<span style="font-size:22px;line-height:1;">\ud83c\udf81</span>`;
+                allItems.push(img);
+            }
+        });
+    } else if (pot.gifts > 0) {
+        const count = Math.min(24, pot.gifts);
+        for (let i = 0; i < count; i++) {
+            allItems.push(`<span style="font-size:22px;line-height:1;">\ud83c\udf81</span>`);
+        }
+    }
+
+    // Pad with repeated icons so the grid always looks full (~42 cells)
+    if (allItems.length > 0 && allItems.length < 42) {
+        const seed = [...allItems];
+        while (allItems.length < 42) {
+            allItems.push(seed[allItems.length % seed.length]);
+        }
+    }
+
+    // ── Compact pot summary for the header badge ───────────────
+    const potParts = [];
+    if (pot.stars  > 0) potParts.push(`${Math.floor(pot.stars * 0.95)}${_pvpStarIcon(13)}`);
+    if (pot.donuts > 0) potParts.push(`${(pot.donuts * 0.95).toFixed(2)}${_pvpDonutIcon(13)}`);
+    if (pot.gifts  > 0) potParts.push(`${pot.gifts}\ud83c\udf81`);
+
     overlay.innerHTML = `
-        <div class="pvp-winner-card flex flex-col items-center gap-3 p-6 text-center animate-pvp-winner-pop">
-            <div class="text-4xl">${_pvpTrophyIcon(44)}</div>
-            <div class="pvp-winner-avatar" style="border-color:${winner.color};box-shadow:0 0 30px ${winner.color}88">
-                ${winner.avatar
-                    ? `<img src="${winner.avatar}" class="w-full h-full object-cover rounded-full" onerror="this.style.display='none'">`
-                    : `<div class="w-full h-full flex items-center justify-center text-2xl font-black rounded-full" style="background:${winner.color}33">${(winner.name||'?')[0]}</div>`
-                }
+        <div class="pvp-win-fullscreen">
+            <div class="pvp-win-header">
+                ${_pvpTrophyIcon(20)}
+                <div class="pvp-win-avatar-sm" style="border-color:${winner.color};box-shadow:0 0 14px ${winner.color}aa;">
+                    ${winner.avatar
+                        ? `<img src="${winner.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none'">`
+                        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;background:${winner.color}33;border-radius:50%;">${(winner.name||'?')[0]}</div>`
+                    }
+                </div>
+                <div class="pvp-win-name-block">
+                    <div class="pvp-win-name">${escHtml(winner.name)}</div>
+                    <div class="pvp-win-subtitle" data-i18n="pvp_winner_takes">${_pvpT('pvp_winner_takes','takes the entire bank!')}</div>
+                </div>
+                ${potParts.length ? `<div class="pvp-win-pot-badge">${potParts.join('<span style="color:rgba(255,255,255,0.3);margin:0 2px;font-size:9px;">+</span>')}</div>` : ''}
             </div>
-            <div class="text-xl font-black text-white">${escHtml(winner.name)}</div>
-            <div class="text-sm text-white/60" data-i18n="pvp_winner_takes">${_pvpT('pvp_winner_takes','takes the entire bank!')}</div>
-            <div class="flex gap-2 flex-wrap justify-center mt-1">
-                ${potStr.map(s => `<span class="px-3 py-1 rounded-full text-sm font-black border border-white/20 bg-white/10 text-white flex items-center gap-1">${s}</span>`).join('')}
+            <div class="pvp-win-grid">
+                ${allItems.map((html, i) => `<div class="pvp-win-item" style="animation-delay:${(i * 28) % 480}ms;">${html}</div>`).join('')}
             </div>
-            <div class="pvp-confetti-emitter" id="pvp-confetti"></div>
+            <div id="pvp-confetti" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:10;"></div>
         </div>
     `;
     overlay.classList.remove('hidden');
