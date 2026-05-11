@@ -11,7 +11,7 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
-let currentLeaderboardTab = 'rich'; // 'rich' | 'rocket' | 'lucky'
+let currentLeaderboardTab = 'rich'; // 'rich' | 'alltime'
 
 // ─── Таймер до сброса ────────────────────────────────
 let _resetCountdownInterval = null;
@@ -73,9 +73,8 @@ async function loadLeaderboard() {
     if (stickyRank) stickyRank.classList.add('hidden');
 
     try {
-        if (currentLeaderboardTab === 'rich')   await loadRichLeaderboard(list, stickyRank);
-        if (currentLeaderboardTab === 'rocket') await loadRocketLeaderboard(list, stickyRank);
-        if (currentLeaderboardTab === 'lucky')  await loadLuckyLeaderboard(list, stickyRank);
+        if (currentLeaderboardTab === 'rich')    await loadRichLeaderboard(list, stickyRank);
+        if (currentLeaderboardTab === 'alltime') await loadAlltimeLeaderboard(list, stickyRank);
     } catch(e) {
         list.innerHTML = `<div class="text-center text-red-400 mt-10 glass p-4 rounded-2xl">${i18n[currentLang].err_network || 'Ошибка сети'}</div>`;
     }
@@ -237,16 +236,19 @@ function buildSpendBadge(donutsSpent, starsSpent) {
     return parts.length > 0 ? parts.join('<span class="text-white/30 px-0.5 shrink-0">+</span>') : `<div class="flex items-center gap-1 whitespace-nowrap">0 <img src="/gifts/dount.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
 }
 
-// ─── 🚀 Сорвиголовы ─────────────────────────────────
-async function loadRocketLeaderboard(list, stickyRank) {
-    const res = await fetch(`/api/leaderboard/rocket`, { headers: getApiHeaders() });
+// ─── 🏆 За всё время ────────────────────────────────
+async function loadAlltimeLeaderboard(list, stickyRank) {
+    const res = await fetch(`/api/leaderboard/alltime`, { headers: getApiHeaders() });
     const data = await res.json();
     list.innerHTML = '';
 
-    if (data.reset_ts) startResetCountdown(data.reset_ts);
+    // Таймер не нужен — этот список не сбрасывается
+    const timerWrapper = document.getElementById('lb-reset-timer');
+    if (timerWrapper) timerWrapper.classList.add('hidden');
+    if (_resetCountdownInterval) { clearInterval(_resetCountdownInterval); _resetCountdownInterval = null; }
 
     if (!data.leaderboard || data.leaderboard.length === 0) {
-        list.innerHTML = `<div class="text-center text-white/40 mt-12 text-sm">${i18n[currentLang].lb_empty_rocket || 'Пока нет данных за эту неделю 🚀'}</div>`;
+        list.innerHTML = `<div class="text-center text-white/40 mt-12 text-sm">${i18n[currentLang].lb_empty_alltime || 'Пока никто ничего не потратил 🏆'}</div>`;
         if (stickyRank) stickyRank.classList.add('hidden');
         return;
     }
@@ -255,69 +257,25 @@ async function loadRocketLeaderboard(list, stickyRank) {
 
     data.leaderboard.forEach((u, index) => {
         const isMe = (u.tg_id == tgUser.id || (u.username && tgUser.username && u.username === tgUser.username));
-        if (isMe) currentUserRankData = { rank: index + 1, max_multiplier: u.max_multiplier };
+        if (isMe) currentUserRankData = { rank: index + 1, donuts_spent: u.donuts_spent, stars_spent: u.stars_spent };
 
-        const badge = `<div class="flex items-center gap-1 whitespace-nowrap"><span class="text-green-300 font-extrabold">x${parseFloat(u.max_multiplier ?? 0).toFixed(2)}</span> <img src="/gifts/raketa.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
+        const badge = buildSpendBadge(u.donuts_spent || 0, u.stars_spent || 0);
         list.innerHTML += buildCard(u, index, isMe, badge);
     });
 
     if (!currentUserRankData && data.user_info) currentUserRankData = data.user_info;
 
-    const myAvatar = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
-    const myName   = escapeHtml(tgUser.first_name || 'Вы');
-    const rankText = currentUserRankData?.rank ?? '—';
-    const multText = currentUserRankData?.max_multiplier != null
-        ? `x${parseFloat(currentUserRankData.max_multiplier).toFixed(2)}`
-        : '—';
+    const rankText    = currentUserRankData?.rank ?? '—';
+    const donutsSpent = currentUserRankData?.donuts_spent ?? 0;
+    const starsSpent  = currentUserRankData?.stars_spent  ?? 0;
+    const myAvatar    = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
+    const myName      = escapeHtml(tgUser.first_name || 'Вы');
 
     if (stickyRank) {
         stickyRank.innerHTML = buildStickyRankHTML(
             rankText, myAvatar, myName,
-            `<div class="flex items-center gap-1 whitespace-nowrap">${multText} <img src="/gifts/raketa.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`,
-            'text-green-300'
-        );
-        stickyRank.classList.remove('hidden');
-    }
-}
-
-// ─── 🍀 Счастливчики ─────────────────────────────────
-async function loadLuckyLeaderboard(list, stickyRank) {
-    const res = await fetch(`/api/leaderboard/lucky`, { headers: getApiHeaders() });
-    const data = await res.json();
-    list.innerHTML = '';
-
-    if (data.reset_ts) startResetCountdown(data.reset_ts);
-
-    if (!data.leaderboard || data.leaderboard.length === 0) {
-        list.innerHTML = `<div class="text-center text-white/40 mt-12 text-sm">${i18n[currentLang].lb_empty_lucky || 'Пока никто не открывал кейсы 🍀'}</div>`;
-        if (stickyRank) stickyRank.classList.add('hidden');
-        return;
-    }
-
-    let currentUserRankData = null;
-
-    data.leaderboard.forEach((u, index) => {
-        const isMe = (u.tg_id == tgUser.id || (u.username && tgUser.username && u.username === tgUser.username));
-        if (isMe) currentUserRankData = { rank: index + 1, ratio: u.ratio };
-
-        const badge = `<div class="flex items-center gap-1 whitespace-nowrap"><span class="text-emerald-300 font-extrabold">${u.ratio.toFixed(2)}x</span> <img src="/gifts/case.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
-        list.innerHTML += buildCard(u, index, isMe, badge);
-    });
-
-    if (!currentUserRankData && data.user_info) currentUserRankData = data.user_info;
-
-    const myAvatar  = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
-    const myName    = escapeHtml(tgUser.first_name || 'Вы');
-    const rankText  = currentUserRankData?.rank ?? '—';
-    const ratioText = currentUserRankData?.ratio != null
-        ? `${parseFloat(currentUserRankData.ratio).toFixed(2)}x`
-        : '—';
-
-    if (stickyRank) {
-        stickyRank.innerHTML = buildStickyRankHTML(
-            rankText, myAvatar, myName,
-            `<div class="flex items-center gap-1 whitespace-nowrap">${ratioText} <img src="/gifts/case.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`,
-            'text-emerald-300'
+            buildSpendBadge(donutsSpent, starsSpent),
+            'text-yellow-200'
         );
         stickyRank.classList.remove('hidden');
     }
