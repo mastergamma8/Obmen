@@ -212,6 +212,26 @@ async def get_leaderboard(current_user: dict = Depends(get_current_user)):
     return {"leaderboard": board, "user_info": user_rank, "reset_ts": get_week_reset_ts()}
 
 
+@router.get("/leaderboard/alltime")
+async def get_alltime_leaderboard(current_user: dict = Depends(get_current_user)):
+    tg_id = current_user["id"]
+    board = await database.get_alltime_leaderboard()
+    user_rank = None
+    for i, u in enumerate(board):
+        if u["tg_id"] == tg_id:
+            user_rank = {
+                "rank": i + 1,
+                "donuts_spent": u.get("donuts_spent", 0),
+                "stars_spent": u.get("stars_spent", 0),
+            }
+            break
+    if user_rank is None:
+        user_rank = await database.get_user_alltime_rank(tg_id)
+    if user_rank:
+        user_rank["rank"] = _cap_rank(user_rank["rank"])
+    return {"leaderboard": board, "user_info": user_rank}
+
+
 @router.get("/leaderboard/rocket")
 async def get_rocket_leaderboard(current_user: dict = Depends(get_current_user)):
     from db.db_leaderboard import get_week_reset_ts
