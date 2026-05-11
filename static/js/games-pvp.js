@@ -517,12 +517,7 @@ function renderPvpArena() {
             const fontSize = Math.max(10, Math.round(avatarPx * 0.45));
             avatarWrap.innerHTML = `<div class="w-full h-full flex items-center justify-center font-black text-white rounded-full" style="font-size:${fontSize}px">${(p.name||'?')[0]}</div>`;
         }
-        if (isWinner) {
-            const crownEl = document.createElement('div');
-            crownEl.style.cssText = 'position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:20px;line-height:1;filter:drop-shadow(0 0 6px rgba(255,215,0,0.95));pointer-events:none;z-index:30;';
-            crownEl.textContent = '👑';
-            avatarWrap.appendChild(crownEl);
-        }
+
 
         // Info label: win chance
         const infoLabel = document.createElement('div');
@@ -748,7 +743,7 @@ function renderPvpParticipants() {
                             : `<div class="w-full h-full flex items-center justify-center text-xs font-black" style="background:${p.color}44">${(p.name||'?')[0].toUpperCase()}</div>`
                         }
                     </div>
-                    ${isWinner ? `<div class="absolute -top-1 -right-1">${_pvpCrownIcon(14)}</div>` : ''}
+                    ${isWinner ? `<div style="position:absolute;top:-8px;right:-8px;font-size:14px;line-height:1;filter:drop-shadow(0 0 5px rgba(255,215,0,0.9));pointer-events:none;">👑</div>` : ''}
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="text-xs font-bold text-white truncate">${escHtml(p.name)}</div>
