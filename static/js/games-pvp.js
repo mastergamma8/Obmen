@@ -835,8 +835,8 @@ async function placePvpBet() {
 
     if (pvpBetTab === 'stars') {
         const amount = parseInt(document.getElementById('pvp-stars-input')?.value || '0');
-        if (!amount || amount < 50) {
-            if (typeof showNotify === 'function') showNotify(_pvpT('pvp_min_stars_warn', 'Minimum 50 ⭐'), 'warning');
+        if (!amount || amount < 15) {
+            if (typeof showNotify === 'function') showNotify(_pvpT('pvp_min_stars_warn', 'Minimum 15 ⭐'), 'warning');
             return;
         }
         await sendPvpBet('/api/pvp/bet/stars', { amount });
@@ -894,8 +894,8 @@ function setPvpStarsBet(preset) {
     const inp = document.getElementById('pvp-stars-input');
     if (!inp) return;
     const balance = (typeof myStars !== 'undefined' ? myStars : 0);
-    if (preset === 'min')       inp.value = 50;
-    else if (preset === 'x2')   inp.value = Math.min(balance, Math.max(50, parseInt(inp.value || '50') * 2));
+    if (preset === 'min')       inp.value = 15;
+    else if (preset === 'x2')   inp.value = Math.min(balance, Math.max(15, parseInt(inp.value || '15') * 2));
     else if (preset === 'max')  inp.value = balance;
     else                        inp.value = preset;
 }
