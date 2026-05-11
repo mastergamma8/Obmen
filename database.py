@@ -73,6 +73,8 @@ from db.db_leaderboard import (  # noqa: F401
     get_rocket_leaderboard_full,
     get_lucky_leaderboard,
     get_user_lucky_rank,
+    get_alltime_leaderboard,
+    get_user_alltime_rank,
 )
 
 from db.db_bank import (  # noqa: F401
