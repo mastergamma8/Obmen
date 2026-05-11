@@ -517,6 +517,12 @@ function renderPvpArena() {
             const fontSize = Math.max(10, Math.round(avatarPx * 0.45));
             avatarWrap.innerHTML = `<div class="w-full h-full flex items-center justify-center font-black text-white rounded-full" style="font-size:${fontSize}px">${(p.name||'?')[0]}</div>`;
         }
+        if (isWinner) {
+            const crownEl = document.createElement('div');
+            crownEl.style.cssText = 'position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:20px;line-height:1;filter:drop-shadow(0 0 6px rgba(255,215,0,0.95));pointer-events:none;z-index:30;';
+            crownEl.textContent = '👑';
+            avatarWrap.appendChild(crownEl);
+        }
 
         // Info label: win chance
         const infoLabel = document.createElement('div');
@@ -946,14 +952,11 @@ function showPvpWinnerReveal(winner) {
         <div class="pvp-winner-card flex flex-col items-center gap-4 p-6 text-center animate-pvp-winner-pop">
             <div style="position:absolute;inset:0;background:radial-gradient(ellipse at center,${winner.color}22 0%,transparent 70%);pointer-events:none;"></div>
             <div class="text-4xl" style="position:relative;">${_pvpTrophyIcon(52)}</div>
-            <div style="position:relative;width:96px;height:96px;">
-                <div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:28px;line-height:1;filter:drop-shadow(0 0 8px rgba(255,215,0,0.9));z-index:2;">👑</div>
-                <div class="pvp-winner-avatar" style="width:96px;height:96px;border-color:${winner.color};box-shadow:0 0 40px ${winner.color}99">
-                    ${winner.avatar
-                        ? `<img src="${winner.avatar}" class="w-full h-full object-cover rounded-full" onerror="this.style.display='none'">`
-                        : `<div class="w-full h-full flex items-center justify-center text-3xl font-black rounded-full" style="background:${winner.color}33">${(winner.name||'?')[0]}</div>`
-                    }
-                </div>
+            <div class="pvp-winner-avatar" style="position:relative;width:96px;height:96px;border-color:${winner.color};box-shadow:0 0 40px ${winner.color}99">
+                ${winner.avatar
+                    ? `<img src="${winner.avatar}" class="w-full h-full object-cover rounded-full" onerror="this.style.display='none'">`
+                    : `<div class="w-full h-full flex items-center justify-center text-3xl font-black rounded-full" style="background:${winner.color}33">${(winner.name||'?')[0]}</div>`
+                }
             </div>
             <div class="text-2xl font-black text-white" style="position:relative;text-shadow:0 0 20px ${winner.color}99">${escHtml(winner.name)}</div>
             <div class="text-sm font-semibold" style="position:relative;color:rgba(255,255,255,0.6)" data-i18n="pvp_winner_takes">${_pvpT('pvp_winner_takes','takes the entire bank!')}</div>
