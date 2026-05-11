@@ -232,6 +232,89 @@ async def get_user_lucky_rank(tg_id: int) -> dict:
     return {"rank": rank, "ratio": user_best / 100}
 
 
+async def get_alltime_leaderboard():
+    """За всё время: топ по суммарным тратам без ограничения по дате."""
+    _star_types_placeholder = ','.join('?' * len(_STAR_SPEND_TYPES))
+    star_types_list = list(_STAR_SPEND_TYPES)
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(f"""
+            SELECT
+                u.tg_id,
+                u.username,
+                u.first_name,
+                u.photo_url,
+                COALESCE(ABS(SUM(CASE
+                    WHEN h.action_type NOT IN ({_star_types_placeholder})
+                    THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
+                COALESCE(ABS(SUM(CASE
+                    WHEN h.action_type IN ({_star_types_placeholder})
+                    THEN h.amount ELSE 0 END)), 0) AS stars_spent
+            FROM users u
+            LEFT JOIN user_history h
+                ON  h.user_id     = u.tg_id
+                AND h.amount      < 0
+                AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
+            GROUP BY u.tg_id
+            ORDER BY COALESCE(ABS(SUM(h.amount)), 0) DESC
+            LIMIT 50
+        """, (*star_types_list, *star_types_list, *_SPEND_ACTION_TYPES)) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def get_user_alltime_rank(tg_id: int) -> dict:
+    """Возвращает место и суммарные траты пользователя в таблице за всё время."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+
+        async with db.execute(f"""
+            SELECT COALESCE(ABS(SUM(amount)), 0) AS total_spent
+            FROM user_history
+            WHERE user_id = ? AND amount < 0
+              AND action_type IN ({_SPEND_TYPES_PLACEHOLDER})
+        """, (tg_id, *_SPEND_ACTION_TYPES)) as cursor:
+            row = await cursor.fetchone()
+            total_spent = row["total_spent"] if row else 0
+
+        async with db.execute(f"""
+            SELECT COUNT(*) AS cnt FROM (
+                SELECT u.tg_id,
+                       COALESCE(ABS(SUM(h.amount)), 0) AS ts
+                FROM users u
+                LEFT JOIN user_history h
+                    ON  h.user_id     = u.tg_id
+                    AND h.amount      < 0
+                    AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
+                WHERE u.tg_id != ?
+                GROUP BY u.tg_id
+                HAVING ts > ?
+            )
+        """, (*_SPEND_ACTION_TYPES, tg_id, total_spent)) as cursor:
+            cnt_row = await cursor.fetchone()
+            rank = (cnt_row["cnt"] + 1) if cnt_row else 1
+
+        _star_types_placeholder = ','.join('?' * len(_STAR_SPEND_TYPES))
+        star_types_list = list(_STAR_SPEND_TYPES)
+        async with db.execute(f"""
+            SELECT
+                COALESCE(ABS(SUM(CASE WHEN action_type NOT IN ({_star_types_placeholder})
+                             THEN amount ELSE 0 END)), 0) AS donuts_spent,
+                COALESCE(ABS(SUM(CASE WHEN action_type IN ({_star_types_placeholder})
+                             THEN amount ELSE 0 END)), 0) AS stars_spent
+            FROM user_history
+            WHERE user_id = ? AND amount < 0
+              AND action_type IN ({_SPEND_TYPES_PLACEHOLDER})
+        """, (*star_types_list, *star_types_list, tg_id, *_SPEND_ACTION_TYPES)) as cursor:
+            spend_row = await cursor.fetchone()
+
+    return {
+        "rank": rank,
+        "donuts_spent": spend_row["donuts_spent"] if spend_row else 0,
+        "stars_spent":  spend_row["stars_spent"]  if spend_row else 0,
+    }
+
+
 async def get_lucky_leaderboard():
     """Счастливчики: топ по лучшему одиночному результату из кейса."""
     async with aiosqlite.connect(DB_NAME) as db:
