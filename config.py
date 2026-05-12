@@ -596,6 +596,7 @@ SHOP_SECTIONS: list[dict] = [
                 "image": "/gifts/stars.png",
                 "title": {"ru": "50 ⭐ за пончики", "en": "50 ⭐ for donuts"},
                 "enabled": True,
+                "buy_limit": None,   # None или отсутствие = без ограничений
             },
             {
                 "id": "donuts_100_for_stars",
@@ -606,6 +607,7 @@ SHOP_SECTIONS: list[dict] = [
                 "image": "/gifts/dount.png",
                 "title": {"ru": "100 🍩 за звёзды", "en": "100 🍩 for stars"},
                 "enabled": True,
+                "buy_limit": None,   # None или отсутствие = без ограничений
             },
             {
                 "id": "donuts_50_for_referral",
@@ -616,6 +618,7 @@ SHOP_SECTIONS: list[dict] = [
                 "image": "/gifts/dount.png",
                 "title": {"ru": "50 🍩 за друга", "en": "50 🍩 per friend"},
                 "enabled": True,
+                "buy_limit": 1,     # каждый пользователь может купить не более 1 раза
             },
             # --- Примеры для подарков (раскомментируйте при необходимости) ---
             # {
