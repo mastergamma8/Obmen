@@ -33,3 +33,35 @@ function hideGameView(viewId) {
 // Экспорт базовых функций в глобальную область видимости
 window.showGameView = showGameView;
 window.hideGameView = hideGameView;
+/**
+ * Сбрасывает раздел игр на главный экран со списком игр.
+ * Вызывается при повторном нажатии на кнопку "Игры" в навигации.
+ * Возвращает true, если какой-то игровой экран был закрыт.
+ */
+function resetGamesView() {
+    if (typeof vibrate === 'function') vibrate('light');
+
+    const gameViews = [
+        'games-cases-list-view',
+        'games-rocket-view',
+        'games-pvp-view',
+    ];
+    const mainView = document.getElementById('games-main-view');
+
+    let anyOpen = false;
+    gameViews.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('hidden')) {
+            el.classList.add('hidden');
+            anyOpen = true;
+        }
+    });
+
+    if (anyOpen && mainView) {
+        mainView.classList.remove('hidden');
+    }
+
+    return anyOpen;
+}
+
+window.resetGamesView = resetGamesView;
