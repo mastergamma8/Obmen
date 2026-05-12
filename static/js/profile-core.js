@@ -123,7 +123,7 @@ function syncGiftStateFromResponse(data) {
 // ── Profile rendering ────────────────────────────────────────────────────────
 
 // SVG-аватарка «Anonim» — синий круг с буквой А
-const ANON_AVATAR = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><circle cx='50' cy='50' r='50' fill='%233B82F6'/><text x='50' y='67' font-family='Arial,sans-serif' font-size='52' font-weight='bold' fill='white' text-anchor='middle'>A</text></svg>`;
+const ANON_AVATAR = '/static/img/anon.svg';
 window.ANON_AVATAR = ANON_AVATAR;
 
 function renderProfile() {
