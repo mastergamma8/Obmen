@@ -5,25 +5,40 @@
 let shopConfig = null;          // { limited_section, sections[] }
 let shopBuyPending = null;      // { item, sectionId }
 let shopAvailableReferrals = 0; // кэш доступных рефералов
+let _shopConfigLoading = null;  // промис загрузки конфига (защита от дублирующих запросов)
 
-// ── Инициализация ─────────────────────────────────────────
+// ── Загрузка конфига (единственная точка входа) ───────────────────────────────
+// Все функции, которым нужен shopConfig, должны вызывать _ensureShopConfig().
+// Повторные вызовы во время загрузки дожидаются уже запущенного промиса —
+// второй fetch не создаётся.
+
+async function _ensureShopConfig() {
+    if (shopConfig) return shopConfig;
+    if (_shopConfigLoading) return _shopConfigLoading;
+
+    _shopConfigLoading = (async () => {
+        try {
+            const [cfgRes, refRes] = await Promise.all([
+                fetch('/api/shop/config'),
+                fetch('/api/shop/referrals', { headers: getApiHeaders() })
+            ]);
+            shopConfig = await cfgRes.json();
+            const refData = await refRes.json();
+            shopAvailableReferrals = refData.available ?? 0;
+        } catch (e) {
+            console.error('Shop init error:', e);
+        }
+        _shopConfigLoading = null;
+        return shopConfig;
+    })();
+
+    return _shopConfigLoading;
+}
+
+// ── Инициализация страницы ────────────────────────────────────────────────────
 
 async function initShopPage() {
-    if (shopConfig) {
-        renderShop();
-        return;
-    }
-    try {
-        const [cfgRes, refRes] = await Promise.all([
-            fetch('/api/shop/config'),
-            fetch('/api/shop/referrals', { headers: getApiHeaders() })
-        ]);
-        shopConfig = await cfgRes.json();
-        const refData = await refRes.json();
-        shopAvailableReferrals = refData.available ?? 0;
-    } catch (e) {
-        console.error('Shop init error:', e);
-    }
+    await _ensureShopConfig();
     renderShop();
 }
 
@@ -136,27 +151,41 @@ function _getPriceLabel(item, lang) {
 
 // ── Лимитированные подарки (отдельный вид) ────────────────
 
-function openShopLimitedGifts() {
+async function openShopLimitedGifts() {
     if (typeof vibrate === 'function') vibrate('light');
+
     const mainContent = document.getElementById('page-shop');
     const fullView    = document.getElementById('shop-limited-full');
     if (!mainContent || !fullView) return;
 
-    // Скрываем основное содержимое
-    document.getElementById('shop-section-limited').style.display = 'none';
-    document.getElementById('shop-custom-sections').style.display = 'none';
-    document.querySelector('#page-shop > h2').style.display = 'none';
-    fullView.classList.remove('hidden');
+    // Убеждаемся, что конфиг загружен, прежде чем что-то рендерить.
+    // Если загрузка уже идёт, дожидаемся её завершения.
+    await _ensureShopConfig();
 
+    const sectionLimited = document.getElementById('shop-section-limited');
+    const customSections = document.getElementById('shop-custom-sections');
+    const pageTitle      = document.querySelector('#page-shop > h2');
+
+    if (sectionLimited) sectionLimited.style.display = 'none';
+    if (customSections) customSections.style.display = 'none';
+    if (pageTitle)      pageTitle.style.display      = 'none';
+
+    fullView.classList.remove('hidden');
     renderShopLimitedGrid();
 }
 
 function closeShopLimitedGifts() {
     if (typeof vibrate === 'function') vibrate('light');
-    document.getElementById('shop-section-limited').style.display = '';
-    document.getElementById('shop-custom-sections').style.display = '';
-    document.querySelector('#page-shop > h2').style.display = '';
-    document.getElementById('shop-limited-full').classList.add('hidden');
+
+    const sectionLimited = document.getElementById('shop-section-limited');
+    const customSections = document.getElementById('shop-custom-sections');
+    const pageTitle      = document.querySelector('#page-shop > h2');
+    const fullView       = document.getElementById('shop-limited-full');
+
+    if (sectionLimited) sectionLimited.style.display = '';
+    if (customSections) customSections.style.display = '';
+    if (pageTitle)      pageTitle.style.display      = '';
+    if (fullView)       fullView.classList.add('hidden');
 }
 
 function renderShopLimitedGrid() {
