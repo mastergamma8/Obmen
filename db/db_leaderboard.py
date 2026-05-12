@@ -57,7 +57,7 @@ async def get_leaderboard():
                 u.tg_id,
                 u.username,
                 CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
-                CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
+                CASE WHEN u.is_anonymous = 1 THEN '/static/img/anon.svg' ELSE u.photo_url END AS photo_url,
                 COALESCE(ABS(SUM(CASE
                     WHEN h.action_type NOT IN ({_star_types_placeholder})
                     THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
@@ -87,7 +87,7 @@ async def get_rocket_leaderboard():
         async with db.execute("""
             SELECT h.user_id, h.description,
                    CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
-                   CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
+                   CASE WHEN u.is_anonymous = 1 THEN '/static/img/anon.svg' ELSE u.photo_url END AS photo_url,
                    u.username
             FROM user_history h
             JOIN users u ON u.tg_id = h.user_id
@@ -183,7 +183,7 @@ async def get_rocket_leaderboard_full():
         async with db.execute("""
             SELECT h.user_id, h.description,
                    CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
-                   CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
+                   CASE WHEN u.is_anonymous = 1 THEN '/static/img/anon.svg' ELSE u.photo_url END AS photo_url,
                    u.username
             FROM user_history h
             JOIN users u ON u.tg_id = h.user_id
@@ -247,7 +247,7 @@ async def get_alltime_leaderboard():
                 u.tg_id,
                 u.username,
                 CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
-                CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
+                CASE WHEN u.is_anonymous = 1 THEN '/static/img/anon.svg' ELSE u.photo_url END AS photo_url,
                 COALESCE(ABS(SUM(CASE
                     WHEN h.action_type NOT IN ({_star_types_placeholder})
                     THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
@@ -326,7 +326,7 @@ async def get_lucky_leaderboard():
         async with db.execute("""
             SELECT h.user_id, MAX(h.amount) AS best_ratio_x100,
                    CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
-                   CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
+                   CASE WHEN u.is_anonymous = 1 THEN '/static/img/anon.svg' ELSE u.photo_url END AS photo_url,
                    u.username
             FROM user_history h
             JOIN users u ON u.tg_id = h.user_id
