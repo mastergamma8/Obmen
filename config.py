@@ -616,18 +616,18 @@ SHOP_SECTIONS: list[dict] = [
                 "enabled": True,
                 "buy_limit": 1,
                 "total_limit": 10, # None или отсутствие = без ограничений
+            },
+            {
+                "id": "stars_25_for_referral",
+                "type": "stars",
+                "amount": 25,
+                "currency": "referral",
+                "price": 3,
+                "image": "/gifts/stars.png",
+                "title": {"ru": "25 звёзд за друга", "en": "25 stars per friend"},
+                "enabled": True,
+                "buy_limit": 1, # каждый пользователь может купить не более 1 раза
             }
-            # {
-            #    "id": "donuts_50_for_referral",
-            #    "type": "donuts",
-            #    "amount": 50,
-            #    "currency": "referral",
-            #    "price": 1,
-            #    "image": "/gifts/dount.png",
-            #    "title": {"ru": "50 🍩 за друга", "en": "50 🍩 per friend"},
-            #    "enabled": True,
-            #    "buy_limit": None,     # каждый пользователь может купить не более 1 раза
-            # },
             # --- Примеры для подарков (раскомментируйте при необходимости) ---
             # {
             #     "id": "limited_gift_2011_free",
