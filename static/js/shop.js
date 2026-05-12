@@ -79,15 +79,19 @@ function renderCustomSections() {
         container.appendChild(sectionEl);
 
         const grid = document.getElementById(`shop-section-${section.id}`);
-        (section.items || []).forEach(item => {
+        (section.items || []).filter(item => {
+            const limit = item.buy_limit ?? null;
+            const count = item.user_buy_count ?? 0;
+            return limit === null || count < limit;
+        }).forEach(item => {
             grid.appendChild(_buildItemCard(item, section.id, lang));
         });
     });
 }
 
 function _buildItemCard(item, sectionId, lang) {
-    const title   = (item.title && item.title[lang]) || item.title?.ru || '';
-    const imgSrc  = _getItemImage(item);
+    const title      = (item.title && item.title[lang]) || item.title?.ru || '';
+    const imgSrc     = _getItemImage(item);
     const priceLabel = _getPriceLabel(item, lang);
 
     const card = document.createElement('div');
@@ -113,6 +117,11 @@ function _buildItemCard(item, sectionId, lang) {
         </div>
     `;
     return card;
+}
+
+// i18n-хелпер: берёт строку из i18n[lang][key] или fallback
+function _t(lang, key, fallback) {
+    return (i18n[lang] || i18n['ru'])[key] || fallback;
 }
 
 function _getItemImage(item) {
@@ -336,6 +345,7 @@ async function confirmShopBuy() {
             if (detail === 'not_enough_stars')  msg = t['not_enough_stars']  || 'Недостаточно звёзд!';
             if (detail === 'not_enough_referrals') msg = t['shop_not_enough_referrals'] || 'Недостаточно приглашённых друзей!';
             if (detail === 'send_gift_failed')  msg = t['tg_buy_error'] || 'Не удалось отправить подарок';
+            if (detail === 'buy_limit_reached') msg = t['shop_buy_limit_reached'] || 'Лимит покупок исчерпан!';
             showNotify(msg, 'error');
         }
     } catch (e) {
