@@ -206,10 +206,10 @@ async def init_rocket_games_table():
         # Магазин: учёт использованных рефералов для акций
         await db.execute("""
             CREATE TABLE IF NOT EXISTS shop_referral_purchases (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                id           BIGSERIAL PRIMARY KEY,
                 user_id      BIGINT  NOT NULL,
                 item_id      TEXT    NOT NULL,
-                purchased_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                purchased_at INTEGER NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW())::INTEGER)
             )
         """)
         await db.commit()
