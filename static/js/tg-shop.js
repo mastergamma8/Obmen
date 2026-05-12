@@ -10,22 +10,14 @@ let tgShopSelectedGiftId = null;
 
 // ── Открыть / закрыть страницу магазина ───────────────────────────────────
 
+// openTgShop / closeTgShop — оставлены для обратной совместимости.
+// Реальная логика переключения вида теперь в shop.js (openShopLimitedGifts).
 function openTgShop() {
-    if (typeof vibrate === 'function') vibrate('light');
-    const mainView = document.getElementById('games-main-view');
-    const shopView = document.getElementById('games-tg-shop-view');
-    if (mainView) mainView.classList.add('hidden');
-    if (shopView) shopView.classList.remove('hidden');
-    renderTgShopGrid();
-    updateTgShopTexts();
+    if (typeof openShopLimitedGifts === 'function') openShopLimitedGifts();
 }
 
 function closeTgShop() {
-    if (typeof vibrate === 'function') vibrate('light');
-    const mainView = document.getElementById('games-main-view');
-    const shopView = document.getElementById('games-tg-shop-view');
-    if (shopView) shopView.classList.add('hidden');
-    if (mainView) mainView.classList.remove('hidden');
+    if (typeof closeShopLimitedGifts === 'function') closeShopLimitedGifts();
 }
 
 // ── Обновить тексты баннера/заголовка с актуальной ценой ─────────────────
