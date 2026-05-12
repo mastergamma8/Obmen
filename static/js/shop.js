@@ -19,7 +19,7 @@ async function _ensureShopConfig() {
     _shopConfigLoading = (async () => {
         try {
             const [cfgRes, refRes] = await Promise.all([
-                fetch('/api/shop/config'),
+                fetch('/api/shop/config', { headers: getApiHeaders() }),
                 fetch('/api/shop/referrals', { headers: getApiHeaders() })
             ]);
             shopConfig = await cfgRes.json();
