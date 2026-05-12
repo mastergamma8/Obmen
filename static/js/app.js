@@ -181,6 +181,52 @@ function startApplication() {
     initApp();
 }
 
+// ─── Настройки пользователя ───────────────────────────────────────────────────
+
+const USER_SETTINGS = ['hideUsername', 'isAnonymous'];
+
+function openSettingsModal() {
+    syncSettingToggles();
+    openModal('settings-modal');
+}
+
+function syncSettingToggles() {
+    USER_SETTINGS.forEach(key => {
+        const isOn   = localStorage.getItem(key) === 'true';
+        const knobId = key === 'hideUsername' ? 'knob-hide-username' : 'knob-anonymity';
+        const btnId  = key === 'hideUsername' ? 'toggle-hide-username' : 'toggle-anonymity';
+        const knob   = document.getElementById(knobId);
+        const btn    = document.getElementById(btnId);
+        if (!knob || !btn) return;
+        if (isOn) {
+            btn.classList.remove('bg-white/10');
+            btn.classList.add('bg-blue-500');
+            knob.style.transform = 'translateX(24px)';
+        } else {
+            btn.classList.add('bg-white/10');
+            btn.classList.remove('bg-blue-500');
+            knob.style.transform = 'translateX(0px)';
+        }
+    });
+}
+
+function toggleUserSetting(key) {
+    vibrate('light');
+    const current = localStorage.getItem(key) === 'true';
+    localStorage.setItem(key, (!current).toString());
+    syncSettingToggles();
+    // Обновляем профиль и лидерборд
+    if (typeof renderProfile   === 'function') renderProfile();
+    if (typeof loadLeaderboard === 'function') {
+        const lb = document.getElementById('page-leaderboard');
+        if (lb && !lb.classList.contains('hidden-tab')) loadLeaderboard();
+    }
+}
+
+window.openSettingsModal  = openSettingsModal;
+window.syncSettingToggles = syncSettingToggles;
+window.toggleUserSetting  = toggleUserSetting;
+
 // ─── Поддержка: открыть бот @SpaceDonutSupportBot ────────────────────────────
 function openSupportBot() {
     try {
@@ -200,4 +246,4 @@ if (window.partialsAreLoaded) {
     startApplication();
 } else {
     document.addEventListener('partialsLoaded', startApplication);
-    }
+            }
