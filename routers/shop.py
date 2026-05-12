@@ -85,16 +85,62 @@ async def _record_referral_purchase(user_id: int, item_id: str):
         await db.commit()
 
 
+async def _get_item_buy_count(user_id: int, item_id: str) -> int:
+    """Сколько раз пользователь уже купил конкретный товар."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM shop_item_purchases WHERE user_id = ? AND item_id = ?",
+            (user_id, item_id)
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else 0
+
+
+async def _get_all_item_buy_counts(user_id: int) -> dict[str, int]:
+    """Возвращает словарь {item_id: count} для всех покупок пользователя."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT item_id, COUNT(*) FROM shop_item_purchases WHERE user_id = ? GROUP BY item_id",
+            (user_id,)
+        ) as cur:
+            rows = await cur.fetchall()
+            return {row[0]: row[1] for row in rows}
+
+
+async def _record_item_purchase(user_id: int, item_id: str):
+    """Записывает факт покупки товара пользователем."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+            "INSERT INTO shop_item_purchases (user_id, item_id, purchased_at) VALUES (?, ?, ?)",
+            (user_id, item_id, int(time.time()))
+        )
+        await db.commit()
+
+
 # ────────────────────────────────────────────────────────────
 # Routes
 # ────────────────────────────────────────────────────────────
 
 @router.get("/config")
-async def get_shop_config():
-    """Возвращает конфиг магазина: лимитированные подарки + кастомные разделы."""
+async def get_shop_config(current_user: dict = Depends(get_current_user)):
+    """
+    Возвращает конфиг магазина: лимитированные подарки + кастомные разделы.
+    Для товаров с buy_limit дополнительно добавляет user_buy_count — сколько раз
+    текущий пользователь уже купил этот товар.
+    """
+    tg_id = current_user["id"]
+    buy_counts = await _get_all_item_buy_counts(tg_id)
+
+    sections = _enabled_sections()
+    for section in sections:
+        for item in section.get("items", []):
+            buy_limit = item.get("buy_limit")
+            if buy_limit is not None:
+                item["user_buy_count"] = buy_counts.get(item["id"], 0)
+
     return {
         "limited_section": _build_limited_section(),
-        "sections":        _enabled_sections(),
+        "sections":        sections,
     }
 
 
@@ -131,6 +177,13 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
     if not item:
         raise HTTPException(status_code=404, detail="item_not_found")
 
+    # ── Проверка лимита покупок ─────────────────────────────
+    buy_limit = item.get("buy_limit")
+    if buy_limit is not None:
+        already_bought = await _get_item_buy_count(tg_id, data.item_id)
+        if already_bought >= buy_limit:
+            raise HTTPException(status_code=400, detail="buy_limit_reached")
+
     item_type = item["type"]
     currency  = item["currency"]
     price     = item["price"]
@@ -154,7 +207,6 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
         available = max(0, total - used)
         if available < price:
             raise HTTPException(status_code=400, detail="not_enough_referrals")
-        # Записываем использованные рефералы
         for _ in range(price):
             await _record_referral_purchase(tg_id, data.item_id)
 
@@ -163,6 +215,10 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
 
     else:
         raise HTTPException(status_code=400, detail="unknown_currency")
+
+    # ── Запись факта покупки (для buy_limit) ─────────────────
+    if buy_limit is not None:
+        await _record_item_purchase(tg_id, data.item_id)
 
     # ── Начисление товара ────────────────────────────────────
 
@@ -188,7 +244,6 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
         gift_id  = item.get("gift_id")
 
         if item_type == "limited_gift":
-            # Лимитированный подарок — отправляется через Telegram Gift API
             gift_def   = config.TG_GIFTS.get(gift_id)
             if not gift_def:
                 if currency == "donuts": await database.add_points_to_user(tg_id, price)
@@ -209,7 +264,6 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
             )
 
         else:
-            # Base gift — добавляется в профиль пользователя (BASE_GIFTS, ID 1–114)
             gift_def = config.BASE_GIFTS.get(gift_id)
             if not gift_def:
                 if currency == "donuts": await database.add_points_to_user(tg_id, price)
