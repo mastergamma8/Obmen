@@ -386,7 +386,7 @@ async def _payout_winner(winner_id: int):
         print(f"[PvP] payout_winner error: {e}")
 
 
-def _ensure_player(user_id: int, user_info: dict):
+def _ensure_player(user_id: int, user_info: dict, display_name: str = None, display_avatar: str = None):
     """Добавляет игрока в раунд если ещё не участвует (вызывать под локом)."""
     if user_id not in pvp_round["players"]:
         # Фиксируем время первой ставки в раунде для отсчёта таймаута.
@@ -395,8 +395,8 @@ def _ensure_player(user_id: int, user_info: dict):
         idx = pvp_round["_color_idx"] % len(PLAYER_COLORS)
         pvp_round["_color_idx"] += 1
         pvp_round["players"][user_id] = {
-            "name":   user_info.get("first_name") or user_info.get("username") or "Игрок",
-            "avatar": user_info.get("photo_url", ""),
+            "name":   display_name if display_name is not None else (user_info.get("first_name") or user_info.get("username") or "Игрок"),
+            "avatar": display_avatar if display_avatar is not None else user_info.get("photo_url", ""),
             "color":  PLAYER_COLORS[idx],
             "bets":   [],
         }
@@ -662,11 +662,15 @@ async def bet_stars(data: BetStarsRequest, current_user: dict = Depends(get_curr
     if not ok:
         raise HTTPException(400, "Недостаточно звёзд")
 
+    settings = await database.get_user_settings(tg_id)
+    display_name   = "Anonim" if settings["is_anonymous"] else None
+    display_avatar = "/static/img/anon.svg" if settings["is_anonymous"] else None
+
     async with _lock:
         if pvp_round["state"] not in ("waiting", "countdown"):
             await database.add_stars_to_user(tg_id, amount)
             raise HTTPException(400, "Ставки сейчас не принимаются")
-        _ensure_player(tg_id, current_user)
+        _ensure_player(tg_id, current_user, display_name, display_avatar)
         pvp_round["players"][tg_id]["bets"].append({"type": "stars", "amount": amount})
 
     updated = await database.get_user_data(tg_id)
@@ -690,11 +694,15 @@ async def bet_donuts(data: BetDonutsRequest, current_user: dict = Depends(get_cu
     if not ok:
         raise HTTPException(400, "Недостаточно пончиков")
 
+    settings = await database.get_user_settings(tg_id)
+    display_name   = "Anonim" if settings["is_anonymous"] else None
+    display_avatar = "/static/img/anon.svg" if settings["is_anonymous"] else None
+
     async with _lock:
         if pvp_round["state"] not in ("waiting", "countdown"):
             await database.add_points_to_user(tg_id, amount)
             raise HTTPException(400, "Ставки сейчас не принимаются")
-        _ensure_player(tg_id, current_user)
+        _ensure_player(tg_id, current_user, display_name, display_avatar)
         pvp_round["players"][tg_id]["bets"].append({"type": "donuts", "amount": amount})
 
     updated = await database.get_user_data(tg_id)
@@ -722,11 +730,15 @@ async def bet_gift(data: BetGiftRequest, current_user: dict = Depends(get_curren
     if not ok:
         raise HTTPException(400, "Подарок не найден в инвентаре")
 
+    settings = await database.get_user_settings(tg_id)
+    display_name   = "Anonim" if settings["is_anonymous"] else None
+    display_avatar = "/static/img/anon.svg" if settings["is_anonymous"] else None
+
     async with _lock:
         if pvp_round["state"] not in ("waiting", "countdown"):
             await database.add_gift_to_user(tg_id, gift_id, 1)
             raise HTTPException(400, "Ставки сейчас не принимаются")
-        _ensure_player(tg_id, current_user)
+        _ensure_player(tg_id, current_user, display_name, display_avatar)
         pvp_round["players"][tg_id]["bets"].append({
             "type":       "gift",
             "gift_id":    gift_id,
@@ -825,4 +837,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-            }
+    }
