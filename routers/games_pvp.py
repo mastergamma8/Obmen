@@ -30,6 +30,47 @@ except Exception:
 router = APIRouter(prefix="/pvp", tags=["pvp"])
 
 # ─────────────────────────────────────────────────────────────
+# ОНЛАЙН-ТРЕКЕР
+# Словарь user_id → unix-timestamp последнего heartbeat.
+# Пользователь считается «онлайн», если heartbeat был
+# получен менее ONLINE_TIMEOUT секунд назад.
+# ─────────────────────────────────────────────────────────────
+
+ONLINE_TIMEOUT = 90  # секунд без heartbeat → офлайн
+
+_online_users: dict[int, float] = {}   # {user_id: last_seen_ts}
+_online_lock = asyncio.Lock()
+
+
+async def touch_online(user_id: int) -> None:
+    """Обновляет метку активности пользователя."""
+    async with _online_lock:
+        _online_users[user_id] = time.time()
+
+
+async def get_online_count() -> int:
+    """Возвращает число пользователей онлайн прямо сейчас."""
+    cutoff = time.time() - ONLINE_TIMEOUT
+    async with _online_lock:
+        # Заодно очищаем устаревшие записи
+        expired = [uid for uid, ts in _online_users.items() if ts < cutoff]
+        for uid in expired:
+            del _online_users[uid]
+        return len(_online_users)
+
+
+async def get_online_users_snapshot() -> list[dict]:
+    """Возвращает список онлайн-пользователей для /online команды бота."""
+    cutoff = time.time() - ONLINE_TIMEOUT
+    async with _online_lock:
+        return [
+            {"user_id": uid, "last_seen": ts}
+            for uid, ts in _online_users.items()
+            if ts >= cutoff
+        ]
+
+
+# ─────────────────────────────────────────────────────────────
 # ПАРАМЕТРЫ
 # ─────────────────────────────────────────────────────────────
 
@@ -593,8 +634,18 @@ async def _apply_game_anonymity(game: dict | None) -> dict | None:
     return game
 
 
+@router.post("/heartbeat")
+async def pvp_heartbeat(current_user: dict = Depends(get_current_user)):
+    """Фиксирует, что пользователь активен прямо сейчас.
+    Вызывается клиентом каждые 30 сек, пока приложение открыто."""
+    await touch_online(current_user["id"])
+    return {"ok": True, "online": await get_online_count()}
+
+
 @router.get("/state")
 async def get_pvp_state(current_user: dict = Depends(get_current_user)):
+    # Обновляем присутствие пользователя при каждом poll состояния
+    await touch_online(current_user["id"])
     # Fetch live donut→stars rate BEFORE acquiring the lock (network call)
     live_rate = await _get_live_donuts_to_stars_rate()
 
@@ -656,6 +707,7 @@ async def get_pvp_state(current_user: dict = Depends(get_current_user)):
         "pot":             {"stars": total_stars, "donuts": total_donuts, "gifts": total_gifts, "gift_previews": gift_previews},
         "last_game":       await _apply_game_anonymity(last_game),
         "best_game":       await _apply_game_anonymity(best_game),
+        "online_count":    await get_online_count(),
     }
 
 
