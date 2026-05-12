@@ -119,7 +119,9 @@ function getRankStyle(index) {
 
 function buildCard(u, index, isMe, valueBadge) {
     const s = getRankStyle(index);
-    const avatar = escapeHtml(u.photo_url || 'https://via.placeholder.com/40');
+    const isAnonymous = isMe && localStorage.getItem('isAnonymous') === 'true';
+    const displayName = isAnonymous ? 'Anonim' : (u.first_name || 'Без имени');
+    const avatar      = isAnonymous ? (window.ANON_AVATAR || '') : escapeHtml(u.photo_url || 'https://via.placeholder.com/40');
 
     // Классы для карточки
     const cardClass = s.card || (isMe ? 'border-blue-400/60 bg-gradient-to-r from-blue-600/20 to-transparent shadow-[0_0_15px_rgba(59,130,246,0.15)]' : 'border-white/5 bg-black/30');
@@ -149,7 +151,7 @@ function buildCard(u, index, isMe, valueBadge) {
                 </div>
                 <div class="font-bold text-white text-[14px] sm:text-[15px] ml-1.5 sm:ml-2 flex flex-col justify-center flex-1 min-w-0">
                     <div class="flex items-center gap-1.5 min-w-0">
-                        <span class="truncate">${escapeHtml(u.first_name || 'Без имени')}</span>
+                        <span class="truncate">${escapeHtml(displayName)}</span>
                         ${isMe ? `<span class="shrink-0 text-[10px] leading-none text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider">${i18n[currentLang].you || 'Вы'}</span>` : ''}
                     </div>
                 </div>
@@ -216,8 +218,8 @@ async function loadRichLeaderboard(list, stickyRank) {
     const rankText     = currentUserRankData?.rank ?? '—';
     const donutsSpent  = currentUserRankData?.donuts_spent ?? 0;
     const starsSpent   = currentUserRankData?.stars_spent  ?? 0;
-    const myAvatar     = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
-    const myName       = escapeHtml(tgUser.first_name || 'Вы');
+    const myAvatar     = localStorage.getItem('isAnonymous') === 'true' ? (window.ANON_AVATAR || '') : escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
+    const myName       = localStorage.getItem('isAnonymous') === 'true' ? 'Anonim' : escapeHtml(tgUser.first_name || 'Вы');
 
     if (stickyRank) {
         stickyRank.innerHTML = buildStickyRankHTML(
@@ -268,8 +270,8 @@ async function loadAlltimeLeaderboard(list, stickyRank) {
     const rankText    = currentUserRankData?.rank ?? '—';
     const donutsSpent = currentUserRankData?.donuts_spent ?? 0;
     const starsSpent  = currentUserRankData?.stars_spent  ?? 0;
-    const myAvatar    = escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
-    const myName      = escapeHtml(tgUser.first_name || 'Вы');
+    const myAvatar    = localStorage.getItem('isAnonymous') === 'true' ? (window.ANON_AVATAR || '') : escapeHtml(tgUser.photo_url  || 'https://via.placeholder.com/40');
+    const myName      = localStorage.getItem('isAnonymous') === 'true' ? 'Anonim' : escapeHtml(tgUser.first_name || 'Вы');
 
     if (stickyRank) {
         stickyRank.innerHTML = buildStickyRankHTML(
