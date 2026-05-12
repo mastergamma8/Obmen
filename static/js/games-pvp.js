@@ -28,6 +28,10 @@ let pvpRollingStart       = 0;
 let pvpTrajectorySegments = [];
 const PVP_ROLLING_DURATION = 6500;
 
+// ─── Online counter ───────────────────────────────────────────
+let pvpHeartbeatTimer = null;
+const PVP_HEARTBEAT_INTERVAL = 30000; // 30 сек
+
 const pvpAvatarCache = {};
 
 // ─── Render-hash guards ───────────────────────────────────────
@@ -89,10 +93,57 @@ function closePvpGame() {
     }
 }
 
+// ─── Heartbeat ────────────────────────────────────────────────
+
+async function sendPvpHeartbeat() {
+    try {
+        await fetch('/api/pvp/heartbeat', {
+            method: 'POST',
+            headers: getApiHeaders(),
+        });
+    } catch (_) {}
+}
+
+function startPvpHeartbeat() {
+    stopPvpHeartbeat();
+    sendPvpHeartbeat();  // сразу при открытии
+    pvpHeartbeatTimer = setInterval(sendPvpHeartbeat, PVP_HEARTBEAT_INTERVAL);
+}
+
+function stopPvpHeartbeat() {
+    if (pvpHeartbeatTimer) { clearInterval(pvpHeartbeatTimer); pvpHeartbeatTimer = null; }
+}
+
+// ─── Online counter render ────────────────────────────────────
+
+function renderPvpOnlineCounter(count) {
+    const badge = document.getElementById('pvp-online-badge');
+    const dot   = document.getElementById('pvp-online-dot');
+    const num   = document.getElementById('pvp-online-count');
+    if (!badge || !dot || !num) return;
+
+    num.textContent = count;
+
+    if (count > 0) {
+        badge.style.background      = 'rgba(34,197,94,0.12)';
+        badge.style.borderColor     = 'rgba(34,197,94,0.35)';
+        badge.style.color           = 'rgba(134,239,172,0.9)';
+        dot.style.background        = '#22c55e';
+        dot.className               = 'w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse transition-colors duration-500';
+    } else {
+        badge.style.background      = 'rgba(255,255,255,0.04)';
+        badge.style.borderColor     = 'rgba(255,255,255,0.08)';
+        badge.style.color           = 'rgba(255,255,255,0.25)';
+        dot.style.background        = '#6b7280';
+        dot.className               = 'w-1.5 h-1.5 rounded-full bg-gray-500 transition-colors duration-500';
+    }
+}
+
 // ─── Polling ──────────────────────────────────────────────────
 
 function startPvpPolling() {
     stopPvpPolling();
+    startPvpHeartbeat();
     pollPvpState();
 }
 
@@ -100,6 +151,7 @@ function stopPvpPolling() {
     if (pvpPollTimer)         { clearTimeout(pvpPollTimer);          pvpPollTimer     = null; }
     if (pvpBallAnimFrame)     { cancelAnimationFrame(pvpBallAnimFrame); pvpBallAnimFrame = null; }
     if (pvpCountdownInterval) { clearInterval(pvpCountdownInterval); pvpCountdownInterval = null; }
+    stopPvpHeartbeat();
 }
 
 async function pollPvpState() {
@@ -128,6 +180,11 @@ function applyPvpState(data) {
     const prevState   = pvpState.state;
     const prevRoundId = pvpState.round_id;
     pvpState = data;
+
+    // Обновляем счётчик онлайна при каждом обновлении состояния
+    if (typeof data.online_count === 'number') {
+        renderPvpOnlineCounter(data.online_count);
+    }
 
     if (data.round_id !== prevRoundId) {
         pvpWinnerRevealed = false;
