@@ -17,6 +17,7 @@ import config
 import database
 from routers import users, gifts, games, tasks, bank
 from routers import tg_shop
+from routers import shop
 from db.db_core import DB_NAME
 
 # Секрет для верификации webhook-запросов от Telegram.
@@ -56,6 +57,7 @@ RATE_LIMITS: list[tuple[str, int, int]] = [
     ("/api/withdraw",           5, 60),
     ("/api/claim",             10, 60),
     ("/api/tg_shop/buy",        5, 60),
+    ("/api/shop/buy",           5, 60),
 ]
 
 
@@ -333,6 +335,7 @@ app.include_router(games.router)
 app.include_router(tasks.router)
 app.include_router(bank.router)
 app.include_router(tg_shop.router)
+app.include_router(shop.router)
 
 
 # ── Webhook endpoints для Telegram ───────────────────────────────────────────
