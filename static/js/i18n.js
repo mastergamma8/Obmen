@@ -236,6 +236,15 @@ const i18n = {
             tg_buy_sending: '⏳ Отправляем...',
             tg_buy_success: '🎁 Подарок успешно отправлен в Telegram!',
             tg_buy_error: 'Произошла ошибка',
+
+            // НАСТРОЙКИ
+            settings_title: 'Настройки',
+            settings_language: 'Язык',
+            settings_hide_username: 'Скрыть юзернейм',
+            settings_hide_username_desc: 'Не отображать @username в профиле',
+            settings_anonymity: 'Анонимность',
+            settings_anonymity_desc: 'В профиле и лидерборде вы — Anonim',
+            settings_support: 'Тех. поддержка',
         },
         en: {
             maintenance_title: '🔧 Under Maintenance',
@@ -470,6 +479,15 @@ const i18n = {
             tg_buy_sending: '⏳ Sending...',
             tg_buy_success: '🎁 Gift successfully sent to Telegram!',
             tg_buy_error: 'An error occurred',
+
+            // SETTINGS
+            settings_title: 'Settings',
+            settings_language: 'Language',
+            settings_hide_username: 'Hide username',
+            settings_hide_username_desc: 'Do not show @username in profile',
+            settings_anonymity: 'Anonymity',
+            settings_anonymity_desc: 'In profile and leaderboard you are Anonim',
+            settings_support: 'Tech support',
         }
 };
 
