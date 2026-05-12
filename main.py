@@ -258,7 +258,7 @@ async def rate_limit_middleware(request: Request, call_next):
 # ── Maintenance Mode Middleware ───────────────────────────────────────────────
 
 # Эти пути разрешены даже в режиме тех. обслуживания
-_MAINTENANCE_WHITELIST = {"/", "/api/features"}
+_MAINTENANCE_WHITELIST = {"/", "/api/features", "/api/shop/config"}
 
 
 def _extract_user_id_unsafe(init_data: str | None) -> int | None:
