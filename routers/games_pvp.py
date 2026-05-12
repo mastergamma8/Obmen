@@ -345,9 +345,15 @@ async def _payout_winner(winner_id: int):
             + int(payout_donuts * config.DONUTS_TO_STARS_RATE)
             + int(gifts_value_stars * (1 - COMMISSION_STARS))
         )
+        # Проверяем анонимность победителя — перезаписываем имя/аватар
+        # даже если ставка была сделана до включения анонимности
+        winner_settings   = await database.get_user_settings(winner_id)
+        winner_name   = "Anonim"               if winner_settings["is_anonymous"] else players[winner_id]["name"]
+        winner_avatar = "/static/img/anon.svg" if winner_settings["is_anonymous"] else players[winner_id]["avatar"]
         game_info = {
-            "name":              players[winner_id]["name"],
-            "avatar":            players[winner_id]["avatar"],
+            "winner_id":         winner_id,
+            "name":              winner_name,
+            "avatar":            winner_avatar,
             "color":             players[winner_id]["color"],
             "total_stars":       payout_stars,
             "total_donuts":      payout_donuts,
@@ -570,6 +576,23 @@ async def pvp_round_manager():
 # ЭНДПОИНТЫ API
 # ─────────────────────────────────────────────────────────────
 
+async def _apply_game_anonymity(game: dict | None) -> dict | None:
+    """Перезаписывает name/avatar в объекте last_game/best_game согласно
+    актуальным настройкам анонимности победителя. Работает даже для данных,
+    сохранённых в БД до введения фичи (если winner_id присутствует)."""
+    if not game:
+        return game
+    wid = game.get("winner_id")
+    if not wid:
+        return game
+    settings = await database.get_user_settings(wid)
+    if settings["is_anonymous"]:
+        game = dict(game)          # не мутируем оригинал
+        game["name"]   = "Anonim"
+        game["avatar"] = "/static/img/anon.svg"
+    return game
+
+
 @router.get("/state")
 async def get_pvp_state(current_user: dict = Depends(get_current_user)):
     # Fetch live donut→stars rate BEFORE acquiring the lock (network call)
@@ -631,8 +654,8 @@ async def get_pvp_state(current_user: dict = Depends(get_current_user)):
         "players":         players,
         "winner":          winner_data,
         "pot":             {"stars": total_stars, "donuts": total_donuts, "gifts": total_gifts, "gift_previews": gift_previews},
-        "last_game":       last_game,
-        "best_game":       best_game,
+        "last_game":       await _apply_game_anonymity(last_game),
+        "best_game":       await _apply_game_anonymity(best_game),
     }
 
 
@@ -837,4 +860,4 @@ async def get_user_balance(current_user: dict = Depends(get_current_user)):
         "balance": user_data.get("balance", 0),
         "stars":   user_data.get("stars", 0),
         "gifts":   user_gifts,
-    }
+            }
