@@ -15,19 +15,6 @@
             </div>
         </div>
 
-        <!-- Баннер: TG Подарки -->
-        <div id="game-banner-limited" onclick="openTgShop()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-4 active:scale-95 transition-transform bg-gradient-to-r from-orange-600/20 to-red-500/10 border border-orange-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(249,115,22,0.1)] group">
-            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
-            <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-orange-500/10 to-transparent blur-xl pointer-events-none"></div>
-            <div class="flex items-center gap-4 relative z-10">
-                <div class="w-[110px] h-[110px] flex items-center justify-center drop-shadow-[0_0_15px_rgba(249,115,22,0.8)]"><img src="/gifts/limitedgifts.png" class="w-full h-full object-contain" alt="Limited Gifts"></div>
-                <div>
-                    <h3 class="text-xl font-bold text-white glow-text" data-i18n="tg_shop_title">TG Подарки</h3>
-                    <p class="text-sm text-orange-200/80" data-i18n="tg_shop_banner_desc">Купи подарок за <span class="font-bold text-yellow-300">55 ⭐</span> и получи в Telegram!</p>
-                </div>
-            </div>
-        </div>
-
         <!-- Баннер: Ракета -->
         <div id="game-banner-rocket" onclick="openRocketGame()" class="glass rounded-3xl p-4 flex items-center justify-between cursor-pointer mb-4 active:scale-95 transition-transform bg-gradient-to-r from-blue-600/20 to-indigo-500/10 border border-blue-500/30 overflow-hidden relative shadow-[0_0_30px_rgba(59,130,246,0.1)] group">
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none"></div>
@@ -350,24 +337,4 @@
             </div>
         </div>
     </div>
-
-    <!-- ===== TG SHOP VIEW ===== -->
-    <div id="games-tg-shop-view" class="hidden animate-slide-up pb-10">
-        <!-- Шапка -->
-        <div class="flex items-center gap-3 mb-5">
-            <button onclick="closeTgShop()" class="w-10 h-10 glass rounded-full flex items-center justify-center active:scale-95 transition-transform border border-white/10 hover:bg-white/10">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-            </button>
-            <div class="flex-1">
-                <h3 class="text-xl font-bold text-white" data-i18n="tg_shop_title">TG Подарки</h3>
-                <p class="text-xs text-purple-300/70" data-i18n="tg_shop_header_desc">Цена: <span class="font-bold text-yellow-300">55 ⭐</span> за подарок</p>
-            </div>
-
-        </div>
-
-        <!-- Сетка подарков -->
-        <div id="tg-shop-grid" class="grid grid-cols-3 gap-3">
-            <!-- Рендерится через JS -->
-        </div>
-    </div>
-    </div>
+                        </div>
