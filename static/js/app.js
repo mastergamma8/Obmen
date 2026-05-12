@@ -127,6 +127,12 @@ async function initApp() {
         myBalance    = data.balance;
         myStars      = data.stars || 0;
 
+        // Загружаем настройки с сервера — они имеют приоритет над localStorage
+        if (data.user_settings) {
+            localStorage.setItem('isAnonymous',  data.user_settings.is_anonymous  ? 'true' : 'false');
+            localStorage.setItem('hideUsername', data.user_settings.hide_username ? 'true' : 'false');
+        }
+
         // Ещё раз проверяем тех. перерыв из /init (на случай гонки)
         if (data.maintenance_mode) {
             showMaintenanceScreen();
@@ -215,6 +221,19 @@ function toggleUserSetting(key) {
     const current = localStorage.getItem(key) === 'true';
     localStorage.setItem(key, (!current).toString());
     syncSettingToggles();
+
+    // Сохраняем на сервер — чтобы настройки видели все (особенно анонимность)
+    const isAnonymous  = localStorage.getItem('isAnonymous')  === 'true';
+    const hideUsername = localStorage.getItem('hideUsername') === 'true';
+    fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Tg-Data': tg?.initData || '',
+        },
+        body: JSON.stringify({ is_anonymous: isAnonymous, hide_username: hideUsername }),
+    }).catch(err => console.warn('Settings save failed:', err));
+
     // Обновляем профиль и лидерборд
     if (typeof renderProfile   === 'function') renderProfile();
     if (typeof loadLeaderboard === 'function') {
@@ -246,4 +265,4 @@ if (window.partialsAreLoaded) {
     startApplication();
 } else {
     document.addEventListener('partialsLoaded', startApplication);
-            }
+}
