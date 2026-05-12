@@ -56,8 +56,8 @@ async def get_leaderboard():
             SELECT
                 u.tg_id,
                 u.username,
-                u.first_name,
-                u.photo_url,
+                CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
+                CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
                 COALESCE(ABS(SUM(CASE
                     WHEN h.action_type NOT IN ({_star_types_placeholder})
                     THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
@@ -70,7 +70,7 @@ async def get_leaderboard():
                 AND h.created_at  >= ?
                 AND h.amount      < 0
                 AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
-            GROUP BY u.tg_id
+            GROUP BY u.tg_id, u.username, u.first_name, u.photo_url, u.is_anonymous
             ORDER BY COALESCE(ABS(SUM(h.amount)), 0) DESC
             LIMIT 50
         """, (*star_types_list, *star_types_list, week_start, *_SPEND_ACTION_TYPES)) as cursor:
@@ -86,7 +86,9 @@ async def get_rocket_leaderboard():
         db.row_factory = aiosqlite.Row
         async with db.execute("""
             SELECT h.user_id, h.description,
-                   u.first_name, u.photo_url, u.username
+                   CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
+                   CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
+                   u.username
             FROM user_history h
             JOIN users u ON u.tg_id = h.user_id
             WHERE h.action_type LIKE 'rocket_win_%'
@@ -180,7 +182,9 @@ async def get_rocket_leaderboard_full():
         db.row_factory = aiosqlite.Row
         async with db.execute("""
             SELECT h.user_id, h.description,
-                   u.first_name, u.photo_url, u.username
+                   CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
+                   CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
+                   u.username
             FROM user_history h
             JOIN users u ON u.tg_id = h.user_id
             WHERE h.action_type LIKE 'rocket_win_%'
@@ -242,8 +246,8 @@ async def get_alltime_leaderboard():
             SELECT
                 u.tg_id,
                 u.username,
-                u.first_name,
-                u.photo_url,
+                CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
+                CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
                 COALESCE(ABS(SUM(CASE
                     WHEN h.action_type NOT IN ({_star_types_placeholder})
                     THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
@@ -255,7 +259,7 @@ async def get_alltime_leaderboard():
                 ON  h.user_id     = u.tg_id
                 AND h.amount      < 0
                 AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
-            GROUP BY u.tg_id
+            GROUP BY u.tg_id, u.username, u.first_name, u.photo_url, u.is_anonymous
             ORDER BY COALESCE(ABS(SUM(h.amount)), 0) DESC
             LIMIT 50
         """, (*star_types_list, *star_types_list, *_SPEND_ACTION_TYPES)) as cursor:
@@ -321,11 +325,13 @@ async def get_lucky_leaderboard():
         db.row_factory = aiosqlite.Row
         async with db.execute("""
             SELECT h.user_id, MAX(h.amount) AS best_ratio_x100,
-                   u.first_name, u.photo_url, u.username
+                   CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
+                   CASE WHEN u.is_anonymous = 1 THEN ''       ELSE u.photo_url   END AS photo_url,
+                   u.username
             FROM user_history h
             JOIN users u ON u.tg_id = h.user_id
             WHERE h.action_type = 'case_lucky_ratio'
-            GROUP BY h.user_id, u.first_name, u.photo_url, u.username
+            GROUP BY h.user_id, u.first_name, u.photo_url, u.username, u.is_anonymous
             ORDER BY best_ratio_x100 DESC
             LIMIT 50
         """) as cursor:
