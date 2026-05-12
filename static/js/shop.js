@@ -403,3 +403,17 @@ window.closeShopLimitedGifts     = closeShopLimitedGifts;
 window.openShopBuyModal          = openShopBuyModal;
 window.closeShopBuyModal         = closeShopBuyModal;
 window.confirmShopBuy            = confirmShopBuy;
+
+// ── Сброс магазина на главный экран ──────────────────────
+// Вызывается при повторном нажатии на кнопку "Магазин" в навигации.
+
+function resetShopView() {
+    const fullView = document.getElementById('shop-limited-full');
+    if (fullView && !fullView.classList.contains('hidden')) {
+        closeShopLimitedGifts();
+        return true;
+    }
+    return false;
+}
+
+window.resetShopView = resetShopView;
