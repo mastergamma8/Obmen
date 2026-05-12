@@ -321,3 +321,105 @@ def register(dp: Dispatcher, bot: Bot):
         )
 
         await message.answer("\n".join(lines), parse_mode="HTML")
+
+    # ── /online ────────────────────────────────────────────────────────────────
+
+    @dp.message(Command("online"))
+    async def cmd_online(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        from routers.games_pvp import get_online_users_snapshot, ONLINE_TIMEOUT
+        from db.db_core import DB_NAME
+        snapshot = await get_online_users_snapshot()
+
+        if not snapshot:
+            await message.answer(
+                "<b>🟢 Онлайн пользователи</b>\n\n"
+                "⚫ Никого нет онлайн прямо сейчас.\n\n"
+                f"<i>Пользователь считается онлайн, если он открывал приложение в последние {ONLINE_TIMEOUT} сек.</i>",
+                parse_mode="HTML",
+            )
+            return
+
+        # Подтягиваем username для каждого user_id
+        user_ids = [row["user_id"] for row in snapshot]
+        from db import db_async as aiosqlite
+        async with aiosqlite.connect(DB_NAME) as db:
+            db.row_factory = aiosqlite.Row
+            placeholders = ",".join("?" * len(user_ids))
+            async with db.execute(
+                f"SELECT tg_id, username, first_name FROM users WHERE tg_id IN ({placeholders})",
+                user_ids,
+            ) as cur:
+                rows = await cur.fetchall()
+        user_map = {r["tg_id"]: dict(r) for r in rows}
+
+        import time as _time
+        lines = [f"<b>🟢 Онлайн: {len(snapshot)}</b>\n"]
+        for i, row in enumerate(snapshot, 1):
+            uid = row["user_id"]
+            u = user_map.get(uid, {})
+            uname = u.get("username") or u.get("first_name") or "—"
+            ago = int(_time.time() - row["last_seen"])
+            lines.append(
+                f"{i}. @{uname}  |  <code>{uid}</code>  |  <i>{ago} сек назад</i>"
+            )
+
+        lines.append(f"\n<i>Таймаут: {ONLINE_TIMEOUT} сек</i>")
+        await message.answer("\n".join(lines), parse_mode="HTML")
+
+    # ── /users ─────────────────────────────────────────────────────────────────
+
+    @dp.message(Command("users"))
+    async def cmd_users(message: Message):
+        if message.from_user.id != config.ADMIN_ID:
+            await message.answer(f"{E_STOP} У вас нет прав.", parse_mode="HTML")
+            return
+
+        args = message.text.split()
+        try:
+            page = int(args[1]) if len(args) > 1 else 1
+            page = max(1, page)
+        except ValueError:
+            page = 1
+
+        PAGE_SIZE = 30
+        offset = (page - 1) * PAGE_SIZE
+
+        from db import db_async as aiosqlite
+        from db.db_core import DB_NAME
+
+        async with aiosqlite.connect(DB_NAME) as db:
+            db.row_factory = aiosqlite.Row
+            # Исключаем фейковых пользователей (tg_id >= 9_000_000_000)
+            async with db.execute(
+                "SELECT COUNT(*) FROM users WHERE tg_id < 9000000000"
+            ) as cur:
+                total = (await cur.fetchone())[0]
+            async with db.execute(
+                "SELECT tg_id, username, first_name FROM users "
+                "WHERE tg_id < 9000000000 ORDER BY tg_id DESC LIMIT ? OFFSET ?",
+                (PAGE_SIZE, offset),
+            ) as cur:
+                rows = await cur.fetchall()
+
+        if not rows:
+            await message.answer(
+                f"<b>👥 Пользователи</b>\n\nСтраница {page} пуста.",
+                parse_mode="HTML",
+            )
+            return
+
+        total_pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
+        lines = [f"<b>👥 Пользователи</b>  (стр. {page}/{total_pages}, всего {total})\n"]
+        for r in rows:
+            uid   = r["tg_id"]
+            uname = r["username"] or r["first_name"] or "—"
+            lines.append(f"@{uname}  <code>{uid}</code>")
+
+        if page < total_pages:
+            lines.append(f"\n<i>Следующая страница: /users {page + 1}</i>")
+
+        await message.answer("\n".join(lines), parse_mode="HTML")
