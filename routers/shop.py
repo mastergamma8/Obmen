@@ -259,12 +259,18 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
 
     user_data = await database.get_user_data(tg_id)
 
+    # Извлекаем названия товара на обоих языках для красивого отображения в истории
+    item_title = item.get("title") or {}
+    title_ru   = item_title.get("ru") or data.item_id
+    title_en   = item_title.get("en") or data.item_id
+    title_tag  = f"[title_ru:{title_ru}][title_en:{title_en}]"
+
     if item_type == "stars":
         amount = item["amount"]
         await database.add_stars_to_user(tg_id, amount)
         await database.log_action(
             tg_id, "shop_buy_stars",
-            f"Куплено {amount} ⭐ в магазине [{data.item_id}]", amount
+            f"{title_tag}[amount:{amount}⭐][paid:{price}{currency}]", amount
         )
 
     elif item_type == "donuts":
@@ -272,7 +278,7 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
         await database.add_points_to_user(tg_id, amount)
         await database.log_action(
             tg_id, "shop_buy_donuts",
-            f"Куплено {amount} 🍩 в магазине [{data.item_id}]", amount
+            f"{title_tag}[amount:{amount}🍩][paid:{price}{currency}]", amount
         )
 
     elif item_type in ("limited_gift", "base_gift"):
@@ -295,7 +301,7 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
             gift_name = gift_def.get("name") or f"Gift #{gift_id}"
             await database.log_action(
                 tg_id, "shop_buy_gift",
-                f"Куплен лимит. подарок '{gift_name}' в магазине [{data.item_id}]", -price
+                f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
             )
 
         else:
@@ -309,7 +315,7 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
             gift_name = gift_def.get("name") or f"Gift #{gift_id}"
             await database.log_action(
                 tg_id, "shop_buy_gift",
-                f"Куплен подарок '{gift_name}' в магазине [{data.item_id}]", -price
+                f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
             )
 
     else:
