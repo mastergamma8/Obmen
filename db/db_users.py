@@ -427,3 +427,33 @@ async def claim_invoice(payment_uuid: str) -> bool:
         )
         await db.commit()
         return cursor.rowcount == 1
+
+
+# ==========================================
+# НАСТРОЙКИ ПОЛЬЗОВАТЕЛЯ (анонимность, скрытие юзернейма)
+# ==========================================
+
+async def get_user_settings(tg_id: int) -> dict:
+    """Возвращает настройки приватности пользователя."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT is_anonymous, hide_username FROM users WHERE tg_id = ?", (tg_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return {"is_anonymous": False, "hide_username": False}
+            return {
+                "is_anonymous": bool(row["is_anonymous"]),
+                "hide_username": bool(row["hide_username"]),
+            }
+
+
+async def update_user_settings(tg_id: int, is_anonymous: bool, hide_username: bool) -> None:
+    """Сохраняет настройки приватности пользователя."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+            "UPDATE users SET is_anonymous = ?, hide_username = ? WHERE tg_id = ?",
+            (int(is_anonymous), int(hide_username), tg_id)
+        )
+        await db.commit()
