@@ -4,6 +4,19 @@
 
 function switchTab(tabId) {
     vibrate('light');
+
+    // Если вкладка уже активна — сбрасываем вложенный экран вместо переключения
+    const currentNav = document.getElementById(`nav-${tabId}`);
+    if (currentNav && currentNav.classList.contains('active')) {
+        if (tabId === 'games' && typeof resetGamesView === 'function') {
+            resetGamesView();
+        }
+        if (tabId === 'shop' && typeof resetShopView === 'function') {
+            resetShopView();
+        }
+        return;
+    }
+
     ALL_TABS.forEach(id => {
         const page = document.getElementById(`page-${id}`);
         const nav  = document.getElementById(`nav-${id}`);
