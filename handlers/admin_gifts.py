@@ -64,7 +64,7 @@ def register(dp: Dispatcher, bot: Bot):
         args = message.text.split()
         if len(args) != 4:
             await message.answer(
-                "Использование: /addgift <ID пользователя> <ID подарка> <Количество>\n"
+                "Использование: /addgift &lt;user_id&gt; &lt;gift_id&gt; &lt;кол-во&gt;\n"
                 "Пример: /addgift 123456789 2 5\n\n"
                 "<i>Для BASE_GIFTS конвертирует стоимость подарка в донуты.\n"
                 "Для добавления подарка напрямую в инвентарь используйте:\n"
