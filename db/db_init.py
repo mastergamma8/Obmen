@@ -212,4 +212,13 @@ async def init_rocket_games_table():
                 purchased_at INTEGER NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW())::INTEGER)
             )
         """)
+        # Магазин: общий учёт покупок для проверки buy_limit
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS shop_item_purchases (
+                id           BIGSERIAL PRIMARY KEY,
+                user_id      BIGINT  NOT NULL,
+                item_id      TEXT    NOT NULL,
+                purchased_at INTEGER NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW())::INTEGER)
+            )
+        """)
         await db.commit()
