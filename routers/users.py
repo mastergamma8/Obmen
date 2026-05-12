@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import config
 import database
-from handlers.models import TopupData, PromoRedeemData
+from handlers.models import TopupData, PromoRedeemData, UserSettingsData
 from handlers.security import get_current_user
 
 router = APIRouter(prefix="/api", tags=["users"])
@@ -39,6 +39,7 @@ async def init_user(current_user: dict = Depends(get_current_user)):
     user_data  = await database.get_user_data(tg_id)
     user_gifts = await database.get_user_gifts(tg_id)
     promo_cases = await database.get_user_promo_cases(tg_id)
+    user_settings = await database.get_user_settings(tg_id)
 
     feature_flags    = await database.get_feature_flags()
     maintenance_mode = await database.get_maintenance_mode()
@@ -58,6 +59,7 @@ async def init_user(current_user: dict = Depends(get_current_user)):
         "stars":   user_data.get("stars", 0),
         "user_gifts": user_gifts,
         "promo_case_credits": {str(k): v for k, v in promo_cases.items()},
+        "user_settings": user_settings,
         "config": {
             "base_gifts":   config.BASE_GIFTS,
             "main_gifts":   config.MAIN_GIFTS,
@@ -82,6 +84,14 @@ async def init_user(current_user: dict = Depends(get_current_user)):
         "maintenance_mode": maintenance_mode,
     }
 
+
+
+@router.post("/settings")
+async def save_user_settings(data: UserSettingsData, current_user: dict = Depends(get_current_user)):
+    """Сохраняет настройки приватности пользователя (анонимность, скрытие юзернейма)."""
+    tg_id = current_user["id"]
+    await database.update_user_settings(tg_id, data.is_anonymous, data.hide_username)
+    return {"status": "ok"}
 
 
 @router.post("/promo/redeem")
