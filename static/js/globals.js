@@ -2,7 +2,7 @@
 // globals.js — Глобальное состояние и утилиты
 // =====================================================
 
-const ALL_TABS = ['main', 'leaderboard', 'games', 'earn', 'profile', 'roulette'];
+const ALL_TABS = ['main', 'leaderboard', 'games', 'earn', 'shop', 'profile', 'roulette'];
 
 // Глобальное состояние
 let baseGifts = {};
