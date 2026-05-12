@@ -6,6 +6,10 @@
 # Структура модулей:
 #   admin_constants.py  — общие эмодзи и ID иконок
 #   admin_gifts.py      — /addgift, /addstars
+#                         /addtggift  — добавить TG-подарок в инвентарь
+#                         /addbasegift — добавить базовый подарок в инвентарь
+#                         /addmaingift — добавить главный подарок в инвентарь
+#                         /giftids    — просмотр ID подарков по типу (tg/base/main)
 #   admin_bank.py       — /bankhelp, /bankstatus, /addbank
 #   admin_send.py       — /send, /cancel  (с поддержкой кнопок)
 #   admin_promos.py     — /addpromo, /promos, /delpromo
