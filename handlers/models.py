@@ -47,3 +47,8 @@ class AdminBankTopup(BaseModel):
 
 class PromoRedeemData(BaseModel):
     code: str
+
+
+class UserSettingsData(BaseModel):
+    is_anonymous: bool
+    hide_username: bool
