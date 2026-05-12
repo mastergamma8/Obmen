@@ -22,6 +22,7 @@ function onTabSwitch(tabId) {
     if (tabId === 'leaderboard' && typeof loadLeaderboard === 'function') loadLeaderboard();
     if (tabId === 'earn' && typeof loadEarnData === 'function') loadEarnData();
     if (tabId === 'roulette' && typeof fetchRouletteInfo === 'function') fetchRouletteInfo();
+    if (tabId === 'shop' && typeof initShopPage === 'function') initShopPage();
 }
 
 window.switchTab = switchTab;
