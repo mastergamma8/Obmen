@@ -559,6 +559,89 @@ TG_GIFTS = {
 
 
 # ==========================================
+# МАГАЗИН — РАЗДЕЛЫ И АКЦИИ
+# ==========================================
+# Каждый раздел имеет:
+#   id        — уникальный идентификатор
+#   title     — {ru, en} название раздела
+#   items     — список товаров
+#
+# Каждый товар:
+#   id        — уникальный строковый ID (используется при покупке)
+#   type      — "stars" | "donuts" | "limited_gift" | "base_gift"
+#   amount    — количество (для stars/donuts)
+#   gift_id   — для limited_gift: ID из TG_GIFTS (2011–2019)
+#               для base_gift: ID из BASE_GIFTS (1–114)
+#   currency  — "stars" | "donuts" | "free" | "referral"
+#   price     — цена в выбранной валюте (для referral — кол-во приглашённых друзей)
+#   image     — URL картинки (опционально; для limited_gift и base_gift берётся из TG_GIFTS)
+#   title     — {ru, en} название товара
+#   enabled   — True/False (по умолчанию True)
+#
+# Лимитированные подарки (TG Shop) рендерятся автоматически в отдельном
+# разделе «Лимитированные подарки» на основе TG_GIFTS[id].price.
+# Добавлять их сюда не нужно — только кастомные акции.
+
+SHOP_SECTIONS: list[dict] = [
+    {
+        "id": "promotions",
+        "title": {"ru": "Акции", "en": "Promotions"},
+        "items": [
+            {
+                "id": "stars_50_for_donuts",
+                "type": "stars",
+                "amount": 50,
+                "currency": "donuts",
+                "price": 100,
+                "image": "/gifts/stars.png",
+                "title": {"ru": "50 ⭐ за пончики", "en": "50 ⭐ for donuts"},
+                "enabled": True,
+            },
+            {
+                "id": "donuts_100_for_stars",
+                "type": "donuts",
+                "amount": 100,
+                "currency": "stars",
+                "price": 50,
+                "image": "/gifts/dount.png",
+                "title": {"ru": "100 🍩 за звёзды", "en": "100 🍩 for stars"},
+                "enabled": True,
+            },
+            {
+                "id": "donuts_50_for_referral",
+                "type": "donuts",
+                "amount": 50,
+                "currency": "referral",
+                "price": 1,
+                "image": "/gifts/dount.png",
+                "title": {"ru": "50 🍩 за друга", "en": "50 🍩 per friend"},
+                "enabled": True,
+            },
+            # --- Примеры для подарков (раскомментируйте при необходимости) ---
+            # {
+            #     "id": "limited_gift_2011_free",
+            #     "type": "limited_gift",
+            #     "gift_id": 2011,
+            #     "currency": "free",
+            #     "price": 0,
+            #     "title": {"ru": "Подарок бесплатно", "en": "Free gift"},
+            #     "enabled": False,
+            # },
+            # {
+            #     "id": "base_gift_1_for_stars",
+            #     "type": "base_gift",
+            #     "gift_id": 1,           # ID из BASE_GIFTS (1–114)
+            #     "currency": "stars",
+            #     "price": 30,
+            #     "title": {"ru": "Victory Medal за звёзды", "en": "Victory Medal for stars"},
+            #     "enabled": False,
+            # },
+        ],
+    },
+]
+
+
+# ==========================================
 # АВТООБНОВЛЕНИЕ ЦЕН ПОДАРКОВ ИЗ API
 # ==========================================
 def _build_scraper():
