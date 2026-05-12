@@ -107,6 +107,27 @@ async def _get_all_item_buy_counts(user_id: int) -> dict[str, int]:
             return {row[0]: row[1] for row in rows}
 
 
+async def _get_total_item_buy_count(item_id: str) -> int:
+    """Суммарное количество покупок товара всеми пользователями (для global total_limit)."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM shop_item_purchases WHERE item_id = ?",
+            (item_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else 0
+
+
+async def _get_all_total_buy_counts() -> dict[str, int]:
+    """Возвращает словарь {item_id: total_count} по всем пользователям."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT item_id, COUNT(*) FROM shop_item_purchases GROUP BY item_id"
+        ) as cur:
+            rows = await cur.fetchall()
+            return {row[0]: row[1] for row in rows}
+
+
 async def _record_item_purchase(user_id: int, item_id: str):
     """Записывает факт покупки товара пользователем."""
     async with aiosqlite.connect(DB_NAME) as db:
@@ -125,18 +146,25 @@ async def _record_item_purchase(user_id: int, item_id: str):
 async def get_shop_config(current_user: dict = Depends(get_current_user)):
     """
     Возвращает конфиг магазина: лимитированные подарки + кастомные разделы.
-    Для товаров с buy_limit дополнительно добавляет user_buy_count — сколько раз
-    текущий пользователь уже купил этот товар.
+    Для товаров с buy_limit добавляет user_buy_count — сколько раз текущий
+    пользователь уже купил этот товар.
+    Для товаров с total_limit добавляет total_buy_count — суммарное количество
+    покупок всеми пользователями (чтобы фронтенд скрывал исчерпанные товары).
     """
     tg_id = current_user["id"]
-    buy_counts = await _get_all_item_buy_counts(tg_id)
+    user_buy_counts  = await _get_all_item_buy_counts(tg_id)
+    total_buy_counts = await _get_all_total_buy_counts()
 
     sections = _enabled_sections()
     for section in sections:
         for item in section.get("items", []):
-            buy_limit = item.get("buy_limit")
+            item_id     = item["id"]
+            buy_limit   = item.get("buy_limit")
+            total_limit = item.get("total_limit")
             if buy_limit is not None:
-                item["user_buy_count"] = buy_counts.get(item["id"], 0)
+                item["user_buy_count"] = user_buy_counts.get(item_id, 0)
+            if total_limit is not None:
+                item["total_buy_count"] = total_buy_counts.get(item_id, 0)
 
     return {
         "limited_section": _build_limited_section(),
@@ -177,12 +205,19 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
     if not item:
         raise HTTPException(status_code=404, detail="item_not_found")
 
-    # ── Проверка лимита покупок ─────────────────────────────
+    # ── Проверка персонального лимита покупок ───────────────
     buy_limit = item.get("buy_limit")
     if buy_limit is not None:
         already_bought = await _get_item_buy_count(tg_id, data.item_id)
         if already_bought >= buy_limit:
             raise HTTPException(status_code=400, detail="buy_limit_reached")
+
+    # ── Проверка глобального лимита товара ──────────────────
+    total_limit = item.get("total_limit")
+    if total_limit is not None:
+        total_sold = await _get_total_item_buy_count(data.item_id)
+        if total_sold >= total_limit:
+            raise HTTPException(status_code=400, detail="total_limit_reached")
 
     item_type = item["type"]
     currency  = item["currency"]
@@ -216,8 +251,8 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
     else:
         raise HTTPException(status_code=400, detail="unknown_currency")
 
-    # ── Запись факта покупки (для buy_limit) ─────────────────
-    if buy_limit is not None:
+    # ── Запись факта покупки (нужна для buy_limit и/или total_limit) ──
+    if buy_limit is not None or total_limit is not None:
         await _record_item_purchase(tg_id, data.item_id)
 
     # ── Начисление товара ────────────────────────────────────
@@ -281,8 +316,17 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
         raise HTTPException(status_code=400, detail="unknown_item_type")
 
     updated = await database.get_user_data(tg_id)
+
+    # Считаем актуальные счётчики после покупки, чтобы фронтенд
+    # обновил локальное состояние без перезагрузки страницы
+    new_user_count  = await _get_item_buy_count(tg_id, data.item_id)
+    new_total_count = await _get_total_item_buy_count(data.item_id)
+
     return {
-        "status":  "ok",
-        "balance": updated.get("balance", 0),
-        "stars":   updated.get("stars", 0),
-    }
+        "status":            "ok",
+        "balance":           updated.get("balance", 0),
+        "stars":             updated.get("stars", 0),
+        "item_id":           data.item_id,
+        "user_buy_count":    new_user_count,
+        "total_buy_count":   new_total_count,
+        }
