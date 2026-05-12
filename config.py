@@ -603,7 +603,7 @@ SHOP_SECTIONS: list[dict] = [
                 "title": {"ru": "50 ⭐ за пончики", "en": "50 ⭐ for donuts"},
                 "enabled": True,
                 "buy_limit": 1,     # None или отсутствие = без персонального ограничения
-                "total_limit": None, # None или отсутствие = без глобального ограничения
+                "total_limit": 2, # None или отсутствие = без глобального ограничения
             },
             {
                 "id": "donuts_100_for_stars",
