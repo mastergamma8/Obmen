@@ -48,6 +48,8 @@ from db.db_users import (  # noqa: F401
     add_gift_to_user,
     remove_gift_from_user,
     get_user_gifts,
+    get_user_settings,
+    update_user_settings,
 )
 
 from db.db_history import (  # noqa: F401
