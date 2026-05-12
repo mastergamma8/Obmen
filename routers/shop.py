@@ -79,7 +79,7 @@ async def _get_used_referrals(user_id: int) -> int:
 async def _record_referral_purchase(user_id: int, item_id: str):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
-            "INSERT INTO shop_referral_purchases (user_id, item_id, purchased_at) VALUES (?,?,?)",
+            "INSERT INTO shop_referral_purchases (user_id, item_id, purchased_at) VALUES (%s, %s, %s)",
             (user_id, item_id, int(time.time()))
         )
         await db.commit()
@@ -231,4 +231,4 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
         "status":  "ok",
         "balance": updated.get("balance", 0),
         "stars":   updated.get("stars", 0),
-  }
+    }
