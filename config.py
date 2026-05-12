@@ -596,7 +596,7 @@ SHOP_SECTIONS: list[dict] = [
                 "image": "/gifts/stars.png",
                 "title": {"ru": "50 ⭐ за пончики", "en": "50 ⭐ for donuts"},
                 "enabled": True,
-                "buy_limit": None,   # None или отсутствие = без ограничений
+                "buy_limit": 1,   # None или отсутствие = без ограничений
             },
             {
                 "id": "donuts_100_for_stars",
