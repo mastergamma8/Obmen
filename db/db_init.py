@@ -202,4 +202,14 @@ async def init_rocket_games_table():
         await db.execute("ALTER TABLE rocket_active_games ALTER COLUMN user_id TYPE BIGINT")
         await db.execute("ALTER TABLE rocket_active_games ALTER COLUMN bet TYPE FLOAT8")
         await db.execute("ALTER TABLE rocket_active_games ALTER COLUMN pool_amount TYPE FLOAT8")
+
+        # Магазин: учёт использованных рефералов для акций
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS shop_referral_purchases (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id      BIGINT  NOT NULL,
+                item_id      TEXT    NOT NULL,
+                purchased_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+            )
+        """)
         await db.commit()
