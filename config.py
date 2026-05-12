@@ -594,39 +594,40 @@ SHOP_SECTIONS: list[dict] = [
         "title": {"ru": "Акции", "en": "Promotions"},
         "items": [
             {
-                "id": "stars_50_for_donuts",
+                "id": "stars_10_free",
                 "type": "stars",
-                "amount": 50,
-                "currency": "donuts",
-                "price": 100,
+                "amount": 10,
+                "currency": "free",
+                "price": 0,
                 "image": "/gifts/stars.png",
-                "title": {"ru": "50 ⭐ за пончики", "en": "50 ⭐ for donuts"},
+                "title": {"ru": "10 звёзд бесплатно", "en": "10 stars free"},
                 "enabled": True,
                 "buy_limit": 1,     # None или отсутствие = без персонального ограничения
-                "total_limit": 2, # None или отсутствие = без глобального ограничения
+                "total_limit": 10, # None или отсутствие = без глобального ограничения
             },
             {
-                "id": "donuts_100_for_stars",
+                "id": "donuts_0_1_free",
                 "type": "donuts",
-                "amount": 100,
-                "currency": "stars",
-                "price": 50,
+                "amount": 0.1,
+                "currency": "free",
+                "price": 0,
                 "image": "/gifts/dount.png",
-                "title": {"ru": "100 🍩 за звёзды", "en": "100 🍩 for stars"},
+                "title": {"ru": "0.1 пончик бесплатно", "en": "0.1 donut free"},
                 "enabled": True,
-                "buy_limit": None,   # None или отсутствие = без ограничений
-            },
-            {
-                "id": "donuts_50_for_referral",
-                "type": "donuts",
-                "amount": 50,
-                "currency": "referral",
-                "price": 1,
-                "image": "/gifts/dount.png",
-                "title": {"ru": "50 🍩 за друга", "en": "50 🍩 per friend"},
-                "enabled": True,
-                "buy_limit": None,     # каждый пользователь может купить не более 1 раза
-            },
+                "buy_limit": 1,
+                "total_limit": 10, # None или отсутствие = без ограничений
+            }
+            # {
+            #    "id": "donuts_50_for_referral",
+            #    "type": "donuts",
+            #    "amount": 50,
+            #    "currency": "referral",
+            #    "price": 1,
+            #    "image": "/gifts/dount.png",
+            #    "title": {"ru": "50 🍩 за друга", "en": "50 🍩 per friend"},
+            #    "enabled": True,
+            #    "buy_limit": None,     # каждый пользователь может купить не более 1 раза
+            # },
             # --- Примеры для подарков (раскомментируйте при необходимости) ---
             # {
             #     "id": "limited_gift_2011_free",
