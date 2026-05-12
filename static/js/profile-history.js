@@ -75,6 +75,11 @@ const HISTORY_ICONS = {
     task_reward_stars:    { icon: '✅', color: 'green',  sign: '+' },
     referral_bonus:       { icon: '👥', color: 'green',  sign: '+' },
     referral_bonus_stars: { icon: '👥', color: 'green',  sign: '+' },
+
+    // ── Shop purchases ───────────────────────────────────────────────────────
+    shop_buy_stars:       { icon: '🛍️', color: 'green',  sign: '+' },
+    shop_buy_donuts:      { icon: '🛍️', color: 'green',  sign: '+' },
+    shop_buy_gift:        { icon: '🎁', color: 'purple', sign: null },
 };
 
 /** Action types that are internal / should never surface in the UI. */
@@ -91,6 +96,8 @@ const STAR_AMOUNT_TYPES = new Set([
     'tg_shop_buy',
     // PvP — star-denominated bets, wins and refunds
     'pvp_bet_stars', 'pvp_win_stars', 'pvp_refund_stars',
+    // Shop
+    'shop_buy_stars',
 ]);
 
 // ── Localised labels ──────────────────────────────────────────────────────────
@@ -143,6 +150,9 @@ const HISTORY_LABELS = {
         task_reward_stars:    'Награда за задание',
         referral_bonus:       'Реферальный бонус',
         referral_bonus_stars: 'Реферальный бонус ⭐',
+        shop_buy_stars:       'Покупка в магазине',
+        shop_buy_donuts:      'Покупка в магазине',
+        shop_buy_gift:        'Покупка подарка в магазине',
     },
     en: {
         topup_stars:          'Balance top-up',
@@ -191,6 +201,9 @@ const HISTORY_LABELS = {
         task_reward_stars:    'Task reward',
         referral_bonus:       'Referral bonus',
         referral_bonus_stars: 'Referral bonus ⭐',
+        shop_buy_stars:       'Shop purchase',
+        shop_buy_donuts:      'Shop purchase',
+        shop_buy_gift:        'Gift purchase in shop',
     }
 };
 
@@ -319,6 +332,17 @@ function _buildAmountHtml(entry, meta) {
 function _buildEntryTitle(entry) {
     const labels = HISTORY_LABELS[currentLang] || HISTORY_LABELS['ru'];
     let title    = labels[entry.action_type] || entry.action_type;
+
+    // Shop purchases — extract bilingual item title from structured description
+    const shopBuyTypes = new Set(['shop_buy_stars', 'shop_buy_donuts', 'shop_buy_gift']);
+    if (shopBuyTypes.has(entry.action_type) && entry.description) {
+        const key  = currentLang === 'en' ? 'title_en' : 'title_ru';
+        const m    = entry.description.match(new RegExp(`\\[${key}:([^\\]]+)\\]`));
+        if (m && m[1]) {
+            const prefix = currentLang === 'ru' ? 'Магазин: ' : 'Shop: ';
+            return prefix + m[1];
+        }
+    }
 
     // TG Shop purchase — append gift name if resolvable
     if (entry.action_type === 'tg_shop_buy' && entry.description) {
