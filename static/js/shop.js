@@ -80,9 +80,13 @@ function renderCustomSections() {
 
         const grid = document.getElementById(`shop-section-${section.id}`);
         (section.items || []).filter(item => {
-            const limit = item.buy_limit ?? null;
-            const count = item.user_buy_count ?? 0;
-            return limit === null || count < limit;
+            const limit      = item.buy_limit   ?? null;
+            const count      = item.user_buy_count  ?? 0;
+            const totalLimit = item.total_limit  ?? null;
+            const totalCount = item.total_buy_count ?? 0;
+            const userOk  = limit      === null || count      < limit;
+            const totalOk = totalLimit === null || totalCount < totalLimit;
+            return userOk && totalOk;
         }).forEach(item => {
             grid.appendChild(_buildItemCard(item, section.id, lang));
         });
@@ -337,6 +341,26 @@ async function confirmShopBuy() {
             // Сбрасываем кэш рефералов
             shopAvailableReferrals = Math.max(0, shopAvailableReferrals - (item.currency === 'referral' ? item.price : 0));
 
+            // ── Обновляем локальные счётчики в shopConfig ────────
+            // Это позволяет мгновенно скрыть товар без перезагрузки страницы,
+            // если пользователь исчерпал персональный или глобальный лимит.
+            if (shopConfig && data.item_id) {
+                for (const section of (shopConfig.sections || [])) {
+                    for (const shopItem of (section.items || [])) {
+                        if (shopItem.id === data.item_id) {
+                            if (data.user_buy_count !== undefined) {
+                                shopItem.user_buy_count = data.user_buy_count;
+                            }
+                            if (data.total_buy_count !== undefined) {
+                                shopItem.total_buy_count = data.total_buy_count;
+                            }
+                        }
+                    }
+                }
+                // Перерисовываем разделы — товары с исчерпанным лимитом исчезнут
+                renderCustomSections();
+            }
+
             showNotify(t['shop_buy_success'] || '✅ Куплено!', 'success');
         } else {
             const detail = data.detail || '';
@@ -346,6 +370,21 @@ async function confirmShopBuy() {
             if (detail === 'not_enough_referrals') msg = t['shop_not_enough_referrals'] || 'Недостаточно приглашённых друзей!';
             if (detail === 'send_gift_failed')  msg = t['tg_buy_error'] || 'Не удалось отправить подарок';
             if (detail === 'buy_limit_reached') msg = t['shop_buy_limit_reached'] || 'Лимит покупок исчерпан!';
+            if (detail === 'total_limit_reached') {
+                msg = t['shop_total_limit_reached'] || 'Товар полностью раскуплен!';
+                // Скрываем товар локально — глобальный запас исчерпан
+                if (shopConfig) {
+                    for (const section of (shopConfig.sections || [])) {
+                        for (const shopItem of (section.items || [])) {
+                            if (shopItem.id === item.id && shopItem.total_limit != null) {
+                                shopItem.total_buy_count = shopItem.total_limit;
+                            }
+                        }
+                    }
+                    renderCustomSections();
+                }
+                closeShopBuyModal();
+            }
             showNotify(msg, 'error');
         }
     } catch (e) {
