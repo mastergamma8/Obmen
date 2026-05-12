@@ -89,7 +89,8 @@ const BOTTOM_SHEET_IDS = [
     'sort-modal',
     'history-modal',
     'withdraw-requirements-modal',
-    'channel-sub-modal'
+    'channel-sub-modal',
+    'settings-modal'
 ];
 
 // Открытие модального окна:
@@ -411,7 +412,7 @@ window.toggleDemoMode = toggleDemoMode;
 // ИНИЦИАЛИЗАЦИЯ "ШТОРОК" (ЗАКРЫТИЕ СВАЙПОМ / КЛИК ВНЕ)
 // =====================================================
 function initBottomSheets() {
-    const bottomSheets = ['add-gift-modal', 'sort-modal', 'history-modal', 'withdraw-requirements-modal', 'channel-sub-modal'];
+    const bottomSheets = ['add-gift-modal', 'sort-modal', 'history-modal', 'withdraw-requirements-modal', 'channel-sub-modal', 'settings-modal'];
 
     // Функция поиска скроллируемого родителя, чтобы не перехватывать скролл контента
     function getScrollableParent(el, limitNode) {
