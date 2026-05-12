@@ -54,10 +54,10 @@ function applyFeatureFlags(flags) {
         casesBanner.style.display = flags.cases === false ? 'none' : '';
     }
 
-    // TG Подарки / Лимитированные подарки — баннер в разделе Игры
-    const limitedBanner = document.getElementById('game-banner-limited');
-    if (limitedBanner) {
-        limitedBanner.style.display = flags.limited_gifts === false ? 'none' : '';
+    // TG Подарки / Магазин — кнопка в навигации
+    const shopNav = document.getElementById('nav-shop');
+    if (shopNav) {
+        shopNav.style.display = flags.limited_gifts === false ? 'none' : '';
     }
 
     // PvP Арена — баннер в разделе Игры
@@ -265,4 +265,4 @@ if (window.partialsAreLoaded) {
     startApplication();
 } else {
     document.addEventListener('partialsLoaded', startApplication);
-}
+        }
