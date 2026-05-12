@@ -339,10 +339,13 @@ async def place_bet(data: BetRequest, current_user: dict = Depends(get_current_u
             raise HTTPException(400, "Раунд уже начался, ставка возвращена")
 
         auto_co = max(0.0, float(data.auto_cashout)) if data.auto_cashout else 0.0
+        settings = await database.get_user_settings(tg_id)
+        display_name   = "Anonim" if settings["is_anonymous"] else (current_user.get("first_name") or current_user.get("username") or "Игрок")
+        display_avatar = "/static/img/anon.svg" if settings["is_anonymous"] else current_user.get("photo_url", "")
         rocket_round["bets"][tg_id] = {
             "user_id":      tg_id,
-            "name":         current_user.get("first_name") or current_user.get("username") or f"Игрок",
-            "avatar":       current_user.get("photo_url", ""),
+            "name":         display_name,
+            "avatar":       display_avatar,
             "bet":          bet,
             "currency":     CURRENCY,
             "auto_cashout": auto_co,
@@ -390,4 +393,4 @@ async def do_cashout(current_user: dict = Depends(get_current_user)):
         "multiplier": cashout_mult,
         "balance":    updated["balance"],
         "stars":      updated["stars"],
-                }
+    }
