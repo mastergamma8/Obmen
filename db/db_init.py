@@ -49,6 +49,8 @@ async def init_db():
         await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS notified_free_case INTEGER DEFAULT 1")
         await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_notified_free_spin INTEGER DEFAULT 0")
         await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_notified_free_case INTEGER DEFAULT 0")
+        await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_anonymous INTEGER DEFAULT 0")
+        await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_username INTEGER DEFAULT 0")
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_gifts (
