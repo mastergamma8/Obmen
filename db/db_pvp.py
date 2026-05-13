@@ -11,45 +11,55 @@ from db.db_core import DB_NAME
 
 async def load_pvp_round_state() -> dict:
     """Загружает сохранённое состояние PvP-раунда из БД.
-    Возвращает словарь {round_id, last_game, best_game} или значения по умолчанию."""
+    Возвращает словарь {round_id, last_game, best_game, round_state} или значения по умолчанию.
+    round_state содержит полное состояние активного раунда (игроки, ставки, таймеры)."""
     try:
         async with aiosqlite.connect(DB_NAME) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
-                "SELECT round_id, last_game, best_game FROM game_round_state WHERE game = 'pvp'"
+                "SELECT round_id, last_game, best_game, round_state "
+                "FROM game_round_state WHERE game = 'pvp'"
             ) as cursor:
                 row = await cursor.fetchone()
                 if row:
                     return {
-                        "round_id":  row["round_id"] or 0,
-                        "last_game": json.loads(row["last_game"]) if row["last_game"] else None,
-                        "best_game": json.loads(row["best_game"]) if row["best_game"] else None,
+                        "round_id":    row["round_id"] or 0,
+                        "last_game":   json.loads(row["last_game"])   if row["last_game"]   else None,
+                        "best_game":   json.loads(row["best_game"])   if row["best_game"]   else None,
+                        "round_state": json.loads(row["round_state"]) if row["round_state"] else None,
                     }
     except Exception as e:
         print(f"[PvP] load_pvp_round_state error: {e}")
-    return {"round_id": 0, "last_game": None, "best_game": None}
+    return {"round_id": 0, "last_game": None, "best_game": None, "round_state": None}
 
 
-async def save_pvp_round_state(round_id: int, last_game, best_game) -> None:
+async def save_pvp_round_state(
+    round_id: int,
+    last_game,
+    best_game,
+    round_state: dict | None = None,
+) -> None:
     """Сохраняет состояние PvP-раунда в БД (upsert).
 
-    ИСПРАВЛЕНО: заменены $1/$2/$3/$4 на ? — db_async._translate_sql
-    конвертирует ? в %s (psycopg3-формат). Синтаксис $N не поддерживается
-    адаптером и вызывал ошибку «0 placeholders, 4 parameters».
+    round_state — полный снимок активного раунда (state, players, таймеры и т.д.),
+    позволяет восстановить раунд после рестарта сервера без потери ставок игроков.
+    Если round_state=None, колонка обнуляется (после завершения раунда не нужна).
     """
     try:
-        last_json = json.dumps(last_game) if last_game is not None else None
-        best_json = json.dumps(best_game) if best_game is not None else None
+        last_json  = json.dumps(last_game,   default=str) if last_game   is not None else None
+        best_json  = json.dumps(best_game,   default=str) if best_game   is not None else None
+        state_json = json.dumps(round_state, default=str) if round_state is not None else None
         async with aiosqlite.connect(DB_NAME) as db:
             await db.execute("""
-                INSERT INTO game_round_state (game, round_id, last_game, best_game, updated_at)
-                VALUES ('pvp', ?, ?, ?, ?)
+                INSERT INTO game_round_state (game, round_id, last_game, best_game, round_state, updated_at)
+                VALUES ('pvp', ?, ?, ?, ?, ?)
                 ON CONFLICT (game) DO UPDATE SET
-                    round_id   = EXCLUDED.round_id,
-                    last_game  = EXCLUDED.last_game,
-                    best_game  = EXCLUDED.best_game,
-                    updated_at = EXCLUDED.updated_at
-            """, (round_id, last_json, best_json, int(time.time())))
+                    round_id    = EXCLUDED.round_id,
+                    last_game   = EXCLUDED.last_game,
+                    best_game   = EXCLUDED.best_game,
+                    round_state = EXCLUDED.round_state,
+                    updated_at  = EXCLUDED.updated_at
+            """, (round_id, last_json, best_json, state_json, int(time.time())))
             await db.commit()
     except Exception as e:
         print(f"[PvP] save_pvp_round_state error: {e}")
