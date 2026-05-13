@@ -36,29 +36,54 @@ window.hideGameView = hideGameView;
 /**
  * Сбрасывает раздел игр на главный экран со списком игр.
  * Вызывается при повторном нажатии на кнопку "Игры" в навигации.
+ *
+ * Важно: вызываем именно close-функции каждой игры, а не прячем DOM напрямую.
+ * Это гарантирует остановку поллинга и вибрации (в т.ч. при race-condition
+ * когда async-запрос уже в полёте в момент закрытия).
+ *
  * Возвращает true, если какой-то игровой экран был закрыт.
  */
 function resetGamesView() {
-    if (typeof vibrate === 'function') vibrate('light');
-
-    const gameViews = [
-        'games-cases-list-view',
-        'games-rocket-view',
-        'games-pvp-view',
-    ];
-    const mainView = document.getElementById('games-main-view');
-
     let anyOpen = false;
-    gameViews.forEach(id => {
-        const el = document.getElementById(id);
-        if (el && !el.classList.contains('hidden')) {
-            el.classList.add('hidden');
-            anyOpen = true;
-        }
-    });
 
-    if (anyOpen && mainView) {
-        mainView.classList.remove('hidden');
+    // Ракета
+    const rocketView = document.getElementById('games-rocket-view');
+    if (rocketView && !rocketView.classList.contains('hidden')) {
+        if (typeof closeRocketGame === 'function') {
+            closeRocketGame();
+        } else {
+            rocketView.classList.add('hidden');
+        }
+        anyOpen = true;
+    }
+
+    // Кейсы
+    const casesView = document.getElementById('games-cases-list-view');
+    if (casesView && !casesView.classList.contains('hidden')) {
+        if (typeof closeGamesCases === 'function') {
+            closeGamesCases();
+        } else {
+            casesView.classList.add('hidden');
+        }
+        anyOpen = true;
+    }
+
+    // PVP
+    const pvpView = document.getElementById('games-pvp-view');
+    if (pvpView && !pvpView.classList.contains('hidden')) {
+        if (typeof closePvpGame === 'function') {
+            closePvpGame();
+        } else {
+            pvpView.classList.add('hidden');
+        }
+        anyOpen = true;
+    }
+
+    // Показываем главный экран, если что-то было закрыто
+    if (anyOpen) {
+        const mainView = document.getElementById('games-main-view');
+        if (mainView) mainView.classList.remove('hidden');
+        if (typeof vibrate === 'function') vibrate('light');
     }
 
     return anyOpen;
