@@ -5,6 +5,33 @@ routers/shop.py
 GET  /api/shop/config        — публичный конфиг разделов + лимитированные подарки
 GET  /api/shop/referrals     — сколько рефералов доступно для использования в акциях
 POST /api/shop/buy           — покупка товара из кастомного раздела
+
+Атомарность лимитов
+───────────────────
+Для товаров с buy_limit / total_limit используется двухфазный подход:
+
+  Фаза 1 — резервирование слота (до списания валюты):
+    - Открывается одна транзакция.
+    - Вызывается pg_advisory_xact_lock(hashtext(item_id)) — транзакционная
+      блокировка, которая сериализует параллельные покупки одного товара.
+      Блокировка удерживается до конца транзакции и не требует явного снятия.
+    - Внутри той же транзакции проверяются buy_limit и total_limit.
+    - При прохождении обеих проверок вставляется строка в shop_item_purchases
+      (RETURNING id → purchase_id).
+    - COMMIT: блокировка снимается, слот зафиксирован.
+
+  Фаза 2 — исполнение сделки (после резервирования):
+    - Списывается валюта.
+    - Выдаётся товар.
+    - При любой ошибке на фазе 2 валюта возвращается, а зарезервированная
+      строка удаляется из shop_item_purchases (DELETE WHERE id = purchase_id).
+
+Результат:
+  - Два параллельных запроса не могут одновременно пройти проверку лимита:
+    второй будет ждать снятия advisory lock первого.
+  - Запись о покупке появляется в БД до выдачи товара (резервирование),
+    но удаляется при любом сбое — пользователь не теряет право на покупку
+    из-за неудачной попытки.
 """
 
 import time
@@ -128,12 +155,82 @@ async def _get_all_total_buy_counts() -> dict[str, int]:
             return {row[0]: row[1] for row in rows}
 
 
-async def _record_item_purchase(user_id: int, item_id: str):
-    """Записывает факт покупки товара пользователем."""
+# ────────────────────────────────────────────────────────────
+# Атомарное резервирование слота покупки
+# ────────────────────────────────────────────────────────────
+
+async def _reserve_purchase_slot(
+    user_id: int,
+    item_id: str,
+    buy_limit: int | None,
+    total_limit: int | None,
+) -> int:
+    """
+    Атомарно проверяет лимиты и вставляет запись о покупке в одной транзакции.
+
+    Алгоритм:
+      1. pg_advisory_xact_lock(hashtext(item_id)) — сериализует все параллельные
+         покупки данного товара на уровне БД. Блокировка снимается при COMMIT/ROLLBACK.
+      2. Проверка buy_limit (персональный лимит) и total_limit (глобальный лимит).
+      3. INSERT INTO shop_item_purchases ... RETURNING id.
+      4. COMMIT.
+
+    Возвращает id вставленной строки (purchase_id), который используется
+    для отмены резервирования (_cancel_purchase_slot) при ошибке выдачи товара.
+
+    Выбрасывает HTTPException(400) при исчерпанном лимите.
+    """
+    async with aiosqlite.connect(DB_NAME) as db:
+        # Advisory lock уровня транзакции: второй запрос с тем же ключом
+        # будет ждать здесь, пока первый не завершит транзакцию.
+        await db.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(?))",
+            (item_id,)
+        )
+
+        if buy_limit is not None:
+            async with db.execute(
+                "SELECT COUNT(*) FROM shop_item_purchases WHERE user_id = ? AND item_id = ?",
+                (user_id, item_id)
+            ) as cur:
+                row = await cur.fetchone()
+                if (row[0] if row else 0) >= buy_limit:
+                    raise HTTPException(status_code=400, detail="buy_limit_reached")
+
+        if total_limit is not None:
+            async with db.execute(
+                "SELECT COUNT(*) FROM shop_item_purchases WHERE item_id = ?",
+                (item_id,)
+            ) as cur:
+                row = await cur.fetchone()
+                if (row[0] if row else 0) >= total_limit:
+                    raise HTTPException(status_code=400, detail="total_limit_reached")
+
+        async with db.execute(
+            "INSERT INTO shop_item_purchases (user_id, item_id, purchased_at)"
+            " VALUES (?, ?, ?) RETURNING id",
+            (user_id, item_id, int(time.time()))
+        ) as cur:
+            row = await cur.fetchone()
+            purchase_id: int = row[0]
+
+        await db.commit()
+        # Транзакция закрыта → advisory lock снят → следующий ожидающий запрос
+        # разблокирован и увидит уже зафиксированную строку.
+        return purchase_id
+
+
+async def _cancel_purchase_slot(purchase_id: int) -> None:
+    """
+    Удаляет ранее зарезервированный слот покупки.
+
+    Вызывается при любой ошибке после резервирования, чтобы пользователь
+    не потерял право на покупку из-за неудачной попытки.
+    """
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
-            "INSERT INTO shop_item_purchases (user_id, item_id, purchased_at) VALUES (?, ?, ?)",
-            (user_id, item_id, int(time.time()))
+            "DELETE FROM shop_item_purchases WHERE id = ?",
+            (purchase_id,)
         )
         await db.commit()
 
@@ -205,134 +302,152 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
     if not item:
         raise HTTPException(status_code=404, detail="item_not_found")
 
-    # ── Проверка персонального лимита покупок ───────────────
-    buy_limit = item.get("buy_limit")
-    if buy_limit is not None:
-        already_bought = await _get_item_buy_count(tg_id, data.item_id)
-        if already_bought >= buy_limit:
-            raise HTTPException(status_code=400, detail="buy_limit_reached")
-
-    # ── Проверка глобального лимита товара ──────────────────
+    item_type   = item["type"]
+    currency    = item["currency"]
+    price       = item["price"]
+    buy_limit   = item.get("buy_limit")
     total_limit = item.get("total_limit")
-    if total_limit is not None:
-        total_sold = await _get_total_item_buy_count(data.item_id)
-        if total_sold >= total_limit:
-            raise HTTPException(status_code=400, detail="total_limit_reached")
 
-    item_type = item["type"]
-    currency  = item["currency"]
-    price     = item["price"]
-
-    # ── Проверка и списание валюты ──────────────────────────
-
-    if currency == "donuts":
-        success = await database.deduct_balance(tg_id, price)
-        if not success:
-            raise HTTPException(status_code=400, detail="not_enough_donuts")
-
-    elif currency == "stars":
-        success = await database.deduct_stars(tg_id, price)
-        if not success:
-            raise HTTPException(status_code=400, detail="not_enough_stars")
-
-    elif currency == "referral":
-        from db.db_referrals import get_referrals
-        total     = len(await get_referrals(tg_id))
-        used      = await _get_used_referrals(tg_id)
-        available = max(0, total - used)
-        if available < price:
-            raise HTTPException(status_code=400, detail="not_enough_referrals")
-        for _ in range(price):
-            await _record_referral_purchase(tg_id, data.item_id)
-
-    elif currency == "free":
-        pass  # бесплатно
-
-    else:
-        raise HTTPException(status_code=400, detail="unknown_currency")
-
-    # ── Запись факта покупки (нужна для buy_limit и/или total_limit) ──
+    # ── Фаза 1: атомарное резервирование слота ──────────────
+    #
+    # Если у товара есть лимит, выполняется проверка + INSERT в одной
+    # транзакции под advisory lock. Второй параллельный запрос будет ждать
+    # завершения этой транзакции и увидит уже обновлённый счётчик.
+    #
+    # HTTPException от _reserve_purchase_slot (лимит исчерпан) прокидывается
+    # напрямую — INSERT не произошёл, отменять нечего.
+    purchase_id: int | None = None
     if buy_limit is not None or total_limit is not None:
-        await _record_item_purchase(tg_id, data.item_id)
-
-    # ── Начисление товара ────────────────────────────────────
-
-    user_data = await database.get_user_data(tg_id)
-
-    # Извлекаем названия товара на обоих языках для красивого отображения в истории
-    item_title = item.get("title") or {}
-    title_ru   = item_title.get("ru") or data.item_id
-    title_en   = item_title.get("en") or data.item_id
-    title_tag  = f"[title_ru:{title_ru}][title_en:{title_en}]"
-
-    if item_type == "stars":
-        amount = item["amount"]
-        await database.add_stars_to_user(tg_id, amount)
-        await database.log_action(
-            tg_id, "shop_buy_stars",
-            f"{title_tag}[amount:{amount}⭐][paid:{price}{currency}]", amount
+        purchase_id = await _reserve_purchase_slot(
+            tg_id, data.item_id, buy_limit, total_limit
         )
 
-    elif item_type == "donuts":
-        amount = item["amount"]
-        await database.add_points_to_user(tg_id, amount)
-        await database.log_action(
-            tg_id, "shop_buy_donuts",
-            f"{title_tag}[amount:{amount}🍩][paid:{price}{currency}]", amount
-        )
+    # ── Фаза 2: списание валюты и выдача товара ─────────────
+    #
+    # При любой ошибке: возвращаем валюту (если уже списана) и удаляем
+    # зарезервированный слот.
+    try:
+        # ── Списание валюты ─────────────────────────────────
+        if currency == "donuts":
+            success = await database.deduct_balance(tg_id, price)
+            if not success:
+                raise HTTPException(status_code=400, detail="not_enough_donuts")
 
-    elif item_type in ("limited_gift", "base_gift"):
-        gift_id  = item.get("gift_id")
+        elif currency == "stars":
+            success = await database.deduct_stars(tg_id, price)
+            if not success:
+                raise HTTPException(status_code=400, detail="not_enough_stars")
 
-        if item_type == "limited_gift":
-            gift_def   = config.TG_GIFTS.get(gift_id)
-            if not gift_def:
-                if currency == "donuts": await database.add_points_to_user(tg_id, price)
-                elif currency == "stars": await database.add_stars_to_user(tg_id, price)
-                raise HTTPException(status_code=400, detail="gift_config_not_found")
+        elif currency == "referral":
+            from db.db_referrals import get_referrals
+            total     = len(await get_referrals(tg_id))
+            used      = await _get_used_referrals(tg_id)
+            available = max(0, total - used)
+            if available < price:
+                raise HTTPException(status_code=400, detail="not_enough_referrals")
+            for _ in range(price):
+                await _record_referral_purchase(tg_id, data.item_id)
 
-            tg_gift_id = gift_def.get("tg_gift_id")
-            sent = await send_real_tg_gift(tg_id, tg_gift_id, text="gift from Space Donut 🍩")
-            if not sent:
-                if currency == "donuts": await database.add_points_to_user(tg_id, price)
-                elif currency == "stars": await database.add_stars_to_user(tg_id, price)
-                raise HTTPException(status_code=502, detail="send_gift_failed")
-
-            gift_name = gift_def.get("name") or f"Gift #{gift_id}"
-            await database.log_action(
-                tg_id, "shop_buy_gift",
-                f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
-            )
+        elif currency == "free":
+            pass  # бесплатно
 
         else:
-            gift_def = config.BASE_GIFTS.get(gift_id)
-            if not gift_def:
-                if currency == "donuts": await database.add_points_to_user(tg_id, price)
-                elif currency == "stars": await database.add_stars_to_user(tg_id, price)
-                raise HTTPException(status_code=400, detail="gift_config_not_found")
+            raise HTTPException(status_code=400, detail="unknown_currency")
 
-            await database.add_gift_to_user(tg_id, gift_id, 1)
-            gift_name = gift_def.get("name") or f"Gift #{gift_id}"
+        # ── Начисление товара ────────────────────────────────
+        item_title = item.get("title") or {}
+        title_ru   = item_title.get("ru") or data.item_id
+        title_en   = item_title.get("en") or data.item_id
+        title_tag  = f"[title_ru:{title_ru}][title_en:{title_en}]"
+
+        if item_type == "stars":
+            amount = item["amount"]
+            await database.add_stars_to_user(tg_id, amount)
             await database.log_action(
-                tg_id, "shop_buy_gift",
-                f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
+                tg_id, "shop_buy_stars",
+                f"{title_tag}[amount:{amount}⭐][paid:{price}{currency}]", amount
             )
 
-    else:
-        raise HTTPException(status_code=400, detail="unknown_item_type")
+        elif item_type == "donuts":
+            amount = item["amount"]
+            await database.add_points_to_user(tg_id, amount)
+            await database.log_action(
+                tg_id, "shop_buy_donuts",
+                f"{title_tag}[amount:{amount}🍩][paid:{price}{currency}]", amount
+            )
 
+        elif item_type in ("limited_gift", "base_gift"):
+            gift_id = item.get("gift_id")
+
+            if item_type == "limited_gift":
+                gift_def = config.TG_GIFTS.get(gift_id)
+                if not gift_def:
+                    raise HTTPException(status_code=400, detail="gift_config_not_found")
+
+                tg_gift_id = gift_def.get("tg_gift_id")
+                sent = await send_real_tg_gift(tg_id, tg_gift_id, text="gift from Space Donut 🍩")
+                if not sent:
+                    raise HTTPException(status_code=502, detail="send_gift_failed")
+
+                gift_name = gift_def.get("name") or f"Gift #{gift_id}"
+                await database.log_action(
+                    tg_id, "shop_buy_gift",
+                    f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
+                )
+
+            else:  # base_gift
+                gift_def = config.BASE_GIFTS.get(gift_id)
+                if not gift_def:
+                    raise HTTPException(status_code=400, detail="gift_config_not_found")
+
+                await database.add_gift_to_user(tg_id, gift_id, 1)
+                gift_name = gift_def.get("name") or f"Gift #{gift_id}"
+                await database.log_action(
+                    tg_id, "shop_buy_gift",
+                    f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
+                )
+
+        else:
+            raise HTTPException(status_code=400, detail="unknown_item_type")
+
+    except HTTPException as exc:
+        # ── Откат: снимаем резерв и возвращаем валюту ───────
+        #
+        # Сначала отменяем слот, чтобы пользователь мог немедленно попробовать
+        # снова, не упираясь в «съеденный» лимит.
+        if purchase_id is not None:
+            await _cancel_purchase_slot(purchase_id)
+
+        # Возврат валюты только если причина ошибки — НЕ нехватка средств
+        # (т.е. валюта была успешно списана, но выдача товара не удалась).
+        no_refund_codes = {
+            "not_enough_donuts",
+            "not_enough_stars",
+            "not_enough_referrals",
+            "unknown_currency",
+            "unknown_item_type",
+        }
+        if exc.detail not in no_refund_codes:
+            if currency == "donuts":
+                await database.add_points_to_user(tg_id, price)
+            elif currency == "stars":
+                await database.add_stars_to_user(tg_id, price)
+            # Рефералы не возвращаются: запись shop_referral_purchases отражает
+            # сам факт попытки использования реферала, а не успех выдачи товара.
+
+        raise
+
+    # ── Успех: возвращаем актуальные данные ─────────────────
     updated = await database.get_user_data(tg_id)
 
-    # Считаем актуальные счётчики после покупки, чтобы фронтенд
-    # обновил локальное состояние без перезагрузки страницы
     new_user_count  = await _get_item_buy_count(tg_id, data.item_id)
     new_total_count = await _get_total_item_buy_count(data.item_id)
 
     return {
-        "status":            "ok",
-        "balance":           updated.get("balance", 0),
-        "stars":             updated.get("stars", 0),
-        "item_id":           data.item_id,
-        "user_buy_count":    new_user_count,
-        "total_buy_count":   new_total_count,
-        }
+        "status":          "ok",
+        "balance":         updated.get("balance", 0),
+        "stars":           updated.get("stars", 0),
+        "item_id":         data.item_id,
+        "user_buy_count":  new_user_count,
+        "total_buy_count": new_total_count,
+    }
