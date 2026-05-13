@@ -125,6 +125,28 @@ async def _get_live_donuts_to_stars_rate() -> float:
             print(f"[PvP] failed to fetch live donut rate: {e}")
     return _cached_live_donuts_rate if _cached_live_donuts_rate > 0 else config.DONUTS_TO_STARS_RATE
 
+
+def _make_round_state_snapshot() -> dict:
+    """Создаёт сериализуемый снимок текущего состояния раунда.
+    Вызывать только под _lock, чтобы гарантировать консистентность данных.
+    Ключи игроков приводятся к str для корректной JSON-сериализации;
+    при восстановлении они конвертируются обратно в int."""
+    return {
+        "state":            pvp_round["state"],
+        "countdown_end":    pvp_round["countdown_end"],
+        "rolling_end":      pvp_round["rolling_end"],
+        "rolling_start_ts": pvp_round["rolling_start_ts"],
+        "ball_seed":        pvp_round["ball_seed"],
+        "ball_target_x":    pvp_round["ball_target_x"],
+        "ball_target_y":    pvp_round["ball_target_y"],
+        "finished_end":     pvp_round["finished_end"],
+        "winner_id":        pvp_round["winner_id"],
+        "_color_idx":       pvp_round["_color_idx"],
+        "first_bet_at":     pvp_round["first_bet_at"],
+        "players":          {str(uid): p for uid, p in pvp_round["players"].items()},
+    }
+
+
 pvp_round: Dict[str, Any] = {
     "id":            0,
     "state":         "waiting",   # waiting | countdown | rolling | finished
@@ -408,10 +430,14 @@ async def _payout_winner(winner_id: int):
             pvp_round["best_game"] = game_info
 
         # ── Сохранить состояние раунда в БД (переживёт деплой) ───────────────
+        # _payout_winner вызывается через create_task, когда state уже «finished»
+        # и finished_end ещё не истёк. Снимок корректен — фаза не изменится
+        # до истечения finished_end (ещё ~7 сек), а мы заканчиваем гораздо быстрее.
         await database.save_pvp_round_state(
             pvp_round["id"],
             pvp_round["last_game"],
             pvp_round["best_game"],
+            _make_round_state_snapshot(),
         )
 
         # ── Записать статистику PvP в банк (для /bankstatus) ─────────────────
@@ -491,13 +517,43 @@ async def _cancel_and_refund(players_snapshot: dict, round_id: int):
 # ─────────────────────────────────────────────────────────────
 
 async def pvp_round_manager():
-    # ── Восстанавливаем состояние из БД после деплоя ─────────────────────────
+    # ── Восстанавливаем полное состояние из БД после деплоя ──────────────────
     try:
         state_data = await database.load_pvp_round_state()
         pvp_round["id"]        = state_data["round_id"]
         pvp_round["last_game"] = state_data["last_game"]
         pvp_round["best_game"] = state_data["best_game"]
-        print(f"[PvP] Restored state from DB: round_id={pvp_round['id']}")
+
+        rs = state_data.get("round_state")
+        if rs:
+            pvp_round["state"]            = rs.get("state", "waiting")
+            pvp_round["countdown_end"]    = rs.get("countdown_end",    0.0)
+            pvp_round["rolling_end"]      = rs.get("rolling_end",      0.0)
+            pvp_round["rolling_start_ts"] = rs.get("rolling_start_ts", 0.0)
+            pvp_round["ball_seed"]        = rs.get("ball_seed",        0)
+            pvp_round["ball_target_x"]    = rs.get("ball_target_x",    50.0)
+            pvp_round["ball_target_y"]    = rs.get("ball_target_y",    50.0)
+            pvp_round["finished_end"]     = rs.get("finished_end",     0.0)
+            pvp_round["winner_id"]        = rs.get("winner_id")
+            pvp_round["_color_idx"]       = rs.get("_color_idx",       0)
+            pvp_round["first_bet_at"]     = rs.get("first_bet_at",     0.0)
+            # JSON хранит ключи как строки — конвертируем обратно в int
+            raw_players = rs.get("players") or {}
+            pvp_round["players"] = {int(k): v for k, v in raw_players.items()}
+
+            # ── Обработка устаревших таймеров после рестарта ──────────────────
+            # Если сервер пролежал дольше, чем осталось до конца фазы,
+            # менеджер разберётся на первой же итерации цикла — нужно только
+            # убедиться, что состояние «waiting+solo_timeout» обрабатывается
+            # немедленно: если 5 минут истекли, возврат ставок произойдёт
+            # в первом же проходе без дополнительных action'ов здесь.
+            print(
+                f"[PvP] Restored full state from DB: "
+                f"round_id={pvp_round['id']}, state={pvp_round['state']}, "
+                f"players={len(pvp_round['players'])}"
+            )
+        else:
+            print(f"[PvP] Restored round_id={pvp_round['id']} (no active round state)")
     except Exception as e:
         print(f"[PvP] Failed to restore state: {e}")
 
@@ -524,16 +580,17 @@ async def pvp_round_manager():
                         round_id         = pvp_round["id"]
                         # Сбрасываем раунд до запуска возврата, чтобы
                         # новые ставки не смешались с возвращаемыми.
-                        pvp_round["id"]           += 1
-                        pvp_round["players"]       = {}
-                        pvp_round["first_bet_at"]  = 0.0
-                        pvp_round["_color_idx"]    = 0
+                        pvp_round["id\"]           += 1
+                        pvp_round[\"players\"]       = {}
+                        pvp_round[\"first_bet_at\"]  = 0.0
+                        pvp_round[\"_color_idx\"]    = 0
                         # Сохраняем новый round_id немедленно — при деплое
                         # восстановится актуальный номер, а не старый.
                         await database.save_pvp_round_state(
-                            pvp_round["id"],
-                            pvp_round["last_game"],
-                            pvp_round["best_game"],
+                            pvp_round[\"id\"],
+                            pvp_round[\"last_game\"],
+                            pvp_round[\"best_game\"],
+                            _make_round_state_snapshot(),
                         )
                         asyncio.create_task(_cancel_and_refund(players_snapshot, round_id))
                 await asyncio.sleep(0.5)
@@ -563,6 +620,14 @@ async def pvp_round_manager():
                             pvp_round["ball_seed"]        = ball_seed
                             pvp_round["ball_target_x"]    = target["x"]
                             pvp_round["ball_target_y"]    = target["y"]
+                            # Сохраняем состояние rolling в БД — победитель
+                            # и координаты шарика переживут рестарт сервера.
+                            await database.save_pvp_round_state(
+                                pvp_round["id"],
+                                pvp_round["last_game"],
+                                pvp_round["best_game"],
+                                _make_round_state_snapshot(),
+                            )
                 await asyncio.sleep(0.2)
 
             elif state == "rolling":
@@ -573,6 +638,14 @@ async def pvp_round_manager():
                             pvp_round["finished_end"] = time.time() + FINISHED_DURATION
                             if pvp_round["winner_id"]:
                                 asyncio.create_task(_payout_winner(pvp_round["winner_id"]))
+                            # Сохраняем состояние finished сразу — _payout_winner
+                            # дополнит запись last_game/best_game асинхронно.
+                            await database.save_pvp_round_state(
+                                pvp_round["id"],
+                                pvp_round["last_game"],
+                                pvp_round["best_game"],
+                                _make_round_state_snapshot(),
+                            )
                 await asyncio.sleep(0.2)
 
             elif state == "finished":
@@ -600,6 +673,7 @@ async def pvp_round_manager():
                                 pvp_round["id"],
                                 pvp_round["last_game"],
                                 pvp_round["best_game"],
+                                _make_round_state_snapshot(),
                             )
                 await asyncio.sleep(0.5)
 
@@ -741,12 +815,19 @@ async def bet_stars(data: BetStarsRequest, current_user: dict = Depends(get_curr
     display_name   = "Anonim" if settings["is_anonymous"] else None
     display_avatar = "/static/img/anon.svg" if settings["is_anonymous"] else None
 
+    _save_args = None
     async with _lock:
         if pvp_round["state"] not in ("waiting", "countdown"):
             await database.add_stars_to_user(tg_id, amount)
             raise HTTPException(400, "Ставки сейчас не принимаются")
         _ensure_player(tg_id, current_user, display_name, display_avatar)
         pvp_round["players"][tg_id]["bets"].append({"type": "stars", "amount": amount})
+        # Снимок берём под локом — гарантирует консистентность данных
+        _save_args = (pvp_round["id"], pvp_round["last_game"], pvp_round["best_game"],
+                      _make_round_state_snapshot())
+
+    # Сохраняем ставку в БД фоном, не задерживая ответ
+    asyncio.create_task(database.save_pvp_round_state(*_save_args))
 
     updated = await database.get_user_data(tg_id)
     return {"status": "ok", "balance": updated["balance"], "stars": updated["stars"],
@@ -773,12 +854,17 @@ async def bet_donuts(data: BetDonutsRequest, current_user: dict = Depends(get_cu
     display_name   = "Anonim" if settings["is_anonymous"] else None
     display_avatar = "/static/img/anon.svg" if settings["is_anonymous"] else None
 
+    _save_args = None
     async with _lock:
         if pvp_round["state"] not in ("waiting", "countdown"):
             await database.add_points_to_user(tg_id, amount)
             raise HTTPException(400, "Ставки сейчас не принимаются")
         _ensure_player(tg_id, current_user, display_name, display_avatar)
         pvp_round["players"][tg_id]["bets"].append({"type": "donuts", "amount": amount})
+        _save_args = (pvp_round["id"], pvp_round["last_game"], pvp_round["best_game"],
+                      _make_round_state_snapshot())
+
+    asyncio.create_task(database.save_pvp_round_state(*_save_args))
 
     updated = await database.get_user_data(tg_id)
     updated_gifts = await database.get_user_gifts(tg_id)
@@ -809,6 +895,7 @@ async def bet_gift(data: BetGiftRequest, current_user: dict = Depends(get_curren
     display_name   = "Anonim" if settings["is_anonymous"] else None
     display_avatar = "/static/img/anon.svg" if settings["is_anonymous"] else None
 
+    _save_args = None
     async with _lock:
         if pvp_round["state"] not in ("waiting", "countdown"):
             await database.add_gift_to_user(tg_id, gift_id, 1)
@@ -822,6 +909,10 @@ async def bet_gift(data: BetGiftRequest, current_user: dict = Depends(get_curren
             "value_stars": value_stars,
             "amount":     1,
         })
+        _save_args = (pvp_round["id"], pvp_round["last_game"], pvp_round["best_game"],
+                      _make_round_state_snapshot())
+
+    asyncio.create_task(database.save_pvp_round_state(*_save_args))
 
     updated = await database.get_user_data(tg_id)
     updated_gifts = await database.get_user_gifts(tg_id)
