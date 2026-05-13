@@ -35,6 +35,7 @@ POST /api/shop/buy           — покупка товара из кастомн
 """
 
 import time
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -82,11 +83,29 @@ def _build_limited_section() -> dict:
     }
 
 
+def _is_item_expired(item: dict) -> bool:
+    """Возвращает True, если у товара задан expires_at и он уже прошёл."""
+    exp = item.get("expires_at")
+    if not exp:
+        return False
+    try:
+        dt = datetime.fromisoformat(exp)
+        # Если нет tzinfo — считаем UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) >= dt
+    except (ValueError, TypeError):
+        return False
+
+
 def _enabled_sections() -> list[dict]:
-    """Возвращает только включённые разделы и товары."""
+    """Возвращает только включённые разделы и товары (без просроченных)."""
     sections = []
     for section in getattr(config, "SHOP_SECTIONS", []):
-        enabled_items = [i for i in section.get("items", []) if i.get("enabled", True)]
+        enabled_items = [
+            i for i in section.get("items", [])
+            if i.get("enabled", True) and not _is_item_expired(i)
+        ]
         if enabled_items:
             sections.append({**section, "items": enabled_items})
     return sections
@@ -293,6 +312,11 @@ async def get_shop_config(current_user: dict = Depends(get_current_user)):
                 item["user_buy_count"] = user_buy_counts.get(item_id, 0)
             if total_limit is not None:
                 item["total_buy_count"] = total_buy_counts.get(item_id, 0)
+            # Гарантируем передачу визуальных полей на фронтенд
+            # (background, expires_at уже присутствуют в dict из config.py,
+            #  но если отсутствуют — явно ставим None, чтобы фронтенд не ломался)
+            item.setdefault("background", None)
+            item.setdefault("expires_at", None)
 
         sections.append({**section, "items": visible_items})
 
@@ -335,7 +359,18 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
     if not item:
         raise HTTPException(status_code=404, detail="item_not_found")
 
-    item_type   = item["type"]
+    # Дополнительная проверка срока действия на стороне сервера
+    # (на случай, если фронтенд не успел скрыть товар)
+    if _is_item_expired(item):
+        raise HTTPException(status_code=400, detail="item_expired")
+
+    # Определяем список вознаграждений
+    # Если задан rewards[] — используем его; иначе собираем из одиночных полей
+    rewards_list: list[dict] = item.get("rewards") or []
+    if not rewards_list:
+        rewards_list = [{"type": item["type"], "amount": item.get("amount"), "gift_id": item.get("gift_id")}]
+
+    item_type   = item.get("type", rewards_list[0].get("type", ""))
     currency    = item["currency"]
     price       = item["price"]
     buy_limit   = item.get("buy_limit")
@@ -387,61 +422,66 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
         else:
             raise HTTPException(status_code=400, detail="unknown_currency")
 
-        # ── Начисление товара ────────────────────────────────
+        # ── Начисление товаров (1–4 вознаграждения) ─────────────────────────
         item_title = item.get("title") or {}
         title_ru   = item_title.get("ru") or data.item_id
         title_en   = item_title.get("en") or data.item_id
         title_tag  = f"[title_ru:{title_ru}][title_en:{title_en}]"
 
-        if item_type == "stars":
-            amount = item["amount"]
-            await database.add_stars_to_user(tg_id, amount)
-            await database.log_action(
-                tg_id, "shop_buy_stars",
-                f"{title_tag}[amount:{amount}⭐][paid:{price}{currency}]", amount
-            )
+        for reward in rewards_list:
+            r_type    = reward.get("type", "")
+            r_amount  = reward.get("amount")
+            r_gift_id = reward.get("gift_id")
 
-        elif item_type == "donuts":
-            amount = item["amount"]
-            await database.add_points_to_user(tg_id, amount)
-            await database.log_action(
-                tg_id, "shop_buy_donuts",
-                f"{title_tag}[amount:{amount}🍩][paid:{price}{currency}]", amount
-            )
-
-        elif item_type in ("limited_gift", "base_gift"):
-            gift_id = item.get("gift_id")
-
-            if item_type == "limited_gift":
-                gift_def = config.TG_GIFTS.get(gift_id)
-                if not gift_def:
-                    raise HTTPException(status_code=400, detail="gift_config_not_found")
-
-                tg_gift_id = gift_def.get("tg_gift_id")
-                sent = await send_real_tg_gift(tg_id, tg_gift_id, text="gift from Space Donut 🍩")
-                if not sent:
-                    raise HTTPException(status_code=502, detail="send_gift_failed")
-
-                gift_name = gift_def.get("name") or f"Gift #{gift_id}"
+            if r_type == "stars":
+                amount = r_amount
+                await database.add_stars_to_user(tg_id, amount)
                 await database.log_action(
-                    tg_id, "shop_buy_gift",
-                    f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
+                    tg_id, "shop_buy_stars",
+                    f"{title_tag}[amount:{amount}⭐][paid:{price}{currency}]", amount
                 )
 
-            else:  # base_gift
-                gift_def = config.BASE_GIFTS.get(gift_id)
-                if not gift_def:
-                    raise HTTPException(status_code=400, detail="gift_config_not_found")
-
-                await database.add_gift_to_user(tg_id, gift_id, 1)
-                gift_name = gift_def.get("name") or f"Gift #{gift_id}"
+            elif r_type == "donuts":
+                amount = r_amount
+                await database.add_points_to_user(tg_id, amount)
                 await database.log_action(
-                    tg_id, "shop_buy_gift",
-                    f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
+                    tg_id, "shop_buy_donuts",
+                    f"{title_tag}[amount:{amount}🍩][paid:{price}{currency}]", amount
                 )
 
-        else:
-            raise HTTPException(status_code=400, detail="unknown_item_type")
+            elif r_type in ("limited_gift", "base_gift"):
+                gift_id = r_gift_id
+
+                if r_type == "limited_gift":
+                    gift_def = config.TG_GIFTS.get(gift_id)
+                    if not gift_def:
+                        raise HTTPException(status_code=400, detail="gift_config_not_found")
+
+                    tg_gift_id = gift_def.get("tg_gift_id")
+                    sent = await send_real_tg_gift(tg_id, tg_gift_id, text="gift from Space Donut 🍩")
+                    if not sent:
+                        raise HTTPException(status_code=502, detail="send_gift_failed")
+
+                    gift_name = gift_def.get("name") or f"Gift #{gift_id}"
+                    await database.log_action(
+                        tg_id, "shop_buy_gift",
+                        f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
+                    )
+
+                else:  # base_gift
+                    gift_def = config.BASE_GIFTS.get(gift_id)
+                    if not gift_def:
+                        raise HTTPException(status_code=400, detail="gift_config_not_found")
+
+                    await database.add_gift_to_user(tg_id, gift_id, 1)
+                    gift_name = gift_def.get("name") or f"Gift #{gift_id}"
+                    await database.log_action(
+                        tg_id, "shop_buy_gift",
+                        f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
+                    )
+
+            else:
+                raise HTTPException(status_code=400, detail="unknown_item_type")
 
     except HTTPException as exc:
         # ── Откат: снимаем резерв и возвращаем валюту ───────
@@ -483,4 +523,4 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
         "item_id":         data.item_id,
         "user_buy_count":  new_user_count,
         "total_buy_count": new_total_count,
-}
+  }
