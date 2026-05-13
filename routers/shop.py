@@ -465,7 +465,7 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
                     gift_name = gift_def.get("name") or f"Gift #{gift_id}"
                     await database.log_action(
                         tg_id, "shop_buy_gift",
-                        f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
+                        f"{title_tag}[gift_id:{gift_id}][gift:{gift_name}][paid:{price}{currency}]", -price
                     )
 
                 else:  # base_gift
@@ -477,7 +477,7 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
                     gift_name = gift_def.get("name") or f"Gift #{gift_id}"
                     await database.log_action(
                         tg_id, "shop_buy_gift",
-                        f"{title_tag}[gift:{gift_name}][paid:{price}{currency}]", -price
+                        f"{title_tag}[gift_id:{gift_id}][gift:{gift_name}][paid:{price}{currency}]", -price
                     )
 
             else:
@@ -523,4 +523,4 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
         "item_id":         data.item_id,
         "user_buy_count":  new_user_count,
         "total_buy_count": new_total_count,
-  }
+      }
