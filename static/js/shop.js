@@ -46,6 +46,13 @@ async function initShopPage() {
 
 function renderShop() {
     if (!shopConfig) return;
+
+    // Баннер лимитированных подарков: скрываем, если API вернул limited_section: null
+    const bannerSection = document.getElementById('shop-section-limited');
+    if (bannerSection) {
+        bannerSection.style.display = shopConfig.limited_section ? '' : 'none';
+    }
+
     renderCustomSections();
 }
 
