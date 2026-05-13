@@ -621,7 +621,7 @@ SHOP_SECTIONS: list[dict] = [
         "title": {"ru": "Акции", "en": "Promotions"},
         "items": [
             {
-                "id": "stars_10_freee",
+                "id": "stars_10_freeee",
                 "type": "stars",
                 "amount": 10,
                 "currency": "free",
