@@ -72,14 +72,16 @@
         <!-- Полоска для свайпа -->
         <div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-5 relative z-10"></div>
 
-        <div class="flex flex-col items-center gap-4 mb-6 relative z-10">
-            <!-- Картинка товара -->
-            <div class="w-24 h-24 rounded-2xl bg-purple-500/10 border border-purple-400/20
-                        flex items-center justify-center overflow-hidden">
-                <img id="shop-buy-modal-img"
-                     src=""
-                     class="w-full h-full object-contain p-2 drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]"
-                     onerror="this.src='https://via.placeholder.com/80?text=🎁'">
+        <div class="flex flex-col items-center gap-3 mb-6 relative z-10">
+            <!-- Иконки товара (1 или сетка 2×2 — рендерится JS) -->
+            <div id="shop-buy-modal-icons"
+                 class="w-24 h-24 rounded-2xl bg-purple-500/10 border border-purple-400/20 overflow-hidden">
+            </div>
+            <!-- Таймер акции -->
+            <div id="shop-buy-modal-timer-wrap" class="hidden">
+                <span id="shop-buy-modal-timer"
+                      class="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-white/10">
+                </span>
             </div>
             <!-- Название -->
             <div class="text-center">
