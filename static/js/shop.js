@@ -185,6 +185,13 @@ function renderCustomSections() {
 function _rewardIconSrc(r) {
     if (r.type === 'stars')  return '/gifts/stars.png';
     if (r.type === 'donuts') return '/gifts/dount.png';
+    // base_gift → смотрим в baseGifts (ID 1–114)
+    if (r.type === 'base_gift' && r.gift_id) {
+        const gDef = (typeof baseGifts !== 'undefined') ? baseGifts[r.gift_id] : null;
+        if (gDef && gDef.photo) return gDef.photo;
+        return '/gifts/limitedgifts.png';
+    }
+    // limited_gift / tg_gift → смотрим в tgGifts
     if (r.gift_id && typeof tgGifts !== 'undefined' && tgGifts[r.gift_id]) {
         return tgGifts[r.gift_id].photo || '/gifts/limitedgifts.png';
     }
@@ -244,7 +251,7 @@ function _buildItemCard(item, sectionId, lang) {
         ? item.rewards.slice(0, 4)
         : [{ type: item.type, amount: item.amount, gift_id: item.gift_id }];
 
-    const squareBg   = bg ? '' : 'bg-purple-500/10 border border-purple-400/15';
+    const squareBg   = bg ? '' : 'bg-purple-500/20 border border-purple-400/40';
     const bgGradStyle = bg
         ? `background:radial-gradient(ellipse at 50% 0%,${bg.glowColor} 0%,transparent 70%);`
         : '';
