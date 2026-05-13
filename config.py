@@ -621,7 +621,7 @@ SHOP_SECTIONS: list[dict] = [
         "title": {"ru": "Акции", "en": "Promotions"},
         "items": [
             {
-                "id": "stars_10_free",
+                "id": "stars_10_freee",
                 "type": "stars",
                 "amount": 10,
                 "currency": "free",
@@ -655,6 +655,7 @@ SHOP_SECTIONS: list[dict] = [
                 "rewards": [
                     {"type": "stars",  "amount": 25},
                     {"type": "donuts", "amount": 0.1},
+                    {"type": "base_gift", "gift_id": 1}
                 ],
                 "currency": "referral",
                 "price": 3,
@@ -663,7 +664,7 @@ SHOP_SECTIONS: list[dict] = [
                 "enabled": True,
                 "buy_limit": 1,
                 "background": "gold",
-                "expires_at": None,
+                "expires_at": "2026-06-14T23:59:59",
             },
             # --- Примеры для подарков (раскомментируйте при необходимости) ---
             # {
