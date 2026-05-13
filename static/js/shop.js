@@ -181,12 +181,20 @@ function renderCustomSections() {
     });
 }
 
+function _rewardIconSrc(r) {
+    if (r.type === 'stars')  return '/gifts/stars.png';
+    if (r.type === 'donuts') return '/gifts/dount.png';
+    if (r.gift_id && typeof tgGifts !== 'undefined' && tgGifts[r.gift_id]) {
+        return tgGifts[r.gift_id].photo || '/gifts/limitedgifts.png';
+    }
+    return '/gifts/limitedgifts.png';
+}
+
 function _buildItemCard(item, sectionId, lang) {
     const title      = (item.title && item.title[lang]) || item.title?.ru || '';
-    const imgSrc     = _getItemImage(item);
     const priceLabel = _getPriceLabel(item, lang);
 
-    // Фон карточки
+    // Фон карточки (те же CSS-классы, что у кейсов)
     const bg = item.background && SHOP_BG_PRESETS[item.background]
         ? SHOP_BG_PRESETS[item.background]
         : null;
@@ -196,43 +204,61 @@ function _buildItemCard(item, sectionId, lang) {
         'glass rounded-xl p-2 flex flex-col items-center gap-1.5',
         'cursor-pointer active:scale-95 transition-all',
         'shadow-[0_4px_15px_rgba(0,0,0,0.3)]',
-        bg ? bg.cardClass : 'border border-purple-500/20 hover:border-purple-400/50 hover:bg-white/5',
+        bg
+            ? bg.cardClass
+            : 'border border-purple-500/20 hover:border-purple-400/50 hover:bg-white/5',
     ].join(' ');
     card.onclick = () => openShopBuyModal(item, sectionId);
 
-    // Таймер обратного отсчёта
+    // ── Область изображения ───────────────────────────────────────────────────
+    // Для товаров с несколькими наградами показываем сетку 2×2 иконок,
+    // для обычных — одиночное изображение (как у лимитированных подарков).
+    const rewards  = item.rewards && item.rewards.length > 1 ? item.rewards.slice(0, 4) : null;
+    const imgSrc   = _getItemImage(item);
+    const bgStyle  = bg
+        ? `background:radial-gradient(ellipse at 50% 0%,${bg.glowColor} 0%,transparent 70%);`
+        : '';
+    const squareBg = bg ? '' : 'bg-purple-500/10 border border-purple-400/15';
+
+    let imageAreaHtml;
+    if (rewards) {
+        // Сетка 2×2: каждая ячейка — маленький квадрат с иконкой
+        const cells = rewards.map(r => `
+            <div class="aspect-square rounded-md bg-black/20 flex items-center justify-center p-1 overflow-hidden">
+                <img src="${_rewardIconSrc(r)}"
+                     class="w-full h-full object-contain drop-shadow-[0_0_6px_rgba(168,85,247,0.5)]"
+                     onerror="this.src='https://via.placeholder.com/40?text=🎁'">
+            </div>`).join('');
+        imageAreaHtml = `
+            <div class="w-full aspect-square rounded-lg ${squareBg} overflow-hidden relative"
+                 style="${bgStyle}">
+                <div class="w-full h-full grid grid-cols-2 gap-1 p-1.5">
+                    ${cells}
+                </div>
+            </div>`;
+    } else {
+        imageAreaHtml = `
+            <div class="w-full aspect-square rounded-lg ${squareBg}
+                        flex items-center justify-center overflow-hidden relative"
+                 style="${bgStyle}">
+                <img src="${imgSrc}"
+                     class="w-full h-full object-contain p-1.5 drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]"
+                     onerror="this.src='https://via.placeholder.com/80?text=🎁'">
+            </div>`;
+    }
+
+    // ── Таймер ────────────────────────────────────────────────────────────────
     const secsLeft = _getShopSecondsLeft(item.expires_at);
     const isUrgent = secsLeft !== null && secsLeft < 86400;
     const timerHtml = secsLeft !== null && secsLeft > 0
-        ? `<div class="shop-item-timer w-full text-center font-mono text-[9px] font-bold mt-0.5 relative z-10"
+        ? `<div class="shop-item-timer w-full text-center font-mono text-[9px] font-bold"
                style="color:${isUrgent ? '#f87171' : 'rgba(255,255,255,0.5)'}">⏱ ${_formatShopCountdown(secsLeft)}</div>`
         : '';
 
-    // Мини-иконки вознаграждений для multi-reward товаров
-    const rewards = item.rewards;
-    let rewardsHtml = '';
-    if (rewards && rewards.length > 1) {
-        const icons = rewards.slice(0, 4).map(r => {
-            if (r.type === 'stars')  return `<img src="/gifts/stars.png" class="w-3 h-3 object-contain" alt="⭐">`;
-            if (r.type === 'donuts') return `<img src="/gifts/dount.png" class="w-3 h-3 object-contain" alt="🍩">`;
-            return `<span class="text-[9px]">🎁</span>`;
-        }).join('');
-        rewardsHtml = `<div class="flex items-center gap-0.5 mt-0.5">${icons}</div>`;
-    }
-
     card.innerHTML = `
-        <div class="w-full aspect-square rounded-lg ${bg ? '' : 'bg-purple-500/10 border border-purple-400/15'}
-                    flex items-center justify-center overflow-hidden relative">
-            ${bg ? `<div class="absolute inset-0 rounded-lg pointer-events-none" style="background:radial-gradient(ellipse at 50% 0%,${bg.glowColor} 0%,transparent 70%);"></div>` : ''}
-            <img src="${imgSrc}"
-                 class="w-full h-full object-contain p-1.5 drop-shadow-[0_0_8px_rgba(168,85,247,0.4)] relative z-10"
-                 onerror="this.src='https://via.placeholder.com/80?text=🎁'">
-        </div>
+        ${imageAreaHtml}
         <p class="text-[11px] font-bold text-white text-center leading-tight line-clamp-2 w-full px-0.5">${title}</p>
-        <div class="flex items-center gap-0.5">
-            ${priceLabel}
-        </div>
-        ${rewardsHtml}
+        <div class="flex items-center gap-0.5">${priceLabel}</div>
         ${timerHtml}
     `;
     return card;
