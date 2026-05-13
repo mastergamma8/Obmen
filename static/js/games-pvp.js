@@ -16,6 +16,7 @@ let pvpState = {
 };
 
 let pvpPollTimer          = null;
+let pvpPollingActive      = false;  // страж от race-condition при закрытии
 let pvpBallAnimFrame      = null;
 let pvpBetTab             = 'stars';   // 'stars' | 'donuts' | 'gift'
 let pvpInventory          = [];
@@ -143,11 +144,13 @@ function renderPvpOnlineCounter(count) {
 
 function startPvpPolling() {
     stopPvpPolling();
+    pvpPollingActive = true;
     startPvpHeartbeat();
     pollPvpState();
 }
 
 function stopPvpPolling() {
+    pvpPollingActive = false;
     if (pvpPollTimer)         { clearTimeout(pvpPollTimer);          pvpPollTimer     = null; }
     if (pvpBallAnimFrame)     { cancelAnimationFrame(pvpBallAnimFrame); pvpBallAnimFrame = null; }
     if (pvpCountdownInterval) { clearInterval(pvpCountdownInterval); pvpCountdownInterval = null; }
@@ -158,9 +161,12 @@ async function pollPvpState() {
     try {
         const res  = await fetch('/api/pvp/state', { headers: getApiHeaders() });
         const data = await res.json();
+        // Проверяем флаг ПОСЛЕ await: пользователь мог закрыть игру пока шёл запрос
+        if (!pvpPollingActive) return;
         applyPvpState(data);
     } catch (_) {}
 
+    if (!pvpPollingActive) return;
     const interval = pvpState.state === 'rolling' ? 300 : 600;
     pvpPollTimer = setTimeout(pollPvpState, interval);
 }
