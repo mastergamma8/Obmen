@@ -589,6 +589,33 @@ TG_GIFTS = {
 # Добавлять их сюда не нужно — только кастомные акции.
 
 SHOP_SECTIONS: list[dict] = [
+    # ─────────────────────────────────────────────────────────────────────────
+    # Поля товара (item):
+    #
+    #   id           — уникальный строковый идентификатор товара
+    #   type         — тип одиночного вознаграждения: "stars" | "donuts" |
+    #                  "limited_gift" | "base_gift"
+    #                  Используется, если поле "rewards" НЕ задано.
+    #   amount       — количество звёзд / пончиков (для type stars/donuts)
+    #   gift_id      — ID подарка (для type limited_gift / base_gift)
+    #   rewards      — список из 1 до 4 вознаграждений; если указан, поля
+    #                  type/amount/gift_id игнорируются.
+    #                  Каждый элемент: {"type": "stars"|"donuts"|"limited_gift"|
+    #                                  "base_gift", "amount": N, "gift_id": N}
+    #   currency     — валюта оплаты: "free" | "stars" | "donuts" | "referral"
+    #   price        — стоимость (0 для free)
+    #   image        — URL изображения (необязательно)
+    #   title        — {ru: ..., en: ...}
+    #   enabled      — False скрывает товар статически
+    #   buy_limit    — максимальное число покупок одним пользователем (None = ∞)
+    #   total_limit  — глобальный лимит покупок всеми (None = ∞)
+    #   background   — цветовая тема карточки: "green" | "gold" | "purple" | "red"
+    #                  None или отсутствие = стандартный стиль
+    #   expires_at   — ISO-строка окончания акции, например "2026-06-01T23:59:59"
+    #                  None или отсутствие = без ограничения по времени
+    #                  По истечении товар автоматически исчезает из интерфейса
+    #                  и блокируется на покупку (сервер тоже проверяет срок)
+    # ─────────────────────────────────────────────────────────────────────────
     {
         "id": "promotions",
         "title": {"ru": "Акции", "en": "Promotions"},
@@ -603,7 +630,9 @@ SHOP_SECTIONS: list[dict] = [
                 "title": {"ru": "10 звёзд бесплатно", "en": "10 stars free"},
                 "enabled": True,
                 "buy_limit": 1,     # None или отсутствие = без персонального ограничения
-                "total_limit": 10, # None или отсутствие = без глобального ограничения
+                "total_limit": 10,  # None или отсутствие = без глобального ограничения
+                "background": "green",
+                "expires_at": None, # пример: "2026-06-01T23:59:59"
             },
             {
                 "id": "donuts_0_1_free",
@@ -615,19 +644,27 @@ SHOP_SECTIONS: list[dict] = [
                 "title": {"ru": "0.1 пончик бесплатно", "en": "0.1 donut free"},
                 "enabled": True,
                 "buy_limit": 1,
-                "total_limit": 10, # None или отсутствие = без ограничений
+                "total_limit": 10,
+                "background": "gold",
+                "expires_at": None,
             },
             {
                 "id": "stars_25_for_referral",
-                "type": "stars",
-                "amount": 25,
+                # Пример товара с несколькими вознаграждениями (rewards):
+                # пользователь получает сразу 25 звёзд + 0.1 пончика за 3 реферала
+                "rewards": [
+                    {"type": "stars",  "amount": 25},
+                    {"type": "donuts", "amount": 0.1},
+                ],
                 "currency": "referral",
                 "price": 3,
                 "image": "/gifts/stars.png",
-                "title": {"ru": "25 звёзд за друга", "en": "25 stars per friend"},
+                "title": {"ru": "25 звёзд + 0.1🍩 за друга", "en": "25 stars + 0.1🍩 per friend"},
                 "enabled": True,
-                "buy_limit": 1, # каждый пользователь может купить не более 1 раза
-            }
+                "buy_limit": 1,
+                "background": "gold",
+                "expires_at": None,
+            },
             # --- Примеры для подарков (раскомментируйте при необходимости) ---
             # {
             #     "id": "limited_gift_2011_free",
@@ -637,15 +674,22 @@ SHOP_SECTIONS: list[dict] = [
             #     "price": 0,
             #     "title": {"ru": "Подарок бесплатно", "en": "Free gift"},
             #     "enabled": False,
+            #     "background": "red",
+            #     "expires_at": "2026-06-01T23:59:59",
             # },
             # {
-            #     "id": "base_gift_1_for_stars",
-            #     "type": "base_gift",
-            #     "gift_id": 1,           # ID из BASE_GIFTS (1–114)
+            #     "id": "bundle_stars_gift",
+            #     # Бандл: 50 звёзд + подарок за 30 звёзд
+            #     "rewards": [
+            #         {"type": "stars",       "amount": 50},
+            #         {"type": "base_gift",   "gift_id": 1},
+            #     ],
             #     "currency": "stars",
             #     "price": 30,
-            #     "title": {"ru": "Victory Medal за звёзды", "en": "Victory Medal for stars"},
+            #     "title": {"ru": "Бандл: звёзды + медаль", "en": "Bundle: stars + medal"},
             #     "enabled": False,
+            #     "background": "gold",
+            #     "expires_at": "2026-06-01T23:59:59",
             # },
         ],
     },
