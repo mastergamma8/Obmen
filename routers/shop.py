@@ -243,6 +243,12 @@ async def _cancel_purchase_slot(purchase_id: int) -> None:
 async def get_shop_config(current_user: dict = Depends(get_current_user)):
     """
     Возвращает конфиг магазина: лимитированные подарки + кастомные разделы.
+
+    Учитывает флаги видимости из БД:
+      • limited_gifts == False       → limited_section не возвращается (None).
+      • shop_section_<id> == False   → кастомный раздел исключается целиком.
+      • shop_item_<item_id> == False → конкретный товар исключается из раздела.
+
     Для товаров с buy_limit добавляет user_buy_count — сколько раз текущий
     пользователь уже купил этот товар.
     Для товаров с total_limit добавляет total_buy_count — суммарное количество
@@ -252,9 +258,34 @@ async def get_shop_config(current_user: dict = Depends(get_current_user)):
     user_buy_counts  = await _get_all_item_buy_counts(tg_id)
     total_buy_counts = await _get_all_total_buy_counts()
 
-    sections = _enabled_sections()
-    for section in sections:
-        for item in section.get("items", []):
+    # Загружаем актуальные флаги из БД
+    feature_flags = await database.get_feature_flags()
+
+    # ── Лимитированные подарки ────────────────────────────────────────────────
+    # Флаг limited_gifts == False → скрываем раздел полностью.
+    limited_section = _build_limited_section() if feature_flags.get("limited_gifts", True) else None
+
+    # ── Кастомные разделы ─────────────────────────────────────────────────────
+    # _enabled_sections() уже фильтрует товары с enabled=False из config.py.
+    # Здесь дополнительно применяем динамические флаги из БД.
+    sections = []
+    for section in _enabled_sections():
+        section_id = section.get("id", "")
+
+        # Скрыть раздел целиком, если флаг shop_section_<id> == False
+        if not feature_flags.get(f"shop_section_{section_id}", True):
+            continue
+
+        # Фильтруем товары: убираем те, у которых shop_item_<item_id> == False
+        visible_items = [
+            item for item in section.get("items", [])
+            if feature_flags.get(f"shop_item_{item["id"]}", True)
+        ]
+        if not visible_items:
+            continue  # раздел пуст — не включаем
+
+        # Добавляем счётчики покупок для товаров с лимитами
+        for item in visible_items:
             item_id     = item["id"]
             buy_limit   = item.get("buy_limit")
             total_limit = item.get("total_limit")
@@ -263,8 +294,10 @@ async def get_shop_config(current_user: dict = Depends(get_current_user)):
             if total_limit is not None:
                 item["total_buy_count"] = total_buy_counts.get(item_id, 0)
 
+        sections.append({**section, "items": visible_items})
+
     return {
-        "limited_section": _build_limited_section(),
+        "limited_section": limited_section,
         "sections":        sections,
     }
 
@@ -450,4 +483,4 @@ async def shop_buy(data: ShopBuyData, current_user: dict = Depends(get_current_u
         "item_id":         data.item_id,
         "user_buy_count":  new_user_count,
         "total_buy_count": new_total_count,
-    }
+}
