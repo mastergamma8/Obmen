@@ -6,6 +6,7 @@ let shopConfig = null;          // { limited_section, sections[] }
 let shopBuyPending = null;      // { item, sectionId }
 let shopAvailableReferrals = 0; // кэш доступных рефералов
 let _shopConfigLoading = null;  // промис загрузки конфига (защита от дублирующих запросов)
+let _shopModalTimer    = null;  // setInterval для таймера в модальном окне
 
 // ── Таймеры обратного отсчёта по карточкам ────────────────────────────────────
 // Ключ: item.id, значение: setInterval id
@@ -66,10 +67,10 @@ function _startShopItemTimer(itemId, secondsLeft, el) {
 
 // Пресеты фонов (те же, что у кейсов)
 const SHOP_BG_PRESETS = {
-    green:  { cardClass: 'case-bg-green',  glowColor: 'rgba(34,197,94,0.35)'  },
-    gold:   { cardClass: 'case-bg-gold',   glowColor: 'rgba(234,179,8,0.35)'  },
-    purple: { cardClass: 'case-bg-purple', glowColor: 'rgba(168,85,247,0.35)' },
-    red:    { cardClass: 'case-bg-red',    glowColor: 'rgba(239,68,68,0.35)'  },
+    green:  { cardClass: 'case-bg-green',  glowColor: 'rgba(34,197,94,0.35)',  iconShadow: '0 0 8px rgba(34,197,94,0.7)'  },
+    gold:   { cardClass: 'case-bg-gold',   glowColor: 'rgba(234,179,8,0.35)',  iconShadow: '0 0 8px rgba(234,179,8,0.7)'  },
+    purple: { cardClass: 'case-bg-purple', glowColor: 'rgba(168,85,247,0.35)', iconShadow: '0 0 8px rgba(168,85,247,0.7)' },
+    red:    { cardClass: 'case-bg-red',    glowColor: 'rgba(239,68,68,0.35)',  iconShadow: '0 0 8px rgba(239,68,68,0.7)'  },
 };
 
 // ── Загрузка конфига (единственная точка входа) ───────────────────────────────
@@ -190,11 +191,41 @@ function _rewardIconSrc(r) {
     return '/gifts/limitedgifts.png';
 }
 
+// Строит HTML сетки иконок (1–4 штуки) внутри квадратного контейнера.
+// iconShadow — CSS-значение для filter:drop-shadow(...).
+// size: 'sm' (карточка) | 'lg' (модал)
+function _buildIconGrid(rewardList, iconShadow, size) {
+    const shadow  = iconShadow || '0 0 8px rgba(168,85,247,0.5)';
+    const isLarge = size === 'lg';
+    const count   = rewardList.length;
+    const padding = isLarge ? 'p-2'   : 'p-1';
+    const gap     = isLarge ? 'gap-1.5' : 'gap-1';
+    const imgPad  = isLarge ? 'p-1.5' : 'p-1';
+
+    // 1 иконка — занимает весь квадрат
+    if (count === 1) {
+        const src = _rewardIconSrc(rewardList[0]);
+        return `<div class="w-full h-full flex items-center justify-center ${padding}">
+                    <img src="${src}" class="w-full h-full object-contain"
+                         style="filter:drop-shadow(${shadow})"
+                         onerror="this.src='https://via.placeholder.com/80?text=🎁'">
+                </div>`;
+    }
+
+    // 2–4 иконки — сетка 2×2
+    const cells = rewardList.slice(0, 4).map(r => `
+        <div class="aspect-square rounded-md bg-black/20 flex items-center justify-center ${imgPad} overflow-hidden">
+            <img src="${_rewardIconSrc(r)}" class="w-full h-full object-contain"
+                 style="filter:drop-shadow(${shadow})"
+                 onerror="this.src='https://via.placeholder.com/40?text=🎁'">
+        </div>`).join('');
+    return `<div class="w-full h-full grid grid-cols-2 ${gap} ${padding}">${cells}</div>`;
+}
+
 function _buildItemCard(item, sectionId, lang) {
     const title      = (item.title && item.title[lang]) || item.title?.ru || '';
     const priceLabel = _getPriceLabel(item, lang);
 
-    // Фон карточки (те же CSS-классы, что у кейсов)
     const bg = item.background && SHOP_BG_PRESETS[item.background]
         ? SHOP_BG_PRESETS[item.background]
         : null;
@@ -204,50 +235,22 @@ function _buildItemCard(item, sectionId, lang) {
         'glass rounded-xl p-2 flex flex-col items-center gap-1.5',
         'cursor-pointer active:scale-95 transition-all',
         'shadow-[0_4px_15px_rgba(0,0,0,0.3)]',
-        bg
-            ? bg.cardClass
-            : 'border border-purple-500/20 hover:border-purple-400/50 hover:bg-white/5',
+        bg ? bg.cardClass : 'border border-purple-500/20 hover:border-purple-400/50 hover:bg-white/5',
     ].join(' ');
     card.onclick = () => openShopBuyModal(item, sectionId);
 
-    // ── Область изображения ───────────────────────────────────────────────────
-    // Для товаров с несколькими наградами показываем сетку 2×2 иконок,
-    // для обычных — одиночное изображение (как у лимитированных подарков).
-    const rewards  = item.rewards && item.rewards.length > 1 ? item.rewards.slice(0, 4) : null;
-    const imgSrc   = _getItemImage(item);
-    const bgStyle  = bg
+    // Нормализуем список наград: rewards[] или одиночный тип
+    const rewardList = item.rewards && item.rewards.length
+        ? item.rewards.slice(0, 4)
+        : [{ type: item.type, amount: item.amount, gift_id: item.gift_id }];
+
+    const squareBg   = bg ? '' : 'bg-purple-500/10 border border-purple-400/15';
+    const bgGradStyle = bg
         ? `background:radial-gradient(ellipse at 50% 0%,${bg.glowColor} 0%,transparent 70%);`
         : '';
-    const squareBg = bg ? '' : 'bg-purple-500/10 border border-purple-400/15';
+    const iconShadow  = bg ? bg.iconShadow : '0 0 8px rgba(168,85,247,0.5)';
 
-    let imageAreaHtml;
-    if (rewards) {
-        // Сетка 2×2: каждая ячейка — маленький квадрат с иконкой
-        const cells = rewards.map(r => `
-            <div class="aspect-square rounded-md bg-black/20 flex items-center justify-center p-1 overflow-hidden">
-                <img src="${_rewardIconSrc(r)}"
-                     class="w-full h-full object-contain drop-shadow-[0_0_6px_rgba(168,85,247,0.5)]"
-                     onerror="this.src='https://via.placeholder.com/40?text=🎁'">
-            </div>`).join('');
-        imageAreaHtml = `
-            <div class="w-full aspect-square rounded-lg ${squareBg} overflow-hidden relative"
-                 style="${bgStyle}">
-                <div class="w-full h-full grid grid-cols-2 gap-1 p-1.5">
-                    ${cells}
-                </div>
-            </div>`;
-    } else {
-        imageAreaHtml = `
-            <div class="w-full aspect-square rounded-lg ${squareBg}
-                        flex items-center justify-center overflow-hidden relative"
-                 style="${bgStyle}">
-                <img src="${imgSrc}"
-                     class="w-full h-full object-contain p-1.5 drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]"
-                     onerror="this.src='https://via.placeholder.com/80?text=🎁'">
-            </div>`;
-    }
-
-    // ── Таймер ────────────────────────────────────────────────────────────────
+    // Таймер
     const secsLeft = _getShopSecondsLeft(item.expires_at);
     const isUrgent = secsLeft !== null && secsLeft < 86400;
     const timerHtml = secsLeft !== null && secsLeft > 0
@@ -256,7 +259,10 @@ function _buildItemCard(item, sectionId, lang) {
         : '';
 
     card.innerHTML = `
-        ${imageAreaHtml}
+        <div class="w-full aspect-square rounded-lg ${squareBg} overflow-hidden relative"
+             style="${bgGradStyle}">
+            ${_buildIconGrid(rewardList, iconShadow, 'sm')}
+        </div>
         <p class="text-[11px] font-bold text-white text-center leading-tight line-clamp-2 w-full px-0.5">${title}</p>
         <div class="flex items-center gap-0.5">${priceLabel}</div>
         ${timerHtml}
@@ -391,6 +397,38 @@ function renderShopLimitedGrid() {
 
 // ── Модал покупки кастомного товара ──────────────────────
 
+function _stopModalTimer() {
+    if (_shopModalTimer) { clearInterval(_shopModalTimer); _shopModalTimer = null; }
+}
+
+function _startModalTimer(expiresAt) {
+    _stopModalTimer();
+    const wrap    = document.getElementById('shop-buy-modal-timer-wrap');
+    const timerEl = document.getElementById('shop-buy-modal-timer');
+    if (!wrap || !timerEl || !expiresAt) { if (wrap) wrap.classList.add('hidden'); return; }
+
+    let s = _getShopSecondsLeft(expiresAt);
+    if (s === null || s <= 0) { wrap.classList.add('hidden'); return; }
+
+    wrap.classList.remove('hidden');
+    const update = () => {
+        if (!document.getElementById('shop-buy-modal-timer')) { _stopModalTimer(); return; }
+        if (s <= 0) {
+            _stopModalTimer();
+            wrap.classList.add('hidden');
+            closeShopBuyModal();
+            renderCustomSections();
+            return;
+        }
+        const urgent = s < 86400;
+        timerEl.textContent = '⏱ ' + _formatShopCountdown(s);
+        timerEl.style.color = urgent ? '#f87171' : 'rgba(255,255,255,0.75)';
+        s--;
+    };
+    update();
+    _shopModalTimer = setInterval(update, 1000);
+}
+
 async function openShopBuyModal(item, sectionId) {
     if (typeof vibrate === 'function') vibrate('medium');
     shopBuyPending = { item, sectionId };
@@ -398,56 +436,72 @@ async function openShopBuyModal(item, sectionId) {
     const lang = (typeof currentLang !== 'undefined') ? currentLang : 'ru';
     const t    = i18n[lang] || i18n['ru'];
 
-    // Изображение
-    const imgEl = document.getElementById('shop-buy-modal-img');
-    if (imgEl) imgEl.src = _getItemImage(item);
+    // ── Иконки товара (1 или сетка 2×2) ─────────────────────────────────────
+    const iconsEl = document.getElementById('shop-buy-modal-icons');
+    if (iconsEl) {
+        // Сбрасываем стили контейнера под текущий фон товара
+        const bg = item.background && SHOP_BG_PRESETS[item.background]
+            ? SHOP_BG_PRESETS[item.background] : null;
+        iconsEl.style.background = bg
+            ? `radial-gradient(ellipse at 50% 0%,${bg.glowColor} 0%,transparent 70%)`
+            : '';
+        iconsEl.className = [
+            'w-24 h-24 rounded-2xl overflow-hidden',
+            bg ? bg.cardClass : 'bg-purple-500/10 border border-purple-400/20',
+        ].join(' ');
 
-    // Название
+        const rewardList = item.rewards && item.rewards.length
+            ? item.rewards.slice(0, 4)
+            : [{ type: item.type, amount: item.amount, gift_id: item.gift_id }];
+        const iconShadow = bg ? bg.iconShadow : '0 0 10px rgba(168,85,247,0.6)';
+        iconsEl.innerHTML = _buildIconGrid(rewardList, iconShadow, 'lg');
+    }
+
+    // ── Таймер ───────────────────────────────────────────────────────────────
+    _startModalTimer(item.expires_at || null);
+
+    // ── Название ─────────────────────────────────────────────────────────────
     const titleEl = document.getElementById('shop-buy-modal-title');
     if (titleEl) titleEl.textContent = (item.title && item.title[lang]) || item.title?.ru || '';
 
-    // Стоимость
+    // ── Стоимость ────────────────────────────────────────────────────────────
     const costEl = document.getElementById('shop-buy-modal-cost');
     if (costEl) {
-        if (item.currency === 'free')    costEl.textContent = t['shop_price_free'] || 'Бесплатно';
+        if (item.currency === 'free')         costEl.textContent = t['shop_price_free'] || 'Бесплатно';
         else if (item.currency === 'stars')   costEl.textContent = `${item.price} ⭐`;
         else if (item.currency === 'donuts')  costEl.textContent = `${item.price} 🍩`;
         else if (item.currency === 'referral')costEl.textContent = `${item.price} ${t['shop_price_referral'] || 'реф.'}`;
     }
 
-    // Награда
+    // ── Что получает пользователь ────────────────────────────────────────────
     const rewardEl = document.getElementById('shop-buy-modal-reward');
     if (rewardEl) {
-        const rewards = item.rewards;
+        const rewards = item.rewards && item.rewards.length ? item.rewards : null;
         if (rewards && rewards.length > 1) {
-            // Multi-reward: перечисляем все
             const parts = rewards.slice(0, 4).map(r => {
                 if (r.type === 'stars')  return `${r.amount} ⭐`;
                 if (r.type === 'donuts') return `${r.amount} 🍩`;
-                return t['shop_reward_gift'] || '🎁 Telegram-подарок';
+                return t['shop_reward_gift'] || '🎁 Подарок';
             });
             rewardEl.textContent = parts.join(' + ');
+        } else if (rewards && rewards.length === 1) {
+            const r = rewards[0];
+            if (r.type === 'stars')  rewardEl.textContent = `${r.amount} ⭐`;
+            else if (r.type === 'donuts') rewardEl.textContent = `${r.amount} 🍩`;
+            else rewardEl.textContent = t['shop_reward_gift'] || '🎁 Подарок';
         } else {
-            if (item.type === 'stars')          rewardEl.textContent = `${item.amount} ⭐`;
-            else if (item.type === 'donuts')    rewardEl.textContent = `${item.amount} 🍩`;
-            else if (item.type === 'limited_gift' || item.type === 'base_gift') {
-                rewardEl.textContent = t['shop_reward_gift'] || '🎁 Telegram-подарок';
-            } else if (rewards && rewards.length === 1) {
-                const r = rewards[0];
-                if (r.type === 'stars')  rewardEl.textContent = `${r.amount} ⭐`;
-                else if (r.type === 'donuts') rewardEl.textContent = `${r.amount} 🍩`;
-                else rewardEl.textContent = t['shop_reward_gift'] || '🎁 Telegram-подарок';
-            }
+            if (item.type === 'stars')        rewardEl.textContent = `${item.amount} ⭐`;
+            else if (item.type === 'donuts')  rewardEl.textContent = `${item.amount} 🍩`;
+            else rewardEl.textContent = t['shop_reward_gift'] || '🎁 Telegram-подарок';
         }
     }
 
-    // Строка рефералов
+    // ── Строка рефералов ─────────────────────────────────────────────────────
     const refRow   = document.getElementById('shop-buy-modal-referral-row');
     const refCount = document.getElementById('shop-buy-modal-refs-count');
     if (item.currency === 'referral') {
-        // Обновляем счётчик рефералов
         try {
-            const res = await fetch('/api/shop/referrals', { headers: getApiHeaders() });
+            const res  = await fetch('/api/shop/referrals', { headers: getApiHeaders() });
             const data = await res.json();
             shopAvailableReferrals = data.available ?? 0;
         } catch (_) {}
@@ -457,7 +511,7 @@ async function openShopBuyModal(item, sectionId) {
         if (refRow) refRow.classList.add('hidden');
     }
 
-    // Кнопка подтверждения
+    // ── Кнопка ───────────────────────────────────────────────────────────────
     const labelEl = document.getElementById('shop-buy-confirm-label');
     if (labelEl) labelEl.textContent = t['shop_modal_confirm_btn'] || 'Купить';
 
@@ -467,6 +521,7 @@ async function openShopBuyModal(item, sectionId) {
 
 function closeShopBuyModal() {
     shopBuyPending = null;
+    _stopModalTimer();
     if (typeof closeModal === 'function') closeModal('shop-buy-modal');
     else document.getElementById('shop-buy-modal')?.classList.add('hidden');
 }
