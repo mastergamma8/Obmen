@@ -182,6 +182,9 @@ async def init_db():
         """)
         await db.execute("ALTER TABLE game_round_state ADD COLUMN IF NOT EXISTS last_game TEXT DEFAULT NULL")
         await db.execute("ALTER TABLE game_round_state ADD COLUMN IF NOT EXISTS best_game TEXT DEFAULT NULL")
+        # Полное состояние активного раунда (игроки, ставки, таймеры) —
+        # позволяет пережить рестарт без потери данных игроков.
+        await db.execute("ALTER TABLE game_round_state ADD COLUMN IF NOT EXISTS round_state TEXT DEFAULT NULL")
 
         await db.commit()
 
