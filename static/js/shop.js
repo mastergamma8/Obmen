@@ -251,7 +251,15 @@ function _buildItemCard(item, sectionId, lang) {
         ? item.rewards.slice(0, 4)
         : [{ type: item.type, amount: item.amount, gift_id: item.gift_id }];
 
-    const squareBg   = bg ? '' : 'bg-purple-500/20 border border-purple-400/40';
+    const _innerColorMap = {
+        green:  'bg-green-500/20 border border-green-400/35',
+        gold:   'bg-yellow-500/20 border border-yellow-400/35',
+        purple: 'bg-purple-500/20 border border-purple-400/35',
+        red:    'bg-red-500/20 border border-red-400/35',
+    };
+    const squareBg   = bg
+        ? (_innerColorMap[item.background] || 'bg-white/10 border border-white/20')
+        : 'bg-white/10 border border-white/20';
     const bgGradStyle = bg
         ? `background:radial-gradient(ellipse at 50% 0%,${bg.glowColor} 0%,transparent 70%);`
         : '';
@@ -556,6 +564,24 @@ async function confirmShopBuy() {
             if (typeof myBalance !== 'undefined' && data.balance !== undefined) myBalance = data.balance;
             if (typeof myStars   !== 'undefined' && data.stars   !== undefined) myStars   = data.stars;
             if (typeof updateUI === 'function') updateUI();
+
+            // ── Мгновенное обновление инвентаря подарков в профиле ──────────
+            // Для base_gift сервер добавляет подарок в БД, но локальный myGifts
+            // не обновляется — профиль показывал старый список до перезагрузки.
+            // Здесь обновляем myGifts и перерендериваем профиль сразу.
+            const _boughtRewards = item.rewards && item.rewards.length
+                ? item.rewards
+                : [{ type: item.type, gift_id: item.gift_id }];
+            const _hasBaseGift = _boughtRewards.some(r => r.type === 'base_gift');
+            if (_hasBaseGift && typeof myGifts !== 'undefined') {
+                _boughtRewards.forEach(r => {
+                    if (r.type === 'base_gift' && r.gift_id != null) {
+                        const k = String(r.gift_id);
+                        myGifts[k] = (myGifts[k] || 0) + 1;
+                    }
+                });
+                if (typeof renderProfile === 'function') renderProfile();
+            }
 
             closeShopBuyModal();
 
