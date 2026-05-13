@@ -621,7 +621,7 @@ SHOP_SECTIONS: list[dict] = [
         "title": {"ru": "Акции", "en": "Promotions"},
         "items": [
             {
-                "id": "stars_10_freeee",
+                "id": "stars_10_free",
                 "type": "stars",
                 "amount": 10,
                 "currency": "free",
@@ -649,22 +649,21 @@ SHOP_SECTIONS: list[dict] = [
                 "expires_at": None,
             },
             {
-                "id": "stars_205_for_referral",
+                "id": "stars_25_for_referral",
                 # Пример товара с несколькими вознаграждениями (rewards):
                 # пользователь получает сразу 25 звёзд + 0.1 пончика за 3 реферала
                 "rewards": [
                     {"type": "stars",  "amount": 25},
-                    {"type": "donuts", "amount": 0.1},
-                    {"type": "base_gift", "gift_id": 1}
+                    {"type": "donuts", "amount": 0.1}
                 ],
-                "currency": "stars",
-                "price": 300,
+                "currency": "referral",
+                "price": 3,
                 "image": "/gifts/stars.png",
                 "title": {"ru": "25 звёзд + 0.1🍩 за друга", "en": "25 stars + 0.1🍩 per friend"},
                 "enabled": True,
                 "buy_limit": 1,
                 "background": "gold",
-                "expires_at": "2026-06-14T23:59:59",
+                "expires_at": None,
             },
             # --- Примеры для подарков (раскомментируйте при необходимости) ---
             # {
