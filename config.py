@@ -649,7 +649,7 @@ SHOP_SECTIONS: list[dict] = [
                 "expires_at": None,
             },
             {
-                "id": "stars_25_for_referral",
+                "id": "stars_205_for_referral",
                 # Пример товара с несколькими вознаграждениями (rewards):
                 # пользователь получает сразу 25 звёзд + 0.1 пончика за 3 реферала
                 "rewards": [
