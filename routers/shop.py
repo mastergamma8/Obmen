@@ -280,25 +280,36 @@ async def get_shop_config(current_user: dict = Depends(get_current_user)):
     # Загружаем актуальные флаги из БД
     feature_flags = await database.get_feature_flags()
 
+    # Beta-тестеры видят весь контент магазина вне зависимости от флагов
+    # видимости: скрытые разделы, товары и лимитированные подарки
+    # остаются для них доступными.
+    is_tester = await database.is_beta_tester(tg_id)
+
     # ── Лимитированные подарки ────────────────────────────────────────────────
-    # Флаг limited_gifts == False → скрываем раздел полностью.
-    limited_section = _build_limited_section() if feature_flags.get("limited_gifts", True) else None
+    # Флаг limited_gifts == False → скрываем раздел полностью (не для тестеров).
+    limited_section = (
+        _build_limited_section()
+        if (is_tester or feature_flags.get("limited_gifts", True))
+        else None
+    )
 
     # ── Кастомные разделы ─────────────────────────────────────────────────────
     # _enabled_sections() уже фильтрует товары с enabled=False из config.py.
-    # Здесь дополнительно применяем динамические флаги из БД.
+    # Здесь дополнительно применяем динамические флаги из БД (кроме тестеров).
     sections = []
     for section in _enabled_sections():
         section_id = section.get("id", "")
 
         # Скрыть раздел целиком, если флаг shop_section_<id> == False
-        if not feature_flags.get(f"shop_section_{section_id}", True):
+        # (тестеры обходят это ограничение)
+        if not is_tester and not feature_flags.get(f"shop_section_{section_id}", True):
             continue
 
         # Фильтруем товары: убираем те, у которых shop_item_<item_id> == False
+        # (тестеры видят все товары раздела)
         visible_items = [
             item for item in section.get("items", [])
-            if feature_flags.get(f"shop_item_{item["id"]}", True)
+            if is_tester or feature_flags.get(f"shop_item_{item["id"]}", True)
         ]
         if not visible_items:
             continue  # раздел пуст — не включаем
