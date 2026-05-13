@@ -4,9 +4,10 @@
 
 'use strict';
 
-let rocketConfigLocal = null;
-let rocketAnimFrame   = null;
-let rocketPollTimer   = null;
+let rocketConfigLocal    = null;
+let rocketAnimFrame      = null;
+let rocketPollTimer      = null;
+let rocketPollingActive  = false;  // страж от race-condition при закрытии
 
 // Кэш состояния (обновляется с сервера каждые 200–500 мс)
 let rocketState = {
@@ -68,10 +69,12 @@ function closeRocketGame() {
 
 function startRocketPolling() {
     stopRocketPolling();
+    rocketPollingActive = true;
     pollRocketState();
 }
 
 function stopRocketPolling() {
+    rocketPollingActive = false;
     if (rocketPollTimer)  { clearTimeout(rocketPollTimer);        rocketPollTimer  = null; }
     if (rocketAnimFrame)  { cancelAnimationFrame(rocketAnimFrame); rocketAnimFrame  = null; }
 }
@@ -80,9 +83,12 @@ async function pollRocketState() {
     try {
         const res  = await fetch('/api/rocket/state', { headers: getApiHeaders() });
         const data = await res.json();
+        // Проверяем флаг ПОСЛЕ await: пользователь мог закрыть игру пока шёл запрос
+        if (!rocketPollingActive) return;
         applyServerState(data);
     } catch (_) { /* тихо */ }
 
+    if (!rocketPollingActive) return;
     const interval = (rocketState.state === 'flying') ? 150 : 450;
     rocketPollTimer = setTimeout(pollRocketState, interval);
 }
