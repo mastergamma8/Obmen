@@ -580,16 +580,16 @@ async def pvp_round_manager():
                         round_id         = pvp_round["id"]
                         # Сбрасываем раунд до запуска возврата, чтобы
                         # новые ставки не смешались с возвращаемыми.
-                        pvp_round["id\"]           += 1
-                        pvp_round[\"players\"]       = {}
-                        pvp_round[\"first_bet_at\"]  = 0.0
-                        pvp_round[\"_color_idx\"]    = 0
+                        pvp_round["id"]           += 1
+                        pvp_round["players"]       = {}
+                        pvp_round["first_bet_at"]  = 0.0
+                        pvp_round["_color_idx"]    = 0
                         # Сохраняем новый round_id немедленно — при деплое
                         # восстановится актуальный номер, а не старый.
                         await database.save_pvp_round_state(
-                            pvp_round[\"id\"],
-                            pvp_round[\"last_game\"],
-                            pvp_round[\"best_game\"],
+                            pvp_round["id"],
+                            pvp_round["last_game"],
+                            pvp_round["best_game"],
                             _make_round_state_snapshot(),
                         )
                         asyncio.create_task(_cancel_and_refund(players_snapshot, round_id))
