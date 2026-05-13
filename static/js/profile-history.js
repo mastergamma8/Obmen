@@ -235,6 +235,17 @@ function getHistoryGiftPhoto(entry) {
         return def ? def.photo : null;
     }
 
+    // Shop gift purchase — resolve icon from [gift_id:...] tag
+    // Supports both base_gift (baseGifts, ID 1–114) and limited_gift (tgGifts, ID 2011+)
+    if (entry.action_type === 'shop_buy_gift' && entry.description) {
+        const m = entry.description.match(/\[gift_id:([^\]]+)\]/);
+        if (m) {
+            const giftDef = getGiftDefinitionById(Number(m[1])) || getGiftDefinitionById(m[1]);
+            if (giftDef && giftDef.photo) return giftDef.photo;
+        }
+        return null;
+    }
+
     // Admin star grant — use the stars icon asset
     if (entry.action_type === 'admin_add_stars') return '/gifts/stars.png';
 
