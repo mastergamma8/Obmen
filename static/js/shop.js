@@ -69,6 +69,7 @@ function renderCustomSections() {
 
         const sectionEl = document.createElement('div');
         sectionEl.className = 'mb-7';
+        sectionEl.id = `shop-custom-section-${section.id}`;
         sectionEl.innerHTML = `
             <h3 class="text-base font-bold text-white/80 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <span class="w-1 h-4 rounded-full bg-purple-500 inline-block"></span>
