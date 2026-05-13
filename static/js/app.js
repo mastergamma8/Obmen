@@ -60,6 +60,21 @@ function applyFeatureFlags(flags) {
         shopNav.style.display = flags.limited_gifts === false ? 'none' : '';
     }
 
+    // Баннер лимитированных подарков внутри страницы магазина
+    const shopSectionLimited = document.getElementById('shop-section-limited');
+    if (shopSectionLimited) {
+        shopSectionLimited.style.display = flags.limited_gifts === false ? 'none' : '';
+    }
+
+    // Кастомные разделы магазина — скрываем отдельные секции по флагу shop_section_<id>
+    Object.keys(flags).forEach(key => {
+        if (key.startsWith('shop_section_')) {
+            const sectionId = key.replace('shop_section_', '');
+            const el = document.getElementById(`shop-custom-section-${sectionId}`);
+            if (el) el.style.display = flags[key] === false ? 'none' : '';
+        }
+    });
+
     // PvP Арена — баннер в разделе Игры
     const pvpBanner = document.getElementById('game-banner-pvp');
     if (pvpBanner) {
@@ -265,4 +280,4 @@ if (window.partialsAreLoaded) {
     startApplication();
 } else {
     document.addEventListener('partialsLoaded', startApplication);
-        }
+}
