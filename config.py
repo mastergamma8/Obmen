@@ -657,8 +657,8 @@ SHOP_SECTIONS: list[dict] = [
                     {"type": "donuts", "amount": 0.1},
                     {"type": "base_gift", "gift_id": 1}
                 ],
-                "currency": "referral",
-                "price": 3,
+                "currency": "stars",
+                "price": 300,
                 "image": "/gifts/stars.png",
                 "title": {"ru": "25 звёзд + 0.1🍩 за друга", "en": "25 stars + 0.1🍩 per friend"},
                 "enabled": True,
