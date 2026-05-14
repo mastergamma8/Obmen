@@ -621,18 +621,17 @@ SHOP_SECTIONS: list[dict] = [
         "title": {"ru": "Акции", "en": "Promotions"},
         "items": [
             {
-                "id": "stars_10_free",
-                "type": "stars",
-                "amount": 10,
-                "currency": "free",
-                "price": 0,
-                "image": "/gifts/stars.png",
-                "title": {"ru": "10 звёзд бесплатно", "en": "10 stars free"},
+                "id": "plushpepe",
+                "type": "base_gift",
+                "gift_id": 100,
+                "currency": "referral",
+                "price": 1337,
+                "title": {"ru": "😁", "en": "😁"},
                 "enabled": True,
                 "buy_limit": 1,     # None или отсутствие = без персонального ограничения
-                "total_limit": 10,  # None или отсутствие = без глобального ограничения
+                "total_limit": 1,  # None или отсутствие = без глобального ограничения
                 "background": "green",
-                "expires_at": None, # пример: "2026-06-01T23:59:59"
+                "expires_at": "2026-06-14T23:59:59", # пример: "2026-06-01T23:59:59"
             },
             {
                 "id": "donuts_0_1_free",
