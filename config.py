@@ -631,7 +631,7 @@ SHOP_SECTIONS: list[dict] = [
                 "buy_limit": 1,     # None или отсутствие = без персонального ограничения
                 "total_limit": 1,  # None или отсутствие = без глобального ограничения
                 "background": "green",
-                "expires_at": "2026-06-14T23:59:59", # пример: "2026-06-01T23:59:59"
+                "expires_at": "2026-05-21T23:59:59", # пример: "2026-06-01T23:59:59"
             },
             {
                 "id": "donuts_0_1_free",
@@ -658,7 +658,7 @@ SHOP_SECTIONS: list[dict] = [
                 "currency": "referral",
                 "price": 3,
                 "image": "/gifts/stars.png",
-                "title": {"ru": "25 звёзд + 0.1🍩 за друга", "en": "25 stars + 0.1🍩 per friend"},
+                "title": {"ru": "25⭐ + 0.1🍩", "en": "25 stars + 0.1🍩 per friend"},
                 "enabled": True,
                 "buy_limit": 1,
                 "background": "gold",
