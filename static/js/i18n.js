@@ -253,7 +253,7 @@ const i18n = {
             shop_limited_banner_desc: 'Купи подарок и получи прямо в Telegram!',
             shop_limited_header_desc: 'Получай Telegram-подарки за звёзды',
             shop_price_free: 'Бесплатно',
-            shop_price_referral: 'друга'',
+            shop_price_referral: 'друга',
             shop_modal_confirm_subtitle: 'Подтвердите покупку',
             shop_modal_cost: 'Стоимость',
             shop_modal_you_get: 'Вы получаете',
