@@ -175,19 +175,19 @@ TASKS = {
 # ==========================================
 ROULETTE_CONFIG = {
     "currency": "stars", 
-    "cost": 100,
+    "cost": 50,
     "items": [
         {"type": "stars", "amount": 1, "photo": "gifts/stars.png", "chance": 15},
         {"type": "stars", "amount": 10, "photo": "gifts/stars.png", "chance": 15},  
         {"type": "stars", "amount": 25, "photo": "gifts/stars.png", "chance": 15},
         {"type": "stars", "amount": 55, "photo": "gifts/stars.png", "chance": 30},
-        {"type": "stars", "amount": 110, "photo": "gifts/stars.png", "chance": 20}, 
+        {"type": "stars", "amount": 110, "photo": "gifts/stars.png", "chance": 10}, 
         {"type": "donuts", "amount": 0.5, "photo": "gifts/dount.png", "chance": 5}, 
         {"type": "donuts", "amount": 1, "photo": "gifts/dount.png", "chance": 3},
         {"type": "donuts", "amount": 2, "photo": "gifts/dount.png", "chance": 1}, 
         {"type": "gift", "gift_id": 2009, "chance": 25},
-        {"type": "gift", "gift_id": 2017, "chance": 30},
-        {"type": "gift", "gift_id": 2001, "chance": 10},
+        {"type": "gift", "gift_id": 2017, "chance": 20},
+        {"type": "gift", "gift_id": 2001, "chance": 1},
         {"type": "gift", "gift_id": 110, "chance": 0},
         {"type": "gift", "gift_id": 106, "chance": 0},
         {"type": "gift", "gift_id": 101, "chance": 0},
