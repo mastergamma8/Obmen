@@ -49,7 +49,7 @@ async def get_leaderboard():
     """Транжиры: топ по суммарным тратам за текущую неделю.
     Включает всех пользователей, даже с нулевыми тратами."""
     week_start = _get_week_start_ts()
-    rate = config.DONUTS_TO_STARS_RATE
+    rate = await config.get_live_donuts_to_stars_rate()
     _star_types_placeholder = ','.join('?' * len(_STAR_SPEND_TYPES))
     star_types_list = list(_STAR_SPEND_TYPES)
     async with aiosqlite.connect(DB_NAME) as db:
@@ -123,7 +123,7 @@ async def get_user_rich_rank(tg_id: int) -> dict:
     """Возвращает место и суммарные траты пользователя в таблице транжир за текущую неделю.
     Корректно работает для пользователей с нулевыми тратами."""
     week_start = _get_week_start_ts()
-    rate = config.DONUTS_TO_STARS_RATE
+    rate = await config.get_live_donuts_to_stars_rate()
     _star_types_placeholder = ','.join('?' * len(_STAR_SPEND_TYPES))
     star_types_list = list(_STAR_SPEND_TYPES)
 
@@ -241,7 +241,7 @@ async def get_user_lucky_rank(tg_id: int) -> dict:
 
 async def get_alltime_leaderboard():
     """За всё время: топ по суммарным тратам без ограничения по дате."""
-    rate = config.DONUTS_TO_STARS_RATE
+    rate = await config.get_live_donuts_to_stars_rate()
     _star_types_placeholder = ','.join('?' * len(_STAR_SPEND_TYPES))
     star_types_list = list(_STAR_SPEND_TYPES)
     async with aiosqlite.connect(DB_NAME) as db:
@@ -275,7 +275,7 @@ async def get_alltime_leaderboard():
 
 async def get_user_alltime_rank(tg_id: int) -> dict:
     """Возвращает место и суммарные траты пользователя в таблице за всё время."""
-    rate = config.DONUTS_TO_STARS_RATE
+    rate = await config.get_live_donuts_to_stars_rate()
     _star_types_placeholder = ','.join('?' * len(_STAR_SPEND_TYPES))
     star_types_list = list(_STAR_SPEND_TYPES)
 
