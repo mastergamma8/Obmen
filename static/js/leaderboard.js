@@ -126,14 +126,13 @@ function buildPodium(top3, prizes, myTgId) {
         let prizeSectionHtml = '';
         if (prize) {
             const prizeLabel = `<div class="flex items-center justify-center gap-0.5 text-[8px] font-semibold tracking-widest uppercase text-yellow-300/70 mt-1.5 mb-0.5">
-                <svg class="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
                 ${lang.lb_prize_season || 'Приз сезона'}
             </div>`;
             prizeSectionHtml = prizeLabel + buildPrizeBadge(prize);
         }
 
         const youBadge = me
-            ? `<div class="text-[9px] font-bold text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider mt-0.5 text-center">Вы</div>`
+            ? `<div class="text-[9px] font-bold text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider mt-0.5 text-center">${lang.you || 'Вы'}</div>`
             : '';
 
         // Расход
@@ -217,8 +216,7 @@ function buildPodium(top3, prizes, myTgId) {
             <div class="flex-1">${podiumSlot(p3, 3)}</div>
         </div>
         ${hasPrizes
-            ? `<div class="flex items-center justify-center gap-1 text-center text-[10px] text-white/35 mt-2.5 font-medium">
-                <svg class="w-3 h-3 shrink-0 text-yellow-400/60" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+            ? `<div class="text-center text-[10px] text-white/35 mt-2.5 font-medium">
                 ${(i18n[currentLang] || i18n['ru']).lb_prize_auto || 'Призы раздаются автоматически каждый понедельник'}
                </div>`
             : ''}
