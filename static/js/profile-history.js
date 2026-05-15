@@ -77,9 +77,15 @@ const HISTORY_ICONS = {
     referral_bonus_stars: { icon: '👥', color: 'green',  sign: '+' },
 
     // ── Shop purchases ───────────────────────────────────────────────────────
-    shop_buy_stars:       { icon: '🛍️', color: 'green',  sign: '+' },
-    shop_buy_donuts:      { icon: '🛍️', color: 'green',  sign: '+' },
-    shop_buy_gift:        { icon: '🎁', color: 'purple', sign: null },
+    shop_buy_stars:        { icon: '🛍️', color: 'green',  sign: '+' },
+    shop_buy_donuts:       { icon: '🛍️', color: 'green',  sign: '+' },
+    shop_buy_gift:         { icon: '🎁', color: 'purple', sign: null },
+
+    // ── Season leaderboard prizes ────────────────────────────────────────────
+    season_prize_donuts:   { icon: '🏆', color: 'amber',  sign: '+' },
+    season_prize_stars:    { icon: '🏆', color: 'amber',  sign: '+' },
+    season_prize_gift:     { icon: '🏆', color: 'amber',  sign: null },
+    season_prize_tg_gift:  { icon: '🏆', color: 'amber',  sign: null },
 };
 
 /** Action types that are internal / should never surface in the UI. */
@@ -98,6 +104,8 @@ const STAR_AMOUNT_TYPES = new Set([
     'pvp_bet_stars', 'pvp_win_stars', 'pvp_refund_stars',
     // Shop
     'shop_buy_stars',
+    // Season prizes
+    'season_prize_stars',
 ]);
 
 // ── Localised labels ──────────────────────────────────────────────────────────
@@ -153,6 +161,10 @@ const HISTORY_LABELS = {
         shop_buy_stars:       'Покупка в магазине',
         shop_buy_donuts:      'Покупка в магазине',
         shop_buy_gift:        'Покупка подарка в магазине',
+        season_prize_donuts:  'Приз сезонного лидерборда',
+        season_prize_stars:   'Приз сезонного лидерборда',
+        season_prize_gift:    'Приз сезонного лидерборда',
+        season_prize_tg_gift: 'Приз сезонного лидерборда',
     },
     en: {
         topup_stars:          'Balance top-up',
@@ -204,6 +216,10 @@ const HISTORY_LABELS = {
         shop_buy_stars:       'Shop purchase',
         shop_buy_donuts:      'Shop purchase',
         shop_buy_gift:        'Gift purchase in shop',
+        season_prize_donuts:  'Season leaderboard prize',
+        season_prize_stars:   'Season leaderboard prize',
+        season_prize_gift:    'Season leaderboard prize',
+        season_prize_tg_gift: 'Season leaderboard prize',
     }
 };
 
@@ -248,6 +264,17 @@ function getHistoryGiftPhoto(entry) {
 
     // Admin star grant — use the stars icon asset
     if (entry.action_type === 'admin_add_stars') return '/gifts/stars.png';
+
+    // Season leaderboard prizes — resolve icon by prize type
+    if (entry.action_type === 'season_prize_donuts') return '/gifts/dount.png';
+    if (entry.action_type === 'season_prize_stars')  return '/gifts/stars.png';
+    if ((entry.action_type === 'season_prize_gift' || entry.action_type === 'season_prize_tg_gift') && entry.description) {
+        const m = entry.description.match(/\[gift_id:([^\]]+)\]/);
+        if (m) {
+            const giftDef = getGiftDefinitionById(m[1]);
+            if (giftDef && giftDef.photo) return giftDef.photo;
+        }
+    }
 
     // PvP general events (non-gift) — use pvp.png banner image
     const pvpBannerTypes = new Set(['pvp_bet_stars', 'pvp_bet_donuts', 'pvp_win_stars', 'pvp_win_donuts',
@@ -392,6 +419,24 @@ function _buildEntryTitle(entry) {
             } else {
                 title = currentLang === 'ru' ? `Кейс: ${caseName}` : `Case: ${caseName}`;
             }
+        }
+    }
+
+    // Season leaderboard prizes — append place badge from [place:N] tag
+    const seasonPrizeTypes = new Set([
+        'season_prize_donuts', 'season_prize_stars',
+        'season_prize_gift',   'season_prize_tg_gift',
+    ]);
+    if (seasonPrizeTypes.has(entry.action_type) && entry.description) {
+        const placeMatch = entry.description.match(/\[place:(\d+)\]/);
+        if (placeMatch) {
+            const place = parseInt(placeMatch[1], 10);
+            const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+            const medal  = medals[place] || '🏆';
+            const placeName = currentLang === 'ru'
+                ? `${place}-е место`
+                : `${place}${place === 1 ? 'st' : place === 2 ? 'nd' : 'rd'} place`;
+            return `${medal} ${title} — ${placeName}`;
         }
     }
 
