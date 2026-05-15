@@ -796,3 +796,29 @@ def update_all_gifts_prices():
 # Псевдоним для обратной совместимости (старые call site не трогаем руками)
 def update_base_gifts_prices():
     update_all_gifts_prices()
+
+
+# ==========================================
+# ПРИЗЫ ЗА ТОПОВЫЕ МЕСТА В ЛИДЕРБОРДЕ
+# ==========================================
+# Призы выдаются автоматически при еженедельном сбросе сезона (каждый понедельник 00:00 UTC).
+#
+# type:     "donuts"    — пончики (поле amount обязательно)
+#           "stars"     — звёзды  (поле amount обязательно)
+#           "base_gift" — подарок из BASE_GIFTS (поле gift_id = ключ из BASE_GIFTS)
+#           "tg_gift"   — TG-подарок из MAIN_GIFTS (поле gift_id = ключ из MAIN_GIFTS)
+#
+# amount:   количество пончиков или звёзд (только для типов "donuts" и "stars")
+# gift_id:  числовой ключ из BASE_GIFTS или MAIN_GIFTS (только для типов "base_gift"/"tg_gift")
+#
+# Примеры:
+#   {"type": "donuts",    "amount": 5000}
+#   {"type": "stars",     "amount": 500}
+#   {"type": "base_gift", "gift_id": 1}
+#   {"type": "tg_gift",   "gift_id": 2001}
+
+LEADERBOARD_PRIZES: dict = {
+    1: {"type": "donuts", "amount": 10},   # 🥇 1-е место
+    2: {"type": "donuts", "amount": 5},   # 🥈 2-е место
+    3: {"type": "donuts", "amount": 2},   # 🥉 3-е место
+}
