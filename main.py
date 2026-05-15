@@ -156,6 +156,7 @@ async def lifespan(app: FastAPI):
             gift_withdraw_reminder_worker,
             free_case_reminder_worker,
             price_update_worker,
+            leaderboard_season_reset_worker,
         )
 
         setup_main()
@@ -167,6 +168,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(gift_withdraw_reminder_worker(main_bot))
         asyncio.create_task(free_case_reminder_worker(main_bot))
         asyncio.create_task(price_update_worker())
+        asyncio.create_task(leaderboard_season_reset_worker(main_bot))
 
         # Регистрация webhook-адресов в Telegram
         webhook_base = config.WEBAPP_URL.rstrip("/")
