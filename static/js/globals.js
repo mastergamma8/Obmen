@@ -18,7 +18,6 @@ let freeCaseConfig = null;
 let botUsername = '';
 let openTasksState = {};
 let rouletteSpinning = false;
-let rouletteCurrentRotation = 0;
 let currentSortMethod = 'value_desc';
 let currentLang = '';
 
