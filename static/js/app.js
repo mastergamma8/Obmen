@@ -163,7 +163,7 @@ async function initApp() {
         // ВАЖНО: Устанавливаем язык только после загрузки DOM и конфигов!
         setLang(savedLang); 
         
-        if (rouletteConfig?.items && typeof renderRouletteWheel === 'function') renderRouletteWheel();
+        if (rouletteConfig?.items && typeof renderRouletteStrip === 'function') renderRouletteStrip();
         updateUI();
     } catch(e) {
         console.error('initApp error:', e);
