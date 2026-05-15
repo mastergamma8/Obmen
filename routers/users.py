@@ -200,6 +200,27 @@ def _cap_rank(rank) -> str | int:
     return rank
 
 
+def _get_prizes_payload() -> dict:
+    """Возвращает конфиг призов лидерборда, обогащённый фото подарка если нужно."""
+    import config as cfg
+    raw = getattr(cfg, "LEADERBOARD_PRIZES", {})
+    result = {}
+    for place, prize in raw.items():
+        p = dict(prize)
+        ptype = p.get("type")
+        gift_id = p.get("gift_id")
+        if ptype == "base_gift" and gift_id is not None:
+            gift = cfg.BASE_GIFTS.get(gift_id, {})
+            p["gift_photo"] = gift.get("photo", "")
+            p["gift_name"]  = gift.get("name", "")
+        elif ptype == "tg_gift" and gift_id is not None:
+            gift = cfg.MAIN_GIFTS.get(gift_id, {})
+            p["gift_photo"] = gift.get("photo", "")
+            p["gift_name"]  = gift.get("name", "")
+        result[str(place)] = p
+    return result
+
+
 @router.get("/leaderboard")
 async def get_leaderboard(current_user: dict = Depends(get_current_user)):
     from db.db_leaderboard import get_week_reset_ts
@@ -219,7 +240,7 @@ async def get_leaderboard(current_user: dict = Depends(get_current_user)):
         user_rank = await database.get_user_rich_rank(tg_id)
     if user_rank:
         user_rank["rank"] = _cap_rank(user_rank["rank"])
-    return {"leaderboard": board, "user_info": user_rank, "reset_ts": get_week_reset_ts()}
+    return {"leaderboard": board, "user_info": user_rank, "reset_ts": get_week_reset_ts(), "prizes": _get_prizes_payload()}
 
 
 @router.get("/leaderboard/alltime")
