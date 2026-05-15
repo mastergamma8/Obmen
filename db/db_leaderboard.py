@@ -55,24 +55,26 @@ async def get_leaderboard():
     async with aiosqlite.connect(DB_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(f"""
-            SELECT
-                u.tg_id,
-                u.username,
-                CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
-                CASE WHEN u.is_anonymous = 1 THEN '/static/img/anon.svg' ELSE u.photo_url END AS photo_url,
-                COALESCE(ABS(SUM(CASE
-                    WHEN h.action_type NOT IN ({_star_types_placeholder})
-                    THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
-                COALESCE(ABS(SUM(CASE
-                    WHEN h.action_type IN ({_star_types_placeholder})
-                    THEN h.amount ELSE 0 END)), 0) AS stars_spent
-            FROM users u
-            LEFT JOIN user_history h
-                ON  h.user_id     = u.tg_id
-                AND h.created_at  >= ?
-                AND h.amount      < 0
-                AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
-            GROUP BY u.tg_id, u.username, u.first_name, u.photo_url, u.is_anonymous
+            SELECT * FROM (
+                SELECT
+                    u.tg_id,
+                    u.username,
+                    CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
+                    CASE WHEN u.is_anonymous = 1 THEN '/static/img/anon.svg' ELSE u.photo_url END AS photo_url,
+                    COALESCE(ABS(SUM(CASE
+                        WHEN h.action_type NOT IN ({_star_types_placeholder})
+                        THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
+                    COALESCE(ABS(SUM(CASE
+                        WHEN h.action_type IN ({_star_types_placeholder})
+                        THEN h.amount ELSE 0 END)), 0) AS stars_spent
+                FROM users u
+                LEFT JOIN user_history h
+                    ON  h.user_id     = u.tg_id
+                    AND h.created_at  >= ?
+                    AND h.amount      < 0
+                    AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
+                GROUP BY u.tg_id, u.username, u.first_name, u.photo_url, u.is_anonymous
+            ) subq
             ORDER BY (donuts_spent * ? + stars_spent) DESC
             LIMIT 50
         """, (*star_types_list, *star_types_list, week_start, *_SPEND_ACTION_TYPES, rate)) as cursor:
@@ -245,23 +247,25 @@ async def get_alltime_leaderboard():
     async with aiosqlite.connect(DB_NAME) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(f"""
-            SELECT
-                u.tg_id,
-                u.username,
-                CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
-                CASE WHEN u.is_anonymous = 1 THEN '/static/img/anon.svg' ELSE u.photo_url END AS photo_url,
-                COALESCE(ABS(SUM(CASE
-                    WHEN h.action_type NOT IN ({_star_types_placeholder})
-                    THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
-                COALESCE(ABS(SUM(CASE
-                    WHEN h.action_type IN ({_star_types_placeholder})
-                    THEN h.amount ELSE 0 END)), 0) AS stars_spent
-            FROM users u
-            LEFT JOIN user_history h
-                ON  h.user_id     = u.tg_id
-                AND h.amount      < 0
-                AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
-            GROUP BY u.tg_id, u.username, u.first_name, u.photo_url, u.is_anonymous
+            SELECT * FROM (
+                SELECT
+                    u.tg_id,
+                    u.username,
+                    CASE WHEN u.is_anonymous = 1 THEN 'Anonim' ELSE u.first_name END AS first_name,
+                    CASE WHEN u.is_anonymous = 1 THEN '/static/img/anon.svg' ELSE u.photo_url END AS photo_url,
+                    COALESCE(ABS(SUM(CASE
+                        WHEN h.action_type NOT IN ({_star_types_placeholder})
+                        THEN h.amount ELSE 0 END)), 0) AS donuts_spent,
+                    COALESCE(ABS(SUM(CASE
+                        WHEN h.action_type IN ({_star_types_placeholder})
+                        THEN h.amount ELSE 0 END)), 0) AS stars_spent
+                FROM users u
+                LEFT JOIN user_history h
+                    ON  h.user_id     = u.tg_id
+                    AND h.amount      < 0
+                    AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
+                GROUP BY u.tg_id, u.username, u.first_name, u.photo_url, u.is_anonymous
+            ) subq
             ORDER BY (donuts_spent * ? + stars_spent) DESC
             LIMIT 50
         """, (*star_types_list, *star_types_list, *_SPEND_ACTION_TYPES, rate)) as cursor:
