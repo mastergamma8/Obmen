@@ -227,25 +227,47 @@ async def leaderboard_season_reset_worker(bot):
                 if ptype == "donuts":
                     await database.add_points_to_user(tg_id, amount)
                     prize_text = f"+{amount:,} 🍩 пончиков"
+                    await database.add_history_entry(
+                        tg_id,
+                        "season_prize_donuts",
+                        f"Приз сезонного лидерборда [place:{place}]",
+                        amount,
+                    )
                 elif ptype == "stars":
                     await database.add_stars_to_user(tg_id, amount)
                     prize_text = f"+{amount:,} ⭐ звёзд"
+                    await database.add_history_entry(
+                        tg_id,
+                        "season_prize_stars",
+                        f"Приз сезонного лидерборда [place:{place}]",
+                        amount,
+                    )
                 elif ptype == "base_gift":
                     gift_info = cfg.BASE_GIFTS.get(gift_id, {})
                     prize_text = f"подарок «{gift_info.get('name', gift_id)}»"
-                    # base_gift: начисляем его стоимость в пончиках как эквивалент
                     val = gift_info.get("value", 0)
                     if val:
                         await database.add_points_to_user(tg_id, val)
                         prize_text += f" (~{val} 🍩)"
+                    await database.add_history_entry(
+                        tg_id,
+                        "season_prize_gift",
+                        f"Приз сезонного лидерборда [place:{place}] [gift_id:{gift_id}]",
+                        val or 0,
+                    )
                 elif ptype == "tg_gift":
                     gift_info = cfg.MAIN_GIFTS.get(gift_id, {})
                     prize_text = f"TG-подарок «{gift_info.get('name', gift_id)}»"
-                    # tg_gift: начисляем звёздную стоимость как эквивалент
                     val = gift_info.get("required_value", 0)
                     if val:
                         await database.add_stars_to_user(tg_id, val)
                         prize_text += f" (~{val} ⭐)"
+                    await database.add_history_entry(
+                        tg_id,
+                        "season_prize_tg_gift",
+                        f"Приз сезонного лидерборда [place:{place}] [gift_id:{gift_id}]",
+                        val or 0,
+                    )
                 else:
                     prize_text = "приз"
 
