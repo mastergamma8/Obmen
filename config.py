@@ -1,5 +1,6 @@
 # config.py
 import os
+import time
 import requests
 import cloudscraper  # <-- Библиотека для обхода Cloudflare
 from dotenv import load_dotenv
@@ -49,6 +50,50 @@ EXCHANGE_BONUS_PERCENT: float   = 10.0  # +10% к рыночной цене по
 # Фоллбэк курса TON→Stars (используется если CoinGecko недоступен).
 # Обновляйте вручную при существенном изменении курса TON.
 TON_TO_STARS_FALLBACK: float = 200.0
+
+# ── Живой курс TON → Stars (для лидербордов) ─────────────────────────────────
+# Кэш обновляется раз в 5 минут. Используется вместо статического
+# DONUTS_TO_STARS_RATE во всех функциях расчёта лидербордов.
+_ton_stars_live_cache: dict = {"rate": 0.0, "ts": 0.0}
+_TON_STARS_LIVE_CACHE_TTL: float = 300.0   # 5 минут
+_STAR_USD_PRICE: float = 0.013             # официальный курс Telegram: 1 Star ≈ $0.013
+
+
+async def get_live_donuts_to_stars_rate() -> float:
+    """Возвращает актуальный курс 1 TON (= 1 пончик) → Stars.
+
+    Алгоритм:
+      • Запрашивает цену TONUSDT у Binance Public API.
+      • Делит на стоимость одной звезды ($0.013) → количество Stars за 1 TON.
+      • Результат кэшируется на 5 минут.
+      • При любой ошибке возвращает TON_TO_STARS_FALLBACK (200).
+    """
+    import httpx  # импортируем здесь, чтобы не ломать синхронный старт config.py
+
+    global _ton_stars_live_cache
+    now = time.time()
+    if (
+        _ton_stars_live_cache["rate"] > 0
+        and now - _ton_stars_live_cache["ts"] < _TON_STARS_LIVE_CACHE_TTL
+    ):
+        return _ton_stars_live_cache["rate"]
+
+    try:
+        async with httpx.AsyncClient(timeout=6) as client:
+            resp = await client.get(
+                "https://api.binance.com/api/v3/ticker/price",
+                params={"symbol": "TONUSDT"},
+            )
+            if resp.status_code == 200:
+                ton_usd = float(resp.json()["price"])
+                rate = ton_usd / _STAR_USD_PRICE
+                _ton_stars_live_cache["rate"] = rate
+                _ton_stars_live_cache["ts"] = now
+                return rate
+    except Exception as e:
+        print(f"[Leaderboard rate] Binance error: {e}")
+
+    return TON_TO_STARS_FALLBACK
 
 # Комиссия за вывод подарка в звездах
 WITHDRAW_FEE_STARS = 25
