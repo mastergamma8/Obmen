@@ -120,7 +120,17 @@ function buildPodium(top3, prizes, myTgId) {
             : 'https://via.placeholder.com/80';
 
         const prize = prizes ? prizes[String(place)] : null;
-        const prizeBadge = buildPrizeBadge(prize);
+        const lang = i18n[currentLang] || i18n['ru'];
+
+        // Приз с лейблом «Приз сезона»
+        let prizeSectionHtml = '';
+        if (prize) {
+            const prizeLabel = `<div class="flex items-center justify-center gap-0.5 text-[8px] font-semibold tracking-widest uppercase text-yellow-300/70 mt-1.5 mb-0.5">
+                <svg class="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+                ${lang.lb_prize_season || 'Приз сезона'}
+            </div>`;
+            prizeSectionHtml = prizeLabel + buildPrizeBadge(prize);
+        }
 
         const youBadge = me
             ? `<div class="text-[9px] font-bold text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider mt-0.5 text-center">Вы</div>`
@@ -183,9 +193,9 @@ function buildPodium(top3, prizes, myTgId) {
                 ${youBadge}
             </div>
             <!-- Расходы -->
-            <div class="text-[10px] text-white/50 mt-0.5 text-center leading-none">${spent}</div>
+            <div class="mt-1 text-center">${spent}</div>
             <!-- Приз -->
-            ${prizeBadge}
+            ${prizeSectionHtml}
             <!-- Подиум-колонна -->
             <div class="w-full mt-2 rounded-t-xl ${cfg.podiumH} bg-gradient-to-b ${cfg.podiumGrad}
                         flex items-center justify-center ${cfg.shadow}">
@@ -207,17 +217,52 @@ function buildPodium(top3, prizes, myTgId) {
             <div class="flex-1">${podiumSlot(p3, 3)}</div>
         </div>
         ${hasPrizes
-            ? `<div class="text-center text-[10px] text-white/35 mt-2.5 font-medium">🎁 Призы сезона раздаются автоматически каждый понедельник</div>`
+            ? `<div class="flex items-center justify-center gap-1 text-center text-[10px] text-white/35 mt-2.5 font-medium">
+                <svg class="w-3 h-3 shrink-0 text-yellow-400/60" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+                ${(i18n[currentLang] || i18n['ru']).lb_prize_auto || 'Призы раздаются автоматически каждый понедельник'}
+               </div>`
             : ''}
     </div>`;
 }
 
 // Компактный бейдж трат для строк подиума
 function buildSpendBadgeSmall(donuts, stars) {
-    const parts = [];
-    if (donuts > 0) parts.push(`${formatBalance(donuts)}🍩`);
-    if (stars  > 0) parts.push(`${formatBalance(stars)}⭐`);
-    return parts.join(' ') || '—';
+    const hasDonuts = donuts > 0;
+    const hasStars  = stars  > 0;
+    const lang = i18n[currentLang] || i18n['ru'];
+    const label = `<div class="text-[8px] text-white/35 font-semibold tracking-widest uppercase mb-0.5">${lang.lb_spent_label || 'Потрачено'}</div>`;
+
+    if (!hasDonuts && !hasStars) return '—';
+
+    if (hasDonuts && hasStars) {
+        return `<div class="flex flex-col items-center gap-0">
+            ${label}
+            <div class="flex items-center gap-0.5 whitespace-nowrap text-[10px] font-bold text-white/70">
+                <span>${formatBalance(donuts)}</span>
+                <img src="/gifts/dount.png" class="w-3 h-3 object-contain shrink-0">
+            </div>
+            <div class="flex items-center gap-0.5 whitespace-nowrap text-[10px] font-bold text-white/70">
+                <span>${formatBalance(stars)}</span>
+                <img src="/gifts/stars.png" class="w-3 h-3 object-contain shrink-0">
+            </div>
+        </div>`;
+    }
+    if (hasDonuts) {
+        return `<div class="flex flex-col items-center gap-0">
+            ${label}
+            <div class="flex items-center gap-0.5 whitespace-nowrap text-[10px] font-bold text-white/70">
+                <span>${formatBalance(donuts)}</span>
+                <img src="/gifts/dount.png" class="w-3 h-3 object-contain shrink-0">
+            </div>
+        </div>`;
+    }
+    return `<div class="flex flex-col items-center gap-0">
+        ${label}
+        <div class="flex items-center gap-0.5 whitespace-nowrap text-[10px] font-bold text-white/70">
+            <span>${formatBalance(stars)}</span>
+            <img src="/gifts/stars.png" class="w-3 h-3 object-contain shrink-0">
+        </div>
+    </div>`;
 }
 
 // ─── Стили для карточек 4-50 мест ───────────────────
@@ -334,7 +379,7 @@ async function loadRichLeaderboard(list, stickyRank) {
     // Разделитель
     list.innerHTML += `<div class="flex items-center gap-2 my-2 px-1">
         <div class="flex-1 h-px bg-white/10"></div>
-        <span class="text-white/25 text-[10px] font-semibold tracking-widest uppercase shrink-0">Остальные участники</span>
+        <span class="text-white/25 text-[10px] font-semibold tracking-widest uppercase shrink-0">${(i18n[currentLang] || i18n['ru']).lb_others_label || 'Остальные участники'}</span>
         <div class="flex-1 h-px bg-white/10"></div>
     </div>`;
 
@@ -362,10 +407,22 @@ async function loadRichLeaderboard(list, stickyRank) {
 }
 
 function buildSpendBadge(donutsSpent, starsSpent) {
-    let parts = [];
-    if (donutsSpent > 0) parts.push(`<div class="flex items-center gap-1 whitespace-nowrap">${formatBalance(donutsSpent)} <img src="/gifts/dount.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`);
-    if (starsSpent  > 0) parts.push(`<div class="flex items-center gap-1 whitespace-nowrap">${formatBalance(starsSpent)} <img src="/gifts/stars.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`);
-    return parts.length > 0 ? parts.join('<span class="text-white/30 px-0.5 shrink-0">+</span>') : `<div class="flex items-center gap-1 whitespace-nowrap">0 <img src="/gifts/dount.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
+    const hasDonuts = donutsSpent > 0;
+    const hasStars  = starsSpent  > 0;
+
+    if (!hasDonuts && !hasStars) {
+        return `<div class="flex items-center gap-1 whitespace-nowrap">0 <img src="/gifts/dount.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
+    }
+    if (hasDonuts && hasStars) {
+        return `<div class="flex flex-col items-end gap-0.5">
+            <div class="flex items-center gap-1 whitespace-nowrap">${formatBalance(donutsSpent)} <img src="/gifts/dount.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>
+            <div class="flex items-center gap-1 whitespace-nowrap">${formatBalance(starsSpent)} <img src="/gifts/stars.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>
+        </div>`;
+    }
+    if (hasDonuts) {
+        return `<div class="flex items-center gap-1 whitespace-nowrap">${formatBalance(donutsSpent)} <img src="/gifts/dount.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
+    }
+    return `<div class="flex items-center gap-1 whitespace-nowrap">${formatBalance(starsSpent)} <img src="/gifts/stars.png" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0"></div>`;
 }
 
 // ─── За всё время ────────────────────────────────────
@@ -391,7 +448,7 @@ async function loadAlltimeLeaderboard(list, stickyRank) {
 
     list.innerHTML += `<div class="flex items-center gap-2 my-2 px-1">
         <div class="flex-1 h-px bg-white/10"></div>
-        <span class="text-white/25 text-[10px] font-semibold tracking-widest uppercase shrink-0">Остальные участники</span>
+        <span class="text-white/25 text-[10px] font-semibold tracking-widest uppercase shrink-0">${(i18n[currentLang] || i18n['ru']).lb_others_label || 'Остальные участники'}</span>
         <div class="flex-1 h-px bg-white/10"></div>
     </div>`;
 
