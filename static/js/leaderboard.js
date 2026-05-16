@@ -67,37 +67,30 @@ async function loadLeaderboard() {
     }
 }
 
-// ─── HTML-иконка приза ───────────────────────────────
-function buildPrizeBadge(prize) {
+// ─── Иконка приза для компактного вида ────────────────
+function buildPrizeBadgeSmall(prize) {
     if (!prize) return '';
     const t = prize.type;
     const amount = prize.amount || 0;
     if (t === 'donuts') {
-        return `<div class="flex items-center justify-center gap-1 mt-1.5 text-[11px] font-bold text-yellow-200 bg-yellow-500/20 border border-yellow-500/30 rounded-lg px-2 py-0.5">
-            <img src="/gifts/dount.png" class="w-3.5 h-3.5 object-contain shrink-0">
-            <span>${formatBalance(amount)}</span>
+        return `<div class="flex items-center justify-center gap-1 mt-2 bg-gradient-to-r from-yellow-500/20 to-yellow-600/10 border border-yellow-500/30 text-yellow-300 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-md shadow-[0_0_10px_rgba(234,179,8,0.15)] w-max mx-auto">
+            <span class="mr-0.5 text-[10px]">🎁</span> ${formatBalance(amount)} <img src="/gifts/dount.png" class="w-2.5 h-2.5 object-contain">
         </div>`;
     }
     if (t === 'stars') {
-        return `<div class="flex items-center justify-center gap-1 mt-1.5 text-[11px] font-bold text-purple-200 bg-purple-500/20 border border-purple-500/30 rounded-lg px-2 py-0.5">
-            <img src="/gifts/stars.png" class="w-3.5 h-3.5 object-contain shrink-0">
-            <span>${formatBalance(amount)}</span>
+        return `<div class="flex items-center justify-center gap-1 mt-2 bg-gradient-to-r from-purple-500/20 to-purple-600/10 border border-purple-500/30 text-purple-200 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-md shadow-[0_0_10px_rgba(168,85,247,0.15)] w-max mx-auto">
+            <span class="mr-0.5 text-[10px]">🎁</span> ${formatBalance(amount)} <img src="/gifts/stars.png" class="w-2.5 h-2.5 object-contain">
         </div>`;
     }
     if ((t === 'base_gift' || t === 'tg_gift') && prize.gift_photo) {
-        const name = prize.gift_name
-            ? `<span class="text-white/70 text-[9px] leading-tight truncate max-w-[64px]">${escapeHtml(prize.gift_name)}</span>`
-            : '';
-        return `<div class="flex flex-col items-center gap-0.5 mt-1.5 bg-white/5 border border-white/10 rounded-lg px-1.5 py-1">
-            <img src="${escapeHtml(prize.gift_photo)}" class="w-6 h-6 object-contain rounded-md">
-            ${name}
+        return `<div class="flex items-center justify-center gap-1 mt-2 bg-white/10 border border-white/15 px-2 py-0.5 rounded-full backdrop-blur-md w-max mx-auto shadow-sm">
+            <span class="text-[10px] mr-0.5">🎁</span> <img src="${escapeHtml(prize.gift_photo)}" class="w-3.5 h-3.5 object-contain rounded-sm">
         </div>`;
     }
     return '';
 }
 
-// ─── 3D-подиум ────────────────────────────────────────
-// Порядок: 2-е (слева) | 1-е (центр, выше) | 3-е (справа)
+// ─── 3D-подиум (УЛУЧШЕННЫЙ ДИЗАЙН) ─────────────────────
 function buildPodium(top3, prizes, myTgId) {
     const empty = { first_name: '—', photo_url: '', username: '', donuts_spent: 0, stars_spent: 0 };
     const p1 = top3[0] || empty;
@@ -122,83 +115,76 @@ function buildPodium(top3, prizes, myTgId) {
         const prize = prizes ? prizes[String(place)] : null;
         const lang = i18n[currentLang] || i18n['ru'];
 
-        // Приз с лейблом «Приз сезона»
-        let prizeSectionHtml = '';
-        if (prize) {
-            const prizeLabel = `<div class="flex items-center justify-center gap-0.5 text-[8px] font-semibold tracking-widest uppercase text-yellow-300/70 mt-1.5 mb-0.5">
-                ${lang.lb_prize_season || 'Приз сезона'}
-            </div>`;
-            prizeSectionHtml = prizeLabel + buildPrizeBadge(prize);
-        }
+        // Компактный блок приза (без лишнего текста)
+        const prizeSectionHtml = prize ? buildPrizeBadgeSmall(prize) : '';
 
+        // Бейдж "Вы"
         const youBadge = me
-            ? `<div class="text-[9px] font-bold text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider mt-0.5 text-center">${lang.you || 'Вы'}</div>`
+            ? `<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] font-black text-white bg-blue-500 border border-blue-400/50 px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg z-20">${lang.you || 'Вы'}</div>`
             : '';
 
-        // Расход
+        // Расходы без текста, только красивые плашки
         const spent = buildSpendBadgeSmall(user.donuts_spent || 0, user.stars_spent || 0);
 
-        // Конфигурация по месту
+        // Индивидуальные стили для каждого места
         const cfg = {
             1: {
-                avatarSize: 'w-[68px] h-[68px]',
-                crown: '👑',
-                ring: 'border-yellow-400',
-                glow: 'bg-yellow-400',
-                podiumH: 'h-20',
-                podiumGrad: 'from-yellow-400 via-yellow-500 to-yellow-700',
+                avatarContainer: 'w-20 h-20 p-1 bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-700',
+                crown: '<div class="absolute -top-7 text-3xl drop-shadow-[0_0_15px_rgba(234,179,8,0.8)] z-20 animate-custom-bounce">👑</div>',
+                rankBadge: '<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-6 h-6 bg-gradient-to-br from-yellow-300 to-yellow-600 rounded-full flex items-center justify-center text-white font-black text-xs border-2 border-[#0f172a] shadow-[0_0_10px_rgba(234,179,8,0.6)] z-20">1</div>',
+                nameColor: 'text-yellow-100 drop-shadow-md',
                 nameSize: 'text-[13px]',
-                rankSize: 'text-2xl',
-                shadow: 'shadow-[0_0_24px_rgba(234,179,8,0.5)]',
+                glow: 'bg-yellow-500/40',
+                pedestal: 'h-[110px] bg-gradient-to-t from-yellow-500/20 to-transparent border-t border-yellow-500/40'
             },
             2: {
-                avatarSize: 'w-14 h-14',
-                crown: '🥈',
-                ring: 'border-gray-300',
-                glow: 'bg-gray-300',
-                podiumH: 'h-14',
-                podiumGrad: 'from-gray-300 via-gray-400 to-gray-600',
+                avatarContainer: 'w-[60px] h-[60px] p-[3px] bg-gradient-to-b from-gray-200 via-gray-400 to-gray-600',
+                crown: '<div class="absolute -top-5 text-xl drop-shadow-[0_0_10px_rgba(209,213,219,0.8)] z-20">🥈</div>',
+                rankBadge: '<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-gradient-to-br from-gray-300 to-gray-500 rounded-full flex items-center justify-center text-white font-black text-[10px] border-2 border-[#0f172a] shadow-[0_0_10px_rgba(209,213,219,0.5)] z-20">2</div>',
+                nameColor: 'text-gray-100',
                 nameSize: 'text-[11px]',
-                rankSize: 'text-xl',
-                shadow: 'shadow-[0_0_16px_rgba(209,213,219,0.4)]',
+                glow: 'bg-gray-400/30',
+                pedestal: 'h-[80px] bg-gradient-to-t from-gray-400/15 to-transparent border-t border-gray-400/30'
             },
             3: {
-                avatarSize: 'w-12 h-12',
-                crown: '🥉',
-                ring: 'border-orange-400',
-                glow: 'bg-orange-500',
-                podiumH: 'h-10',
-                podiumGrad: 'from-orange-400 via-orange-500 to-orange-700',
+                avatarContainer: 'w-[60px] h-[60px] p-[3px] bg-gradient-to-b from-orange-300 via-orange-500 to-orange-700',
+                crown: '<div class="absolute -top-5 text-xl drop-shadow-[0_0_10px_rgba(249,115,22,0.8)] z-20">🥉</div>',
+                rankBadge: '<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-black text-[10px] border-2 border-[#0f172a] shadow-[0_0_10px_rgba(249,115,22,0.5)] z-20">3</div>',
+                nameColor: 'text-orange-100',
                 nameSize: 'text-[11px]',
-                rankSize: 'text-xl',
-                shadow: 'shadow-[0_0_16px_rgba(249,115,22,0.4)]',
+                glow: 'bg-orange-500/30',
+                pedestal: 'h-[65px] bg-gradient-to-t from-orange-500/15 to-transparent border-t border-orange-500/30'
             },
         }[place];
 
         return `
-        <div class="flex flex-col items-center select-none">
-            <!-- Корона -->
-            <div class="text-xl mb-0.5">${cfg.crown}</div>
-            <!-- Аватар -->
-            <div class="relative mb-1.5">
-                <img src="${avatar}"
-                     class="${cfg.avatarSize} rounded-full object-cover border-[3px] ${cfg.ring} bg-black/50 ${cfg.shadow} relative z-10"
-                     onerror="this.src='https://via.placeholder.com/80'">
-                <div class="absolute inset-0 rounded-full blur-lg ${cfg.glow} opacity-40 -z-0 scale-125"></div>
+        <div class="flex flex-col items-center justify-end relative flex-1">
+            <div class="relative flex flex-col items-center w-full pb-2">
+                <!-- Корона -->
+                ${cfg.crown}
+
+                <!-- Аватар с градиентной обводкой -->
+                <div class="relative rounded-full ${cfg.avatarContainer} shadow-lg mb-2">
+                    <img src="${avatar}" class="w-full h-full rounded-full object-cover border-[2px] border-[#0f172a] relative z-10" onerror="this.src='https://via.placeholder.com/80'">
+                    ${me ? youBadge : cfg.rankBadge}
+                    <!-- Фоновое свечение -->
+                    <div class="absolute inset-0 rounded-full blur-xl ${cfg.glow} -z-10 scale-150"></div>
+                </div>
+
+                <!-- Информация (Имя, Траты, Приз) -->
+                <div class="flex flex-col items-center w-full px-1 z-10">
+                    <div class="font-black ${cfg.nameColor} ${cfg.nameSize} truncate w-full text-center tracking-tight max-w-[85px] mx-auto">${name}</div>
+                    ${spent}
+                    ${prizeSectionHtml}
+                </div>
             </div>
-            <!-- Имя -->
-            <div class="max-w-[80px] text-center">
-                <div class="font-bold text-white truncate ${cfg.nameSize}">${name}</div>
-                ${youBadge}
-            </div>
-            <!-- Расходы -->
-            <div class="mt-1 text-center">${spent}</div>
-            <!-- Приз -->
-            ${prizeSectionHtml}
-            <!-- Подиум-колонна -->
-            <div class="w-full mt-2 rounded-t-xl ${cfg.podiumH} bg-gradient-to-b ${cfg.podiumGrad}
-                        flex items-center justify-center ${cfg.shadow}">
-                <span class="font-black text-white/90 ${cfg.rankSize} drop-shadow">${place}</span>
+
+            <!-- Glassmorphism Пьедестал -->
+            <div class="w-full rounded-t-2xl ${cfg.pedestal} relative overflow-hidden backdrop-blur-md mt-1 shadow-[0_-5px_15px_rgba(0,0,0,0.2)]">
+                <!-- Блики на гранях -->
+                <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent"></div>
+                <div class="absolute top-0 left-0 right-0 h-px bg-white/20"></div>
+                <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-[2px] bg-white/40 blur-[2px]"></div>
             </div>
         </div>`;
     }
@@ -206,61 +192,46 @@ function buildPodium(top3, prizes, myTgId) {
     const hasPrizes = prizes && Object.keys(prizes).length > 0;
 
     return `
-    <div class="w-full mb-3 mt-1 px-1">
-        <div class="flex items-end justify-center gap-2 sm:gap-3">
-            <!-- 2-е место -->
-            <div class="flex-1">${podiumSlot(p2, 2)}</div>
-            <!-- 1-е место (центр, выше) -->
-            <div class="flex-1">${podiumSlot(p1, 1)}</div>
-            <!-- 3-е место -->
-            <div class="flex-1">${podiumSlot(p3, 3)}</div>
+    <div class="w-full mb-2 mt-6 px-1">
+        <div class="flex items-end justify-center gap-1.5 sm:gap-2">
+            ${podiumSlot(p2, 2)}
+            ${podiumSlot(p1, 1)}
+            ${podiumSlot(p3, 3)}
         </div>
         ${hasPrizes
-            ? `<div class="text-center text-[10px] text-white/35 mt-2.5 font-medium">
-                ${(i18n[currentLang] || i18n['ru']).lb_prize_auto || 'Призы раздаются автоматически каждый понедельник'}
+            ? `<div class="flex justify-center mt-3">
+                <div class="text-center text-[9px] text-white/50 font-medium bg-white/5 py-1 px-3 rounded-full border border-white/10 backdrop-blur-sm shadow-sm inline-flex items-center gap-1.5">
+                    <span class="opacity-80">🎁</span> ${(i18n[currentLang] || i18n['ru']).lb_prize_auto || 'Призы раздаются автоматически каждый понедельник'}
+                </div>
                </div>`
             : ''}
     </div>`;
 }
 
-// Компактный бейдж трат для строк подиума
+// Компактные плашки трат для подиума (без текстового ярлыка)
 function buildSpendBadgeSmall(donuts, stars) {
     const hasDonuts = donuts > 0;
     const hasStars  = stars  > 0;
-    const lang = i18n[currentLang] || i18n['ru'];
-    const label = `<div class="text-[8px] text-white/35 font-semibold tracking-widest uppercase mb-0.5">${lang.lb_spent_label || 'Потрачено'}</div>`;
 
-    if (!hasDonuts && !hasStars) return '—';
-
-    if (hasDonuts && hasStars) {
-        return `<div class="flex flex-col items-center gap-0">
-            ${label}
-            <div class="flex items-center gap-0.5 whitespace-nowrap text-[10px] font-bold text-white/70">
-                <span>${formatBalance(donuts)}</span>
-                <img src="/gifts/dount.png" class="w-3 h-3 object-contain shrink-0">
-            </div>
-            <div class="flex items-center gap-0.5 whitespace-nowrap text-[10px] font-bold text-white/70">
-                <span>${formatBalance(stars)}</span>
-                <img src="/gifts/stars.png" class="w-3 h-3 object-contain shrink-0">
-            </div>
-        </div>`;
+    if (!hasDonuts && !hasStars) {
+        return '<div class="text-[10px] text-white/30 font-medium mt-1">—</div>';
     }
+
+    let html = '<div class="flex flex-col items-center gap-1 mt-1.5 w-full px-1">';
     if (hasDonuts) {
-        return `<div class="flex flex-col items-center gap-0">
-            ${label}
-            <div class="flex items-center gap-0.5 whitespace-nowrap text-[10px] font-bold text-white/70">
-                <span>${formatBalance(donuts)}</span>
-                <img src="/gifts/dount.png" class="w-3 h-3 object-contain shrink-0">
-            </div>
+        html += `<div class="flex items-center justify-center gap-1 bg-[#020617]/60 w-full max-w-[65px] py-[3px] rounded-md border border-white/5 backdrop-blur-sm shadow-inner">
+            <span class="text-[10px] font-bold text-white/90 leading-none tracking-tight">${formatBalance(donuts)}</span>
+            <img src="/gifts/dount.png" class="w-3 h-3 object-contain shrink-0 drop-shadow-md">
         </div>`;
     }
-    return `<div class="flex flex-col items-center gap-0">
-        ${label}
-        <div class="flex items-center gap-0.5 whitespace-nowrap text-[10px] font-bold text-white/70">
-            <span>${formatBalance(stars)}</span>
-            <img src="/gifts/stars.png" class="w-3 h-3 object-contain shrink-0">
-        </div>
-    </div>`;
+    if (hasStars) {
+        html += `<div class="flex items-center justify-center gap-1 bg-[#020617]/60 w-full max-w-[65px] py-[3px] rounded-md border border-white/5 backdrop-blur-sm shadow-inner">
+            <span class="text-[10px] font-bold text-white/90 leading-none tracking-tight">${formatBalance(stars)}</span>
+            <img src="/gifts/stars.png" class="w-3 h-3 object-contain shrink-0 drop-shadow-md">
+        </div>`;
+    }
+    html += '</div>';
+    return html;
 }
 
 // ─── Стили для карточек 4-50 мест ───────────────────
@@ -268,7 +239,6 @@ function getRankStyle(index) {
     if (index === 0) return {
         card: 'border-yellow-400/50 bg-gradient-to-r from-yellow-500/30 via-yellow-500/10 to-transparent shadow-[0_0_20px_rgba(234,179,8,0.15)]',
         accent: '<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-yellow-300 to-yellow-600 shadow-[0_0_15px_rgba(234,179,8,1)]"></div>',
-        // Инлайн-стиль вместо Tailwind bg-clip-text (не работает в динамическом innerHTML)
         rankStyle: 'background: linear-gradient(to bottom, #fef08a, #eab308, #92400e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 10px rgba(234,179,8,0.9));',
         text: 'text-yellow-400',
         avatarBorder: 'border-yellow-400', glowColor: 'bg-yellow-500', rankNum: '1'
@@ -305,19 +275,15 @@ function buildCard(u, index, isMe, valueBadge) {
     const accentLine = s.accent || (isMe ? '<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-300 to-blue-600 shadow-[0_0_10px_rgba(96,165,250,0.8)]"></div>' : '');
     const avatarBorder = isMe && index > 2 ? 'border-blue-400' : s.avatarBorder;
     const activeGlowColor = isMe && index > 2 ? 'bg-blue-500' : s.glowColor;
-
     let rankDisplay;
     if (index < 3) {
-        // Используем инлайн-стиль для градиентного текста — Tailwind bg-clip-text
-        // не применяется к динамически вставляемому innerHTML
         rankDisplay = `<div class="w-8 sm:w-10 shrink-0 text-center text-2xl sm:text-3xl font-black italic tracking-tighter pr-1 sm:pr-2" style="${s.rankStyle}">${s.rankNum}</div>`;
     } else {
         rankDisplay = `<div class="w-8 sm:w-10 shrink-0 text-center text-base sm:text-lg ${s.text} pr-1 sm:pr-2">${s.rankNum}</div>`;
     }
-
     const badgeClass = isMe ? 'bg-blue-500/30 border-blue-400/50 text-blue-100' : 'bg-black/30 border-white/5 text-blue-300';
     return `
-        <div class="glass rounded-2xl p-2.5 sm:p-3 flex items-center justify-between relative overflow-hidden border ${cardClass} transition-all duration-300 hover:scale-[1.02] gap-2">
+        <div class="glass rounded-2xl p-2.5 sm:p-3 flex items-center justify-between relative overflow-hidden border ${cardClass} transition-all duration-300 hover:scale-[1.02] gap-2 mt-2">
             ${accentLine}
             <div class="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 flex-1 min-w-0">
                 ${rankDisplay}
@@ -345,10 +311,7 @@ function buildStickyRankHTML(rankText, avatar, name, badgeHtml, badgeTextColorCl
         <div class="glass rounded-2xl p-2.5 sm:p-3 flex items-center justify-between relative overflow-hidden border-blue-400/60 bg-gradient-to-r from-blue-600/30 via-blue-500/10 to-black/40 shadow-[0_0_25px_rgba(59,130,246,0.4)] backdrop-blur-3xl gap-2">
             <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-300 to-blue-600 shadow-[0_0_15px_rgba(96,165,250,1)]"></div>
             <div class="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 flex-1 min-w-0">
-                <div class="w-8 sm:w-10 shrink-0 text-center text-lg sm:text-xl font-black italic tracking-tighter pr-1 sm:pr-2"
-                     style="background: linear-gradient(to bottom, #bfdbfe, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 8px rgba(96,165,250,0.8));">
-                    ${rankText}
-                </div>
+                <div class="w-8 sm:w-10 shrink-0 text-center text-lg sm:text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-blue-100 to-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)] pr-1 sm:pr-2">${rankText}</div>
                 <div class="relative shrink-0">
                     <img src="${safeAvatar}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-blue-400 shadow-lg relative z-10 bg-black/50 shrink-0">
                     <div class="absolute inset-0 rounded-full blur-md bg-blue-500 opacity-60 z-0 scale-110"></div>
@@ -387,10 +350,10 @@ async function loadRichLeaderboard(list, stickyRank) {
     list.innerHTML = buildPodium(data.leaderboard.slice(0, 3), prizes, myTgId);
 
     // Разделитель
-    list.innerHTML += `<div class="flex items-center gap-2 my-2 px-1">
-        <div class="flex-1 h-px bg-white/10"></div>
-        <span class="text-white/25 text-[10px] font-semibold tracking-widest uppercase shrink-0">${(i18n[currentLang] || i18n['ru']).lb_others_label || 'Остальные участники'}</span>
-        <div class="flex-1 h-px bg-white/10"></div>
+    list.innerHTML += `<div class="flex items-center gap-2 mt-6 mb-2 px-1">
+        <div class="flex-1 h-px bg-gradient-to-r from-transparent to-white/20"></div>
+        <span class="text-white/30 text-[9px] font-bold tracking-widest uppercase shrink-0 px-1">${(i18n[currentLang] || i18n['ru']).lb_others_label || 'Остальные участники'}</span>
+        <div class="flex-1 h-px bg-gradient-to-l from-transparent to-white/20"></div>
     </div>`;
 
     // Карточки 4+
@@ -456,10 +419,10 @@ async function loadAlltimeLeaderboard(list, stickyRank) {
     // Для «за всё время» призов нет
     list.innerHTML = buildPodium(data.leaderboard.slice(0, 3), null, myTgId);
 
-    list.innerHTML += `<div class="flex items-center gap-2 my-2 px-1">
-        <div class="flex-1 h-px bg-white/10"></div>
-        <span class="text-white/25 text-[10px] font-semibold tracking-widest uppercase shrink-0">${(i18n[currentLang] || i18n['ru']).lb_others_label || 'Остальные участники'}</span>
-        <div class="flex-1 h-px bg-white/10"></div>
+    list.innerHTML += `<div class="flex items-center gap-2 mt-6 mb-2 px-1">
+        <div class="flex-1 h-px bg-gradient-to-r from-transparent to-white/20"></div>
+        <span class="text-white/30 text-[9px] font-bold tracking-widest uppercase shrink-0 px-1">${(i18n[currentLang] || i18n['ru']).lb_others_label || 'Остальные участники'}</span>
+        <div class="flex-1 h-px bg-gradient-to-l from-transparent to-white/20"></div>
     </div>`;
 
     let currentUserRankData = null;
