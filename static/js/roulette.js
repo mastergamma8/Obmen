@@ -86,8 +86,14 @@ function _rstripStartIdle() {
     const strip     = document.getElementById('roulette-strip');
     if (!container || !strip || !rouletteConfig.items) return;
 
+    // Страховка: если контейнер ещё скрыт (offsetWidth=0), повторим через 50 мс
+    const cx = container.offsetWidth / 2;
+    if (cx === 0) {
+        setTimeout(_rstripStartIdle, 50);
+        return;
+    }
+
     const items     = rouletteConfig.items;
-    const cx        = container.offsetWidth / 2;
     const loopWidth = items.length * RSTRIP_ITEM_W;  // один «оборот» в пикселях
 
     // Граница заворота: когда X уходит левее, чем лап 15 от центра — возвращаем на loopWidth вперёд
@@ -257,14 +263,16 @@ async function openRoulette() {
     switchTab('roulette');
     syncDemoToggles();
 
-    // Останавливаем предыдущий idle (если был), затем ждём один кадр,
-    // чтобы браузер применил layout и container.offsetWidth стал реальным
-    // (при init рендер шёл в скрытый элемент с offsetWidth=0).
     _rstripStopIdle();
-    requestAnimationFrame(() => {
-        renderRouletteStrip();   // всегда заново — с корректной шириной контейнера
-        _rstripStartIdle();      // медленный предпросмотр стартует сразу
-    });
+
+    // Принудительно читаем offsetWidth сразу после switchTab — это заставляет
+    // браузер синхронно вычислить layout (reflow), поэтому container.offsetWidth
+    // уже будет реальным значением, а не нулём из скрытого состояния.
+    const _ctr = document.getElementById('roulette-strip-container');
+    if (_ctr) void _ctr.offsetWidth;
+
+    renderRouletteStrip();
+    _rstripStartIdle();
 
     await fetchRouletteInfo();
 }
