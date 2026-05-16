@@ -257,14 +257,14 @@ async function openRoulette() {
     switchTab('roulette');
     syncDemoToggles();
 
-    // Строим ленту один раз; при повторном открытии просто возобновляем idle
-    const strip = document.getElementById('roulette-strip');
-    if (strip && !strip.hasChildNodes()) {
-        renderRouletteStrip();
-    }
-
-    // Запускаем медленный предпросмотр
-    _rstripStartIdle();
+    // Останавливаем предыдущий idle (если был), затем ждём один кадр,
+    // чтобы браузер применил layout и container.offsetWidth стал реальным
+    // (при init рендер шёл в скрытый элемент с offsetWidth=0).
+    _rstripStopIdle();
+    requestAnimationFrame(() => {
+        renderRouletteStrip();   // всегда заново — с корректной шириной контейнера
+        _rstripStartIdle();      // медленный предпросмотр стартует сразу
+    });
 
     await fetchRouletteInfo();
 }
