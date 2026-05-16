@@ -1,15 +1,23 @@
 // =====================================================
-// РУЛЕТКА — ГОРИЗОНТАЛЬНАЯ ЛЕНТА v2
+// РУЛЕТКА — ГОРИЗОНТАЛЬНАЯ ЛЕНТА v3
 // =====================================================
 
-// ── Константы анимации ────────────────────────────────────────────────────────
-const RSTRIP_ITEM_W    = 80;   // ширина одного слота (px) = 72px предмет + 4px margin с каждой стороны
-const RSTRIP_REPEAT    = 20;   // сколько раз повторяем массив items в ленте
-const RSTRIP_LAPS      = 8;    // полных оборотов до победителя
-const RSTRIP_START_LAP = 2;    // с какого «оборота» начинается каждая анимация
-const RSTRIP_DURATION  = 6200; // длительность анимации, мс
+// ── Константы анимации спина ──────────────────────────────────────────────────
+const RSTRIP_ITEM_W    = 80;    // ширина одного слота (px): 72px предмет + 4px margin с каждой стороны
+const RSTRIP_REPEAT    = 20;    // сколько раз повторяем массив items в ленте
+const RSTRIP_LAPS      = 8;     // полных оборотов до победителя
+const RSTRIP_START_LAP = 2;     // с какого «оборота» начинается каждая анимация
+const RSTRIP_DURATION  = 6200;  // длительность анимации спина, мс
 
-// ── Вспомогательная функция: получить картинку и подпись элемента ─────────────
+// ── Константы холостого прокрута ──────────────────────────────────────────────
+const RSTRIP_IDLE_SPEED = 45;   // px/s — медленная прокрутка для предпросмотра призов
+
+// ── Состояние холостого прокрута ──────────────────────────────────────────────
+let _rstripIdleFrame    = null;
+let _rstripIdleLastTime = 0;
+let _rstripIdleX        = 0;    // текущий translateX во время idle
+
+// ── Вспомогательная функция: картинка и подпись элемента ─────────────────────
 function _rstripItemMeta(item) {
     let photoSrc = 'https://via.placeholder.com/48';
     let label    = '';
@@ -18,7 +26,7 @@ function _rstripItemMeta(item) {
         if (def) { photoSrc = getImgSrc(def.photo); label = def.name; }
     } else if (item.type === 'stars') {
         photoSrc = getImgSrc(item.photo || '/gifts/stars.png');
-        label = `+${item.amount}⭐`;
+        label = `+${item.amount}`;          // без ⭐ — иконка уже на картинке
     } else if (item.type === 'donuts') {
         photoSrc = getImgSrc(item.photo || '/gifts/dount.png');
         label = `+${item.amount}`;
@@ -26,7 +34,7 @@ function _rstripItemMeta(item) {
     return { photoSrc, label };
 }
 
-// ── Рендер ленты (вызывается один раз при открытии страницы) ──────────────────
+// ── Рендер ленты (вызывается один раз при открытии) ──────────────────────────
 function renderRouletteStrip() {
     const strip = document.getElementById('roulette-strip');
     if (!strip || !rouletteConfig.items) return;
@@ -62,11 +70,74 @@ function renderRouletteStrip() {
 
     strip.innerHTML = html;
 
-    // Начальная позиция: элемент (START_LAP * items.length) по центру контейнера
-    _rstripJumpTo(RSTRIP_START_LAP * items.length);
+    // Начальная позиция для idle-прокрута: элемент 0 лапа START_LAP по центру
+    const container = document.getElementById('roulette-strip-container');
+    const cx        = container ? container.offsetWidth / 2 : 200;
+    _rstripIdleX    = cx - RSTRIP_START_LAP * items.length * RSTRIP_ITEM_W - RSTRIP_ITEM_W / 2;
+    strip.style.transition = 'none';
+    strip.style.transform  = `translateX(${_rstripIdleX}px)`;
 }
 
-// ── Мгновенный перенос ленты на нужный абсолютный индекс (без анимации) ───────
+// ── Холостой прокрут: старт ───────────────────────────────────────────────────
+function _rstripStartIdle() {
+    if (_rstripIdleFrame) return;   // уже запущен
+
+    const container = document.getElementById('roulette-strip-container');
+    const strip     = document.getElementById('roulette-strip');
+    if (!container || !strip || !rouletteConfig.items) return;
+
+    const items     = rouletteConfig.items;
+    const cx        = container.offsetWidth / 2;
+    const loopWidth = items.length * RSTRIP_ITEM_W;  // один «оборот» в пикселях
+
+    // Граница заворота: когда X уходит левее, чем лап 15 от центра — возвращаем на loopWidth вперёд
+    const wrapThreshold = cx - 15 * loopWidth - RSTRIP_ITEM_W / 2;
+
+    // Берём текущую позицию из трансформации, чтобы idle продолжил с того места
+    const match  = strip.style.transform.match(/translateX\(([-\d.]+)px\)/);
+    _rstripIdleX = match ? parseFloat(match[1]) : _rstripIdleX;
+    _rstripIdleLastTime = performance.now();
+
+    function frame(now) {
+        const dt = Math.min(now - _rstripIdleLastTime, 50); // cap 50ms для табов в фоне
+        _rstripIdleLastTime = now;
+
+        _rstripIdleX -= RSTRIP_IDLE_SPEED * dt / 1000;
+
+        // Бесшовный заворот: сдвигаем на один полный оборот назад (то же визуально)
+        if (_rstripIdleX < wrapThreshold) {
+            _rstripIdleX += loopWidth;
+        }
+
+        strip.style.transform = `translateX(${_rstripIdleX}px)`;
+        _rstripIdleFrame = requestAnimationFrame(frame);
+    }
+
+    _rstripIdleFrame = requestAnimationFrame(frame);
+}
+
+// ── Холостой прокрут: стоп ────────────────────────────────────────────────────
+function _rstripStopIdle() {
+    if (_rstripIdleFrame) {
+        cancelAnimationFrame(_rstripIdleFrame);
+        _rstripIdleFrame = null;
+    }
+}
+
+// ── Ждать закрытия модалки, затем выполнить callback ─────────────────────────
+function _onModalClose(modalId, cb) {
+    const el = document.getElementById(modalId);
+    if (!el) { setTimeout(cb, 500); return; }
+    const obs = new MutationObserver(() => {
+        if (el.classList.contains('hidden')) {
+            obs.disconnect();
+            cb();
+        }
+    });
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+}
+
+// ── Мгновенный перенос ленты (без анимации) ───────────────────────────────────
 function _rstripJumpTo(absIdx) {
     const container = document.getElementById('roulette-strip-container');
     const strip     = document.getElementById('roulette-strip');
@@ -77,7 +148,7 @@ function _rstripJumpTo(absIdx) {
     strip.style.transform  = `translateX(${x}px)`;
 }
 
-// ── Анимация прокрутки к победителю ──────────────────────────────────────────
+// ── Анимация спина к победителю ───────────────────────────────────────────────
 function animateRouletteStrip(winIndex, callback) {
     const container = document.getElementById('roulette-strip-container');
     const strip     = document.getElementById('roulette-strip');
@@ -86,7 +157,7 @@ function animateRouletteStrip(winIndex, callback) {
     const items  = rouletteConfig.items;
     const cx     = container.offsetWidth / 2;
 
-    // Стартовая позиция (мгновенно переставляем, затем force-reflow)
+    // Стартовая позиция (фиксированная, мгновенный прыжок)
     const startAbsIdx = RSTRIP_START_LAP * items.length;
     const startX      = cx - (startAbsIdx * RSTRIP_ITEM_W + RSTRIP_ITEM_W / 2);
 
@@ -96,10 +167,10 @@ function animateRouletteStrip(winIndex, callback) {
 
     strip.style.transition = 'none';
     strip.style.transform  = `translateX(${startX}px)`;
-    strip.offsetWidth;                                    // force reflow
+    strip.offsetWidth;                  // force reflow
 
-    const startTime  = performance.now();
-    let   lastSlot   = Math.floor((cx - startX) / RSTRIP_ITEM_W);
+    const startTime = performance.now();
+    let   lastSlot  = Math.floor((cx - startX) / RSTRIP_ITEM_W);
 
     function easeOutQuint(t) { return 1 - Math.pow(1 - t, 5); }
 
@@ -123,6 +194,9 @@ function animateRouletteStrip(winIndex, callback) {
         if (progress < 1) {
             requestAnimationFrame(step);
         } else {
+            // Запоминаем финальный X для idle, чтобы он продолжил с этой позиции
+            _rstripIdleX = targetX;
+
             // Подсветка победного элемента
             const winEl = strip.querySelector(
                 `[data-lap="${RSTRIP_START_LAP + RSTRIP_LAPS}"][data-idx="${winIndex}"]`
@@ -183,9 +257,14 @@ async function openRoulette() {
     switchTab('roulette');
     syncDemoToggles();
 
-    // Строим ленту один раз; повторно не перестраиваем, если она уже есть
+    // Строим ленту один раз; при повторном открытии просто возобновляем idle
     const strip = document.getElementById('roulette-strip');
-    if (strip && !strip.hasChildNodes()) renderRouletteStrip();
+    if (strip && !strip.hasChildNodes()) {
+        renderRouletteStrip();
+    }
+
+    // Запускаем медленный предпросмотр
+    _rstripStartIdle();
 
     await fetchRouletteInfo();
 }
@@ -197,15 +276,21 @@ async function spinRoulette() {
     const btn = document.getElementById('btn-spin');
     btn.disabled = true;
 
+    // Останавливаем idle перед спином
+    _rstripStopIdle();
+
     // ── Демо-режим ────────────────────────────────────────────────────────────
     if (isDemoMode) {
         rouletteSpinning = true;
-        renderRouletteStrip();                                       // свежая лента
+        renderRouletteStrip();
         const demoIndex = Math.floor(Math.random() * rouletteConfig.items.length);
+
         animateRouletteStrip(demoIndex, () => {
             rouletteSpinning = false;
             showRouletteResultModal(rouletteConfig.items[demoIndex], true);
             fetchRouletteInfo();
+            // Возобновляем idle после закрытия модалки
+            _onModalClose('roulette-result-modal', _rstripStartIdle);
         });
         return;
     }
@@ -221,16 +306,18 @@ async function spinRoulette() {
 
         if (typeof handleNotSubscribed === 'function' && handleNotSubscribed(data)) {
             btn.disabled = false;
+            _rstripStartIdle();   // спин не состоялся — возобновляем idle
             return;
         }
         if (data.status !== 'ok') {
             showNotify(data.detail || 'Error!', 'error');
             btn.disabled = false;
+            _rstripStartIdle();
             return;
         }
 
         rouletteSpinning = true;
-        renderRouletteStrip();                                       // чистая лента перед спином
+        renderRouletteStrip();    // чистая лента перед анимацией спина
 
         animateRouletteStrip(data.win_index, () => {
             rouletteSpinning = false;
@@ -240,10 +327,13 @@ async function spinRoulette() {
             updateUI();
             showRouletteResultModal(data.win_item);
             fetchRouletteInfo();
+            // После закрытия модалки («Забрать приз») — снова медленный прокрут
+            _onModalClose('roulette-result-modal', _rstripStartIdle);
         });
     } catch (e) {
         showNotify(i18n[currentLang].err_conn, 'error');
         btn.disabled = false;
+        _rstripStartIdle();
     }
 }
 
@@ -265,8 +355,8 @@ function showRouletteResultModal(item, isDemo = false) {
         text = `+${item.amount} ${i18n[currentLang].donuts_text || 'пончиков!'}`;
     }
 
-    document.getElementById('rr-photo').src         = photoSrc;
-    document.getElementById('rr-text').innerHTML    = text;
+    document.getElementById('rr-photo').src      = photoSrc;
+    document.getElementById('rr-text').innerHTML = text;
 
     if (typeof configureCaseGiftActionsIfNeeded === 'function') {
         if (isGift) {
@@ -295,7 +385,6 @@ window.spinRoulette        = spinRoulette;
 window.fetchRouletteInfo   = fetchRouletteInfo;
 
 // ── Блокировка горизонтального свайпа на странице рулетки ─────────────────────
-// (оставлена, так как таб-навигация работает через горизонтальный свайп)
 (function blockHorizontalSwipe() {
     function attach() {
         const page = document.getElementById('page-roulette');
