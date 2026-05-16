@@ -32,10 +32,22 @@ function switchTab(tabId) {
 }
 
 function onTabSwitch(tabId) {
+    // Останавливаем холостой прокрут рулетки при уходе с вкладки
+    if (tabId !== 'roulette' && typeof window._rstripStopIdle === 'function') {
+        window._rstripStopIdle();
+    }
+
     if (tabId === 'leaderboard' && typeof loadLeaderboard === 'function') loadLeaderboard();
     if (tabId === 'earn' && typeof loadEarnData === 'function') loadEarnData();
-    if (tabId === 'roulette' && typeof fetchRouletteInfo === 'function') fetchRouletteInfo();
     if (tabId === 'shop' && typeof initShopPage === 'function') initShopPage();
+
+    if (tabId === 'roulette') {
+        if (typeof fetchRouletteInfo === 'function') fetchRouletteInfo();
+        // Перерисовываем ленту с правильными размерами (контейнер уже виден)
+        // и запускаем холостой прокрут, если он ещё не идёт
+        if (typeof renderRouletteStrip === 'function') renderRouletteStrip();
+        if (typeof window._rstripStartIdle === 'function') window._rstripStartIdle();
+    }
 }
 
 window.switchTab = switchTab;
