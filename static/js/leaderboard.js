@@ -131,52 +131,47 @@ function buildPodium(top3, prizes, myTgId) {
             prizeSectionHtml = prizeLabel + buildPrizeBadge(prize);
         }
 
-        // «Вы» — абсолютно позиционирован внизу аватара, как и rankBadge
         const youBadge = me
-            ? `<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-[8px] font-black text-white bg-blue-500 border border-blue-400/50 px-2 py-0.5 rounded-full uppercase tracking-widest z-20 whitespace-nowrap shadow-lg">${lang.you || 'Вы'}</div>`
+            ? `<div class="text-[9px] font-bold text-blue-200 bg-blue-500/40 border border-blue-400/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider mt-0.5 text-center">${lang.you || 'Вы'}</div>`
             : '';
 
         // Расход
         const spent = buildSpendBadgeSmall(user.donuts_spent || 0, user.stars_spent || 0);
 
-        // Конфигурация по месту — без динамических Tailwind-классов градиента
-        // (JIT/PurgeCSS не видит классы собранные в runtime, поэтому градиент через style=)
+        // Конфигурация по месту
         const cfg = {
             1: {
-                avatarSize:   'w-[68px] h-[68px]',
-                crown:        '👑',
-                ring:         'border-yellow-400',
-                glow:         'bg-yellow-400',
-                nameSize:     'text-[13px]',
-                podiumHeight: '80px',
-                podiumStyle:  'background: linear-gradient(to bottom, #fde047, #eab308, #a16207);',
-                podiumBorder: 'border-t border-yellow-400/60',
-                podiumShadow: '0 0 24px rgba(234,179,8,0.5)',
-                rankBadge:    `<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center text-white font-black text-xs border-2 border-[#0f172a] z-20" style="background:linear-gradient(135deg,#fde047,#ca8a04);box-shadow:0 0 10px rgba(234,179,8,0.7)">1</div>`,
+                avatarSize: 'w-[68px] h-[68px]',
+                crown: '👑',
+                ring: 'border-yellow-400',
+                glow: 'bg-yellow-400',
+                podiumH: 'h-20',
+                podiumGrad: 'from-yellow-400 via-yellow-500 to-yellow-700',
+                nameSize: 'text-[13px]',
+                rankSize: 'text-2xl',
+                shadow: 'shadow-[0_0_24px_rgba(234,179,8,0.5)]',
             },
             2: {
-                avatarSize:   'w-14 h-14',
-                crown:        '🥈',
-                ring:         'border-gray-300',
-                glow:         'bg-gray-300',
-                nameSize:     'text-[11px]',
-                podiumHeight: '56px',
-                podiumStyle:  'background: linear-gradient(to bottom, #e5e7eb, #9ca3af, #4b5563);',
-                podiumBorder: 'border-t border-gray-300/50',
-                podiumShadow: '0 0 16px rgba(209,213,219,0.4)',
-                rankBadge:    `<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center text-white font-black text-[10px] border-2 border-[#0f172a] z-20" style="background:linear-gradient(135deg,#d1d5db,#6b7280);box-shadow:0 0 8px rgba(209,213,219,0.6)">2</div>`,
+                avatarSize: 'w-14 h-14',
+                crown: '🥈',
+                ring: 'border-gray-300',
+                glow: 'bg-gray-300',
+                podiumH: 'h-14',
+                podiumGrad: 'from-gray-300 via-gray-400 to-gray-600',
+                nameSize: 'text-[11px]',
+                rankSize: 'text-xl',
+                shadow: 'shadow-[0_0_16px_rgba(209,213,219,0.4)]',
             },
             3: {
-                avatarSize:   'w-12 h-12',
-                crown:        '🥉',
-                ring:         'border-orange-400',
-                glow:         'bg-orange-500',
-                nameSize:     'text-[11px]',
-                podiumHeight: '40px',
-                podiumStyle:  'background: linear-gradient(to bottom, #fb923c, #f97316, #c2410c);',
-                podiumBorder: 'border-t border-orange-400/50',
-                podiumShadow: '0 0 16px rgba(249,115,22,0.4)',
-                rankBadge:    `<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center text-white font-black text-[10px] border-2 border-[#0f172a] z-20" style="background:linear-gradient(135deg,#fdba74,#ea580c);box-shadow:0 0 8px rgba(249,115,22,0.6)">3</div>`,
+                avatarSize: 'w-12 h-12',
+                crown: '🥉',
+                ring: 'border-orange-400',
+                glow: 'bg-orange-500',
+                podiumH: 'h-10',
+                podiumGrad: 'from-orange-400 via-orange-500 to-orange-700',
+                nameSize: 'text-[11px]',
+                rankSize: 'text-xl',
+                shadow: 'shadow-[0_0_16px_rgba(249,115,22,0.4)]',
             },
         }[place];
 
@@ -184,28 +179,26 @@ function buildPodium(top3, prizes, myTgId) {
         <div class="flex flex-col items-center select-none">
             <!-- Корона -->
             <div class="text-xl mb-0.5">${cfg.crown}</div>
-            <!-- Аватар с круглым значком места (как в старом проекте) -->
+            <!-- Аватар -->
             <div class="relative mb-1.5">
                 <img src="${avatar}"
-                     class="${cfg.avatarSize} rounded-full object-cover border-[3px] ${cfg.ring} bg-black/50 relative z-10"
-                     style="box-shadow:${cfg.podiumShadow}"
+                     class="${cfg.avatarSize} rounded-full object-cover border-[3px] ${cfg.ring} bg-black/50 ${cfg.shadow} relative z-10"
                      onerror="this.src='https://via.placeholder.com/80'">
                 <div class="absolute inset-0 rounded-full blur-lg ${cfg.glow} opacity-40 -z-0 scale-125"></div>
-                <!-- Цветной значок с номером места -->
-                ${me ? youBadge : cfg.rankBadge}
             </div>
             <!-- Имя -->
             <div class="max-w-[80px] text-center">
                 <div class="font-bold text-white truncate ${cfg.nameSize}">${name}</div>
+                ${youBadge}
             </div>
             <!-- Расходы -->
             <div class="mt-1 text-center">${spent}</div>
             <!-- Приз -->
             ${prizeSectionHtml}
-            <!-- Подиум-колонна: inline-style градиент + цифра (без динамических Tailwind-классов) -->
-            <div class="w-full mt-2 rounded-t-xl ${cfg.podiumBorder} flex items-center justify-center"
-                 style="${cfg.podiumStyle} height:${cfg.podiumHeight}; box-shadow:${cfg.podiumShadow};">
-                <span class="font-black text-white/90 drop-shadow text-2xl">${place}</span>
+            <!-- Подиум-колонна -->
+            <div class="w-full mt-2 rounded-t-xl ${cfg.podiumH} bg-gradient-to-b ${cfg.podiumGrad}
+                        flex items-center justify-center ${cfg.shadow}">
+                <span class="font-black text-white/90 ${cfg.rankSize} drop-shadow">${place}</span>
             </div>
         </div>`;
     }
@@ -275,23 +268,28 @@ function getRankStyle(index) {
     if (index === 0) return {
         card: 'border-yellow-400/50 bg-gradient-to-r from-yellow-500/30 via-yellow-500/10 to-transparent shadow-[0_0_20px_rgba(234,179,8,0.15)]',
         accent: '<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-yellow-300 to-yellow-600 shadow-[0_0_15px_rgba(234,179,8,1)]"></div>',
-        text: 'text-transparent bg-clip-text bg-gradient-to-b from-yellow-100 via-yellow-400 to-yellow-600 drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]',
+        // Инлайн-стиль вместо Tailwind bg-clip-text (не работает в динамическом innerHTML)
+        rankStyle: 'background: linear-gradient(to bottom, #fef08a, #eab308, #92400e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 10px rgba(234,179,8,0.9));',
+        text: 'text-yellow-400',
         avatarBorder: 'border-yellow-400', glowColor: 'bg-yellow-500', rankNum: '1'
     };
     if (index === 1) return {
         card: 'border-gray-300/50 bg-gradient-to-r from-gray-400/30 via-gray-400/10 to-transparent shadow-[0_0_20px_rgba(209,213,219,0.15)]',
         accent: '<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-gray-100 to-gray-400 shadow-[0_0_15px_rgba(209,213,219,1)]"></div>',
-        text: 'text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-300 to-gray-500 drop-shadow-[0_0_12px_rgba(209,213,219,0.8)]',
+        rankStyle: 'background: linear-gradient(to bottom, #f9fafb, #9ca3af, #4b5563); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 10px rgba(209,213,219,0.9));',
+        text: 'text-gray-300',
         avatarBorder: 'border-gray-300', glowColor: 'bg-gray-300', rankNum: '2'
     };
     if (index === 2) return {
         card: 'border-orange-500/50 bg-gradient-to-r from-orange-500/30 via-orange-500/10 to-transparent shadow-[0_0_20px_rgba(249,115,22,0.15)]',
         accent: '<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-orange-300 to-orange-600 shadow-[0_0_15px_rgba(249,115,22,1)]"></div>',
-        text: 'text-transparent bg-clip-text bg-gradient-to-b from-orange-100 via-orange-400 to-orange-600 drop-shadow-[0_0_12px_rgba(249,115,22,0.8)]',
+        rankStyle: 'background: linear-gradient(to bottom, #fed7aa, #f97316, #c2410c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 10px rgba(249,115,22,0.9));',
+        text: 'text-orange-400',
         avatarBorder: 'border-orange-400', glowColor: 'bg-orange-500', rankNum: '3'
     };
     return {
         card: '', accent: '',
+        rankStyle: '',
         text: 'text-white/50 font-medium',
         avatarBorder: 'border-white/10', glowColor: '',
         rankNum: (index + 1).toString()
@@ -307,12 +305,16 @@ function buildCard(u, index, isMe, valueBadge) {
     const accentLine = s.accent || (isMe ? '<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-300 to-blue-600 shadow-[0_0_10px_rgba(96,165,250,0.8)]"></div>' : '');
     const avatarBorder = isMe && index > 2 ? 'border-blue-400' : s.avatarBorder;
     const activeGlowColor = isMe && index > 2 ? 'bg-blue-500' : s.glowColor;
+
     let rankDisplay;
     if (index < 3) {
-        rankDisplay = `<div class="w-8 sm:w-10 shrink-0 text-center text-2xl sm:text-3xl font-black italic tracking-tighter ${s.text} pr-1 sm:pr-2">${s.rankNum}</div>`;
+        // Используем инлайн-стиль для градиентного текста — Tailwind bg-clip-text
+        // не применяется к динамически вставляемому innerHTML
+        rankDisplay = `<div class="w-8 sm:w-10 shrink-0 text-center text-2xl sm:text-3xl font-black italic tracking-tighter pr-1 sm:pr-2" style="${s.rankStyle}">${s.rankNum}</div>`;
     } else {
         rankDisplay = `<div class="w-8 sm:w-10 shrink-0 text-center text-base sm:text-lg ${s.text} pr-1 sm:pr-2">${s.rankNum}</div>`;
     }
+
     const badgeClass = isMe ? 'bg-blue-500/30 border-blue-400/50 text-blue-100' : 'bg-black/30 border-white/5 text-blue-300';
     return `
         <div class="glass rounded-2xl p-2.5 sm:p-3 flex items-center justify-between relative overflow-hidden border ${cardClass} transition-all duration-300 hover:scale-[1.02] gap-2">
@@ -343,7 +345,10 @@ function buildStickyRankHTML(rankText, avatar, name, badgeHtml, badgeTextColorCl
         <div class="glass rounded-2xl p-2.5 sm:p-3 flex items-center justify-between relative overflow-hidden border-blue-400/60 bg-gradient-to-r from-blue-600/30 via-blue-500/10 to-black/40 shadow-[0_0_25px_rgba(59,130,246,0.4)] backdrop-blur-3xl gap-2">
             <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-300 to-blue-600 shadow-[0_0_15px_rgba(96,165,250,1)]"></div>
             <div class="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 flex-1 min-w-0">
-                <div class="w-8 sm:w-10 shrink-0 text-center text-lg sm:text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-blue-100 to-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)] pr-1 sm:pr-2">${rankText}</div>
+                <div class="w-8 sm:w-10 shrink-0 text-center text-lg sm:text-xl font-black italic tracking-tighter pr-1 sm:pr-2"
+                     style="background: linear-gradient(to bottom, #bfdbfe, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 8px rgba(96,165,250,0.8));">
+                    ${rankText}
+                </div>
                 <div class="relative shrink-0">
                     <img src="${safeAvatar}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-blue-400 shadow-lg relative z-10 bg-black/50 shrink-0">
                     <div class="absolute inset-0 rounded-full blur-md bg-blue-500 opacity-60 z-0 scale-110"></div>
