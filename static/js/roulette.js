@@ -391,6 +391,8 @@ window.renderRouletteStrip = renderRouletteStrip;
 window.openRoulette        = openRoulette;
 window.spinRoulette        = spinRoulette;
 window.fetchRouletteInfo   = fetchRouletteInfo;
+window._rstripStartIdle    = _rstripStartIdle;
+window._rstripStopIdle     = _rstripStopIdle;
 
 // ── Блокировка горизонтального свайпа на странице рулетки ─────────────────────
 (function blockHorizontalSwipe() {
