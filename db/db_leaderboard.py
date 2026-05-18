@@ -147,23 +147,26 @@ async def get_user_rich_rank(tg_id: int) -> dict:
             user_normalized = donuts_spent * rate + stars_spent
 
         # Количество пользователей с бо́льшим нормализованным расходом
+        # HAVING по алиасу не работает в PostgreSQL — оборачиваем в подзапрос
         async with db.execute(f"""
             SELECT COUNT(*) AS cnt FROM (
-                SELECT u.tg_id,
-                       COALESCE(ABS(SUM(CASE WHEN h.action_type NOT IN ({_star_types_placeholder})
-                                   THEN h.amount ELSE 0 END)), 0) * ? +
-                       COALESCE(ABS(SUM(CASE WHEN h.action_type IN ({_star_types_placeholder})
-                                   THEN h.amount ELSE 0 END)), 0) AS ts_normalized
-                FROM users u
-                LEFT JOIN user_history h
-                    ON  h.user_id     = u.tg_id
-                    AND h.created_at  >= ?
-                    AND h.amount      < 0
-                    AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
-                WHERE u.tg_id != ?
-                GROUP BY u.tg_id
-                HAVING ts_normalized > ?
-            )
+                SELECT ts_normalized FROM (
+                    SELECT
+                           COALESCE(ABS(SUM(CASE WHEN h.action_type NOT IN ({_star_types_placeholder})
+                                       THEN h.amount ELSE 0 END)), 0) * ? +
+                           COALESCE(ABS(SUM(CASE WHEN h.action_type IN ({_star_types_placeholder})
+                                       THEN h.amount ELSE 0 END)), 0) AS ts_normalized
+                    FROM users u
+                    LEFT JOIN user_history h
+                        ON  h.user_id     = u.tg_id
+                        AND h.created_at  >= ?
+                        AND h.amount      < 0
+                        AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
+                    WHERE u.tg_id != ?
+                    GROUP BY u.tg_id
+                ) sub
+                WHERE ts_normalized > ?
+            ) ranked
         """, (*star_types_list, rate, *star_types_list, week_start, *_SPEND_ACTION_TYPES,
               tg_id, user_normalized)) as cursor:
             cnt_row = await cursor.fetchone()
@@ -299,22 +302,25 @@ async def get_user_alltime_rank(tg_id: int) -> dict:
             user_normalized = donuts_spent * rate + stars_spent
 
         # Количество пользователей с бо́льшим нормализованным расходом
+        # HAVING по алиасу не работает в PostgreSQL — оборачиваем в подзапрос
         async with db.execute(f"""
             SELECT COUNT(*) AS cnt FROM (
-                SELECT u.tg_id,
-                       COALESCE(ABS(SUM(CASE WHEN h.action_type NOT IN ({_star_types_placeholder})
-                                   THEN h.amount ELSE 0 END)), 0) * ? +
-                       COALESCE(ABS(SUM(CASE WHEN h.action_type IN ({_star_types_placeholder})
-                                   THEN h.amount ELSE 0 END)), 0) AS ts_normalized
-                FROM users u
-                LEFT JOIN user_history h
-                    ON  h.user_id     = u.tg_id
-                    AND h.amount      < 0
-                    AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
-                WHERE u.tg_id != ?
-                GROUP BY u.tg_id
-                HAVING ts_normalized > ?
-            )
+                SELECT ts_normalized FROM (
+                    SELECT
+                           COALESCE(ABS(SUM(CASE WHEN h.action_type NOT IN ({_star_types_placeholder})
+                                       THEN h.amount ELSE 0 END)), 0) * ? +
+                           COALESCE(ABS(SUM(CASE WHEN h.action_type IN ({_star_types_placeholder})
+                                       THEN h.amount ELSE 0 END)), 0) AS ts_normalized
+                    FROM users u
+                    LEFT JOIN user_history h
+                        ON  h.user_id     = u.tg_id
+                        AND h.amount      < 0
+                        AND h.action_type IN ({_SPEND_TYPES_PLACEHOLDER})
+                    WHERE u.tg_id != ?
+                    GROUP BY u.tg_id
+                ) sub
+                WHERE ts_normalized > ?
+            ) ranked
         """, (*star_types_list, rate, *star_types_list, *_SPEND_ACTION_TYPES,
               tg_id, user_normalized)) as cursor:
             cnt_row = await cursor.fetchone()
